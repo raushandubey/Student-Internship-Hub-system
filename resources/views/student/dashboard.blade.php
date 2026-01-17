@@ -143,6 +143,155 @@
             </div>
         </div>
 
+        <!-- Career Intelligence Section (Phase 8) -->
+        <div class="career-intelligence-section">
+            <div class="section-header-inline">
+                <h2 class="section-title-inline">
+                    <i class="fas fa-brain"></i>
+                    Career Intelligence
+                </h2>
+                <span class="intelligence-badge">AI-Powered Insights</span>
+            </div>
+
+            <div class="intelligence-grid">
+                <!-- Career Readiness Score -->
+                <div class="intelligence-card readiness-card">
+                    <div class="readiness-ring-container">
+                        <svg class="readiness-ring" width="120" height="120">
+                            <circle class="readiness-ring-bg" cx="60" cy="60" r="50"></circle>
+                            <circle class="readiness-ring-progress" cx="60" cy="60" r="50"
+                                    stroke-dasharray="314"
+                                    stroke-dashoffset="{{ 314 - (314 * ($careerReadiness['score'] ?? 0) / 100) }}">
+                            </circle>
+                        </svg>
+                        <div class="readiness-score-text">
+                            <span class="score-value">{{ $careerReadiness['score'] ?? 0 }}</span>
+                            <span class="score-label">Score</span>
+                        </div>
+                    </div>
+                    <div class="readiness-info">
+                        <h3 class="readiness-title">Career Readiness</h3>
+                        <span class="readiness-level level-{{ strtolower($careerReadiness['level'] ?? 'developing') }}">
+                            {{ $careerReadiness['level'] ?? 'Developing' }}
+                        </span>
+                        <div class="readiness-breakdown">
+                            <div class="breakdown-item">
+                                <span class="breakdown-label">Profile</span>
+                                <div class="breakdown-bar">
+                                    <div class="breakdown-fill" style="width: {{ ($careerReadiness['breakdown']['profile_completeness'] ?? 0) * 4 }}%"></div>
+                                </div>
+                            </div>
+                            <div class="breakdown-item">
+                                <span class="breakdown-label">Match Quality</span>
+                                <div class="breakdown-bar">
+                                    <div class="breakdown-fill" style="width: {{ ($careerReadiness['breakdown']['match_quality'] ?? 0) * 4 }}%"></div>
+                                </div>
+                            </div>
+                            <div class="breakdown-item">
+                                <span class="breakdown-label">Success Rate</span>
+                                <div class="breakdown-bar">
+                                    <div class="breakdown-fill" style="width: {{ ($careerReadiness['breakdown']['success_rate'] ?? 0) * 4 }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skill Strengths -->
+                <div class="intelligence-card strengths-card">
+                    <div class="card-icon-header">
+                        <div class="icon-circle green">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <h3>Your Strengths</h3>
+                    </div>
+                    @if(!empty($skillStrengths['strongest']))
+                        <div class="strongest-skill">
+                            <span class="strongest-label">Top Skill</span>
+                            <span class="strongest-value">{{ ucfirst($skillStrengths['strongest']) }}</span>
+                        </div>
+                        <div class="skills-list">
+                            @foreach(array_slice($skillStrengths['skills'] ?? [], 0, 4) as $skill => $count)
+                                <div class="skill-item strength">
+                                    <span class="skill-name">{{ ucfirst($skill) }}</span>
+                                    <span class="skill-count">{{ $count }} matches</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="empty-skills">
+                            <i class="fas fa-info-circle"></i>
+                            <p>Apply to internships to discover your strengths</p>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Skill Gaps -->
+                <div class="intelligence-card gaps-card">
+                    <div class="card-icon-header">
+                        <div class="icon-circle orange">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <h3>Skills to Learn</h3>
+                    </div>
+                    @if(!empty($skillGaps['weakest']))
+                        <div class="weakest-skill">
+                            <span class="weakest-label">Most Requested</span>
+                            <span class="weakest-value">{{ ucfirst($skillGaps['weakest']) }}</span>
+                        </div>
+                        <div class="skills-list">
+                            @foreach(array_slice($skillGaps['gaps'] ?? [], 0, 4) as $skill => $count)
+                                <div class="skill-item gap">
+                                    <span class="skill-name">{{ ucfirst($skill) }}</span>
+                                    <span class="skill-count">{{ $count }} jobs need this</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="empty-skills">
+                            <i class="fas fa-trophy"></i>
+                            <p>Great! No major skill gaps detected</p>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Application Outcomes -->
+                <div class="intelligence-card outcomes-card">
+                    <div class="card-icon-header">
+                        <div class="icon-circle blue">
+                            <i class="fas fa-chart-pie"></i>
+                        </div>
+                        <h3>Application Stats</h3>
+                    </div>
+                    <div class="outcomes-stats">
+                        <div class="outcome-item">
+                            <span class="outcome-value">{{ $outcomes['avg_match_score'] ?? 0 }}%</span>
+                            <span class="outcome-label">Avg Match</span>
+                        </div>
+                        <div class="outcome-item">
+                            <span class="outcome-value">{{ $outcomes['success_rate'] ?? 0 }}%</span>
+                            <span class="outcome-label">Success Rate</span>
+                        </div>
+                        <div class="outcome-item">
+                            <span class="outcome-value">{{ $outcomes['high_match_applications'] ?? 0 }}</span>
+                            <span class="outcome-label">High Match Apps</span>
+                        </div>
+                    </div>
+                    @if(!empty($careerReadiness['improvements']))
+                        <div class="improvements-list">
+                            <h4><i class="fas fa-lightbulb"></i> Suggestions</h4>
+                            @foreach(array_slice($careerReadiness['improvements'] ?? [], 0, 2) as $improvement)
+                                <div class="improvement-item impact-{{ $improvement['impact'] }}">
+                                    <i class="fas fa-arrow-right"></i>
+                                    <span>{{ $improvement['message'] }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
         <!-- Action Cards Grid -->
         <div class="action-cards-grid">
             <!-- Profile Completion Card -->
@@ -564,6 +713,350 @@
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.5rem;
     margin-bottom: 3rem;
+}
+
+/* Career Intelligence Section (Phase 8) */
+.career-intelligence-section {
+    margin-bottom: 3rem;
+}
+
+.section-header-inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.section-title-inline {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.section-title-inline i {
+    color: #667eea;
+}
+
+.intelligence-badge {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.intelligence-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.intelligence-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 1.5rem;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.intelligence-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Readiness Card */
+.readiness-card {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    grid-column: span 2;
+}
+
+.readiness-ring-container {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.readiness-ring-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 10;
+}
+
+.readiness-ring-progress {
+    fill: none;
+    stroke: url(#readinessGradient);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transform: rotate(-90deg);
+    transform-origin: center;
+    transition: stroke-dashoffset 1s ease;
+}
+
+.readiness-score-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.score-value {
+    display: block;
+    font-size: 2rem;
+    font-weight: 800;
+    color: white;
+}
+
+.score-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.readiness-info {
+    flex: 1;
+}
+
+.readiness-title {
+    color: white;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.readiness-level {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.level-excellent { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+.level-good { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+.level-developing { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.level-getting\ started { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+.readiness-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.breakdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.breakdown-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8rem;
+    width: 90px;
+}
+
+.breakdown-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.breakdown-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 3px;
+    transition: width 1s ease;
+}
+
+/* Card Icon Header */
+.card-icon-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.icon-circle {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: white;
+}
+
+.icon-circle.green { background: linear-gradient(135deg, #10b981, #059669); }
+.icon-circle.orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.icon-circle.blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+
+.card-icon-header h3 {
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* Strongest/Weakest Skill */
+.strongest-skill, .weakest-skill {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.strongest-label, .weakest-label {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.8rem;
+}
+
+.strongest-value {
+    color: #10b981;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.weakest-value {
+    color: #f59e0b;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+/* Skills List */
+.skills-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.skill-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.skill-item:last-child {
+    border-bottom: none;
+}
+
+.skill-name {
+    color: white;
+    font-size: 0.9rem;
+}
+
+.skill-count {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.75rem;
+}
+
+.skill-item.strength .skill-name::before {
+    content: '✓ ';
+    color: #10b981;
+}
+
+.skill-item.gap .skill-name::before {
+    content: '+ ';
+    color: #f59e0b;
+}
+
+.empty-skills {
+    text-align: center;
+    padding: 1.5rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.empty-skills i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+/* Outcomes Stats */
+.outcomes-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.outcome-item {
+    text-align: center;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+}
+
+.outcome-value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: white;
+}
+
+.outcome-label {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Improvements List */
+.improvements-list h4 {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.improvements-list h4 i {
+    color: #f59e0b;
+}
+
+.improvement-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.improvement-item i {
+    color: #667eea;
+    margin-top: 2px;
+}
+
+.improvement-item.impact-high {
+    color: #10b981;
+}
+
+.improvement-item.impact-medium {
+    color: #f59e0b;
+}
+
+@media (max-width: 768px) {
+    .readiness-card {
+        grid-column: span 1;
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .intelligence-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .stat-card {

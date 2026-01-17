@@ -3,31 +3,25 @@
 namespace App\Http\Controllers;
 
 use App\Models\Internship;
+use App\Services\MatchingService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 /**
  * RecommendationController
  * 
- * Implements a RULE-BASED recommendation system for matching students with internships.
- * 
- * Algorithm Overview:
- * 1. Skill Matching: Compares student skills with internship requirements using array intersection
- * 2. Similarity Scoring: Calculates percentage match (matching skills / required skills)
- * 3. Academic Bonus: Adds 0.2 to score if academic background keywords match internship title
- * 4. Filtering: Only shows active internships
- * 5. Ranking: Sorts by similarity score (highest first)
- * 
- * This is NOT an AI/ML system. It uses:
- * - Database queries (Laravel Eloquent)
- * - String comparison (case-insensitive)
- * - Array operations (intersection, filtering)
- * - Simple arithmetic for scoring
- * 
- * No machine learning, neural networks, or predictive algorithms are used.
+ * Uses MatchingService for skill-based matching between students and internships.
+ * Phase 8: Enhanced with match confidence badges and "why recommended" explanations.
  */
 class RecommendationController extends Controller
 {
+    protected MatchingService $matchingService;
+
+    public function __construct(MatchingService $matchingService)
+    {
+        $this->matchingService = $matchingService;
+    }
+
     public function index()
     {
         $user = Auth::user();
@@ -41,133 +35,80 @@ class RecommendationController extends Controller
             ]);
         }
 
-        // Debug logging
-        Log::info('=== RECOMMENDATION DEBUG START ===');
-        Log::info('User ID: ' . $user->id);
-        Log::info('Profile Skills: ', (array)$profile->skills);
-        
-        // Check total internships
-        $totalInternships = Internship::count();
-        $activeInternships = Internship::where('is_active', true)->count();
-        
-        Log::info('Total Internships: ' . $totalInternships);
-        Log::info('Active Internships: ' . $activeInternships);
+        // Get recommendations using MatchingService
+        $recommendations = $this->matchingService->getRecommendations($user, 10);
 
-        $recommendations = $this->getRecommendations($profile);
+        // Transform for view with confidence badges and explanations
+        $viewRecommendations = array_map(function ($rec) {
+            $percentage = $rec['match']['percentage'];
+            
+            return [
+                'internship' => $rec['internship'],
+                'score' => $rec['match']['score'],
+                'matching_skills' => $rec['match']['matching_skills'],
+                'missing_skills' => $rec['match']['missing_skills'],
+                'percentage' => $percentage,
+                // Phase 8: Match confidence badge
+                'confidence' => $this->getConfidenceBadge($percentage),
+                // Phase 8: Why recommended explanation
+                'why_recommended' => $this->getWhyRecommended($rec['match']),
+            ];
+        }, $recommendations);
 
-        Log::info('Recommendations Count: ' . count($recommendations));
-        Log::info('=== RECOMMENDATION DEBUG END ===');
+        // Sort by match score DESC, then by recent (already sorted by MatchingService)
+        Log::info('Recommendations generated', [
+            'user_id' => $user->id,
+            'count' => count($viewRecommendations)
+        ]);
 
         return view('recommendations.index', [
-            'recommendations' => $recommendations,
-            'message' => empty($recommendations) ? 'No matching internships found. Try updating your skills or check back later for new opportunities.' : null,
+            'recommendations' => $viewRecommendations,
+            'message' => empty($viewRecommendations) 
+                ? 'No matching internships found. Try updating your skills or check back later for new opportunities.' 
+                : null,
             'debug' => [
-                'total_internships' => $totalInternships,
-                'active_internships' => $activeInternships,
+                'total_internships' => Internship::count(),
+                'active_internships' => Internship::where('is_active', true)->count(),
                 'user_skills' => $profile->skills,
-                'recommendations_found' => count($recommendations)
+                'recommendations_found' => count($viewRecommendations)
             ]
         ]);
     }
 
     /**
-     * Get recommendations for the authenticated user
-     * 
-     * Rule-Based Matching Logic:
-     * - Fetches all active internships from database
-     * - Normalizes skills (lowercase, trim whitespace)
-     * - Calculates skill overlap using array_intersect()
-     * - Computes similarity score: (matching_skills / required_skills)
-     * - Adds academic background bonus if keywords match
-     * - Sorts by score and returns top 10
+     * Get confidence badge based on match percentage
      */
-    private function getRecommendations($profile)
+    private function getConfidenceBadge(int $percentage): array
     {
-        // Fetch active internships
-        $internships = Internship::where('is_active', true)->get();
-        
-        Log::info('Fetched internships: ' . $internships->count());
-
-        // If no internships, return early
-        if ($internships->isEmpty()) {
-            Log::warning('No active internships found in database');
-            return [];
+        if ($percentage >= 80) {
+            return ['level' => 'excellent', 'label' => 'Excellent Match', 'color' => 'green'];
         }
-
-        // Normalize user skills
-        $userSkills = is_array($profile->skills)
-            ? array_map('trim', array_map('strtolower', $profile->skills))
-            : array_map('trim', array_map('strtolower', explode(',', $profile->skills)));
-        
-        // Remove empty values
-        $userSkills = array_filter($userSkills);
-        
-        Log::info('Normalized User Skills: ', $userSkills);
-
-        $recommendations = [];
-
-        foreach ($internships as $internship) {
-            Log::info('Processing Internship ID: ' . $internship->id . ' - ' . $internship->title);
-            
-            // Check if required_skills column exists
-            if (!isset($internship->required_skills)) {
-                Log::warning('Internship ' . $internship->id . ' missing required_skills column');
-                continue;
-            }
-            
-            if (empty($internship->required_skills)) {
-                Log::warning('Internship ' . $internship->id . ' has empty required_skills');
-                continue;
-            }
-            
-            // Normalize required skills
-            $requiredSkills = is_array($internship->required_skills)
-                ? array_map('trim', array_map('strtolower', $internship->required_skills))
-                : array_map('trim', array_map('strtolower', explode(',', $internship->required_skills)));
-            
-            // Remove empty values
-            $requiredSkills = array_filter($requiredSkills);
-            
-            Log::info('Required Skills for ' . $internship->id . ': ', $requiredSkills);
-
-            $matchingSkills = array_intersect($userSkills, $requiredSkills);
-            
-            Log::info('Matching Skills: ', $matchingSkills);
-            
-            // Calculate similarity score using simple division
-            // Formula: (number of matching skills) / (total required skills)
-            // This is a basic rule-based calculation, not machine learning
-            $similarityScore = count($requiredSkills) > 0
-                ? count($matchingSkills) / count($requiredSkills)
-                : 0;
-
-            // Academic background keyword match (simple string comparison)
-            // Adds 0.2 bonus if any academic keywords match internship title
-            if (!empty($profile->academic_background)) {
-                $academicKeywords = array_filter(explode(' ', strtolower($profile->academic_background)));
-                $titleKeywords = array_filter(explode(' ', strtolower($internship->title)));
-                if (count(array_intersect($academicKeywords, $titleKeywords)) > 0) {
-                    $similarityScore += 0.2;
-                    Log::info('Academic match bonus added');
-                }
-            }
-
-            Log::info('Similarity Score: ' . $similarityScore);
-
-            if ($similarityScore > 0) {
-                $recommendations[] = [
-                    'internship' => $internship,
-                    'score' => round($similarityScore, 2),
-                    'matching_skills' => $matchingSkills
-                ];
-                Log::info('Added to recommendations');
-            } else {
-                Log::info('Not added - score is 0');
-            }
+        if ($percentage >= 60) {
+            return ['level' => 'good', 'label' => 'Good Match', 'color' => 'blue'];
         }
+        if ($percentage >= 40) {
+            return ['level' => 'fair', 'label' => 'Fair Match', 'color' => 'yellow'];
+        }
+        return ['level' => 'low', 'label' => 'Low Match', 'color' => 'gray'];
+    }
 
-        // Sort by score (highest first) and return top 10
-        usort($recommendations, fn($a, $b) => $b['score'] <=> $a['score']);
-        return array_slice($recommendations, 0, 10);
+    /**
+     * Generate "why recommended" explanation
+     */
+    private function getWhyRecommended(array $match): string
+    {
+        $reasons = [];
+        
+        if (!empty($match['matching_skills'])) {
+            $topSkills = array_slice($match['matching_skills'], 0, 3);
+            $reasons[] = 'Matched: ' . implode(', ', array_map('ucfirst', $topSkills));
+        }
+        
+        if (!empty($match['missing_skills'])) {
+            $topMissing = array_slice($match['missing_skills'], 0, 2);
+            $reasons[] = 'Learn: ' . implode(', ', array_map('ucfirst', $topMissing));
+        }
+        
+        return implode(' | ', $reasons);
     }
 }

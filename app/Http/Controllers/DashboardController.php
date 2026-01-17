@@ -2,15 +2,35 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\Models\Internship;
-use App\Models\Application;
-use Illuminate\Http\Request;
+use App\Services\ApplicationService;
+use App\Services\MatchingService;
+use App\Services\StudentAnalyticsService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 
+/**
+ * DashboardController
+ * 
+ * Thin controller that delegates to services for business logic.
+ * Phase 8: Enhanced with Student Career Intelligence.
+ * 
+ * Uses MatchingService for recommendations (excludes applied internships).
+ */
 class DashboardController extends Controller
 {
+    protected ApplicationService $applicationService;
+    protected MatchingService $matchingService;
+    protected StudentAnalyticsService $studentAnalytics;
+
+    public function __construct(
+        ApplicationService $applicationService,
+        MatchingService $matchingService,
+        StudentAnalyticsService $studentAnalytics
+    ) {
+        $this->applicationService = $applicationService;
+        $this->matchingService = $matchingService;
+        $this->studentAnalytics = $studentAnalytics;
+    }
+
     public function index()
     {
         $user = Auth::user();
@@ -27,121 +47,59 @@ class DashboardController extends Controller
         
         // Calculate profile completion
         if ($profile) {
-            $fields = ['name', 'academic_background', 'skills', 'career_interests', 'resume_path', 'aadhaar_number'];
-            $completed = 0;
-            foreach ($fields as $field) {
-                if (!empty($profile->$field)) {
-                    $completed++;
-                }
-            }
-            $profileCompletion = round(($completed / count($fields)) * 100);
+            $profileCompletion = $this->calculateProfileCompletion($profile);
             
-            // Get recommendations count if profile has skills
+            // Get recommendations count (excludes applied internships)
             if (!empty($profile->skills)) {
-                $recommendations = $this->getRecommendationsCount($profile);
+                $recommendations = count($this->matchingService->getRecommendations($user));
             }
         }
         
-        // Count applications from applications table (single source of truth)
-        $appliedJobs = Application::where('user_id', Auth::id())->count();
+        // Get application statistics from service (single source of truth)
+        $stats = $this->applicationService->getUserStats(Auth::id());
         
-        // Count approved applications for interviews
-        $interviews = Application::where('user_id', Auth::id())
-            ->where('status', 'approved')
-            ->count();
+        // Get career intelligence data (Phase 8)
+        $analytics = $this->studentAnalytics->getDashboardAnalytics(Auth::id());
         
-        // Calculate application rate (if user has applied to any internships)
+        // Calculate rates
         $applicationRate = $recommendations > 0 
-            ? round(($appliedJobs / $recommendations) * 100) . '%'
+            ? round(($stats['total'] / $recommendations) * 100) . '%'
             : '0%';
         
-        // Calculate response rate (approved + rejected / total applications)
-        $respondedApplications = Application::where('user_id', Auth::id())
-            ->whereIn('status', ['approved', 'rejected'])
-            ->count();
-        $responseRate = $appliedJobs > 0
-            ? round(($respondedApplications / $appliedJobs) * 100) . '%'
+        $responseRate = $stats['total'] > 0
+            ? round((($stats['approved'] + $stats['rejected']) / $stats['total']) * 100) . '%'
             : '0%';
         
         return view('student.dashboard', [
             'profileCompletion' => $profileCompletion,
             'recommendations' => $recommendations,
-            'appliedJobs' => $appliedJobs,
-            'interviews' => $interviews,
+            'appliedJobs' => $stats['total'],
+            'interviews' => $stats['interview_scheduled'] + $stats['approved'],
             'profileViews' => 0,
             'applicationRate' => $applicationRate,
             'responseRate' => $responseRate,
+            // Phase 8: Career Intelligence
+            'careerReadiness' => $analytics['readiness'],
+            'skillStrengths' => $analytics['strengths'],
+            'skillGaps' => $analytics['gaps'],
+            'outcomes' => $analytics['outcomes'],
         ]);
     }
     
-    private function getRecommendationsCount($profile)
+    /**
+     * Calculate profile completion percentage
+     */
+    private function calculateProfileCompletion($profile): int
     {
-        Log::info('=== DASHBOARD RECOMMENDATIONS DEBUG ===');
+        $fields = ['name', 'academic_background', 'skills', 'career_interests', 'resume_path', 'aadhaar_number'];
+        $completed = 0;
         
-        // Fetch active internships
-        $internships = Internship::where('is_active', true)->get();
-        Log::info('Active internships found: ' . $internships->count());
-        
-        if ($internships->isEmpty()) {
-            Log::warning('No active internships in database');
-            return 0;
-        }
-        
-        // Normalize user skills
-        $userSkills = is_array($profile->skills)
-            ? array_map('trim', array_map('strtolower', $profile->skills))
-            : array_map('trim', array_map('strtolower', explode(',', $profile->skills)));
-        
-        $userSkills = array_filter($userSkills);
-        Log::info('User skills: ' . json_encode($userSkills));
-        
-        if (empty($userSkills)) {
-            Log::warning('User has no skills');
-            return 0;
-        }
-        
-        $count = 0;
-        
-        foreach ($internships as $internship) {
-            if (empty($internship->required_skills)) {
-                continue;
-            }
-            
-            // Normalize required skills
-            $requiredSkills = is_array($internship->required_skills)
-                ? array_map('trim', array_map('strtolower', $internship->required_skills))
-                : array_map('trim', array_map('strtolower', explode(',', $internship->required_skills)));
-            
-            $requiredSkills = array_filter($requiredSkills);
-            
-            if (empty($requiredSkills)) {
-                continue;
-            }
-            
-            $matchingSkills = array_intersect($userSkills, $requiredSkills);
-            
-            $similarityScore = count($requiredSkills) > 0
-                ? count($matchingSkills) / count($requiredSkills)
-                : 0;
-            
-            // Academic background keyword match
-            if (!empty($profile->academic_background)) {
-                $academicKeywords = array_filter(explode(' ', strtolower($profile->academic_background)));
-                $titleKeywords = array_filter(explode(' ', strtolower($internship->title)));
-                if (count(array_intersect($academicKeywords, $titleKeywords)) > 0) {
-                    $similarityScore += 0.2;
-                }
-            }
-            
-            if ($similarityScore > 0) {
-                $count++;
-                Log::info("Match found for: {$internship->title} (Score: {$similarityScore})");
+        foreach ($fields as $field) {
+            if (!empty($profile->$field)) {
+                $completed++;
             }
         }
         
-        Log::info('Total recommendations found: ' . $count);
-        Log::info('=== END DASHBOARD RECOMMENDATIONS DEBUG ===');
-        
-        return min($count, 10);
+        return round(($completed / count($fields)) * 100);
     }
 }

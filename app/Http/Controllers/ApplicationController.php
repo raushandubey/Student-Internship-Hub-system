@@ -4,92 +4,102 @@ namespace App\Http\Controllers;
 
 use App\Models\Application;
 use App\Models\Internship;
+use App\Services\ApplicationService;
+use App\Services\ApplicationTimelineService;
+use App\Services\StudentAnalyticsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * ApplicationController
+ * 
+ * Thin controller that handles HTTP requests and delegates to services.
+ * Phase 8: Enhanced with timeline predictions.
+ */
 class ApplicationController extends Controller
 {
+    protected ApplicationService $applicationService;
+    protected ApplicationTimelineService $timelineService;
+
+    public function __construct(
+        ApplicationService $applicationService,
+        ApplicationTimelineService $timelineService
+    ) {
+        $this->applicationService = $applicationService;
+        $this->timelineService = $timelineService;
+    }
+
     /**
      * Apply to an internship
      * 
-     * Single source of truth: Creates record in applications table
+     * Phase 9: Exception handling delegated to global handler
+     * Controller stays thin - just catches and redirects
      */
     public function apply(Request $request, Internship $internship)
     {
-        // Check if user is authenticated
         if (!Auth::check()) {
-            return redirect()->route('login')->with('error', 'Please login to apply for internships.');
+            return redirect()->route('login')
+                ->with('error', 'Please login to apply for internships.');
         }
 
-        $user = Auth::user();
-
-        // Check if user is a student
-        if ($user->role !== 'student') {
-            return back()->with('error', 'Only students can apply for internships.');
-        }
-
-        // Check if internship is active
-        if (!$internship->is_active) {
-            return back()->with('error', 'This internship is no longer accepting applications.');
-        }
-
-        // Check if already applied (prevent duplicates)
-        $existingApplication = Application::where('user_id', $user->id)
-            ->where('internship_id', $internship->id)
-            ->first();
-
-        if ($existingApplication) {
-            return back()->with('error', 'You have already applied to this internship.');
-        }
-
-        // Create application with correct user_id and internship_id
         try {
-            Application::create([
-                'user_id' => $user->id,
-                'internship_id' => $internship->id,
-                'status' => 'pending',
-            ]);
+            $result = $this->applicationService->submitApplication(
+                Auth::user(),
+                $internship
+            );
 
-            return back()->with('success', 'Application submitted successfully! You will be notified once reviewed.');
+            // Clear student analytics cache on new application
+            StudentAnalyticsService::clearCache(Auth::id());
+
+            return back()->with('success', $result['message']);
+
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to submit application. Please try again.');
+            // Global handler will log and format the error
+            // Controller just catches and redirects with error message
+            return back()->with('error', $e->getMessage());
         }
     }
 
     /**
      * View student's own applications (Application Tracker)
-     * 
-     * Single source of truth: Fetches from applications table by auth()->id()
+     * Phase 8: Enhanced with timeline predictions
      */
     public function myApplications()
     {
-        // Fetch all applications for the authenticated user only
-        // Using Eloquent relationship to get internship details
-        $applications = Application::with('internship')
-            ->where('user_id', Auth::id())
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $applications = $this->applicationService->getUserApplications(Auth::id());
+        
+        // Add timeline data to each application
+        $applicationsWithTimeline = $applications->map(function ($app) {
+            $app->timeline = $this->timelineService->getApplicationTimeline($app);
+            return $app;
+        });
 
-        return view('student.application-tracker', compact('applications'));
+        return view('student.application-tracker', [
+            'applications' => $applicationsWithTimeline,
+        ]);
     }
 
     /**
      * Cancel application
+     * 
+     * Phase 9: Exception handling delegated to global handler
      */
     public function cancel(Application $application)
     {
-        // Check if the application belongs to the authenticated user
-        if ($application->user_id !== Auth::id()) {
-            return back()->with('error', 'Unauthorized action.');
+        try {
+            $result = $this->applicationService->cancelApplication(
+                $application,
+                Auth::id()
+            );
+
+            // Clear student analytics cache on cancellation
+            StudentAnalyticsService::clearCache(Auth::id());
+
+            return back()->with('success', $result['message']);
+
+        } catch (\Exception $e) {
+            // Global handler will log and format the error
+            return back()->with('error', $e->getMessage());
         }
-
-        // Only allow cancellation if status is pending
-        if ($application->status !== 'pending') {
-            return back()->with('error', 'Cannot cancel an application that has been reviewed.');
-        }
-
-        $application->delete();
-
-        return back()->with('success', 'Application cancelled successfully.');
     }
 }
