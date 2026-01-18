@@ -1,0 +1,193 @@
+# ============================================================================
+# .dockerignore - Exclude files from Docker build context
+# ============================================================================
+# 
+# WHY .dockerignore?
+# - Reduces Docker build context size (faster builds)
+# - Prevents unnecessary files from being copied into image
+# - Reduces final image size
+# - Improves security (no .env, .git in production image)
+#
+# How it works:
+# - Files/folders listed here are NOT copied by COPY . . in Dockerfile
+# - Similar to .gitignore but for Docker
+# ============================================================================
+
+# ============================================================================
+# Version Control
+# ============================================================================
+# WHY exclude .git?
+# - Git history is huge (can be 100MB+)
+# - Not needed in production
+# - Security: Prevents exposing commit history
+.git
+.gitignore
+.gitattributes
+
+# ============================================================================
+# Environment Files
+# ============================================================================
+# WHY exclude .env?
+# - Contains sensitive data (DB passwords, API keys)
+# - Render provides environment variables at runtime
+# - Security: Never bake secrets into Docker image
+.env
+.env.*
+!.env.example
+
+# ============================================================================
+# Node.js Dependencies
+# ============================================================================
+# WHY exclude node_modules?
+# - Huge (can be 500MB+)
+# - Not needed for Laravel backend
+# - If you need frontend assets, build them first, then copy only public/
+node_modules
+npm-debug.log
+yarn-error.log
+
+# ============================================================================
+# Composer Dependencies
+# ============================================================================
+# WHY exclude vendor?
+# - We run composer install inside Docker
+# - Local vendor/ may have wrong platform (Mac/Windows vs Linux)
+# - Docker builds vendor/ for Linux
+vendor
+
+# ============================================================================
+# Laravel Storage
+# ============================================================================
+# WHY exclude storage?
+# - Contains user uploads, logs, cache
+# - Should be on persistent volume, not in image
+# - Logs will be huge over time
+# - Exception: Keep storage/app/.gitignore structure
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+!storage/framework/cache/.gitignore
+!storage/framework/sessions/.gitignore
+!storage/framework/views/.gitignore
+!storage/logs/.gitignore
+
+# ============================================================================
+# Laravel Bootstrap Cache
+# ============================================================================
+# WHY exclude bootstrap/cache?
+# - We generate fresh cache inside Docker (config:cache, route:cache)
+# - Local cache may be stale or incompatible
+bootstrap/cache/*
+!bootstrap/cache/.gitignore
+
+# ============================================================================
+# Testing
+# ============================================================================
+# WHY exclude tests?
+# - Not needed in production
+# - Reduces image size
+# - Tests should run in CI/CD, not production
+tests
+phpunit.xml
+.phpunit.result.cache
+
+# ============================================================================
+# Documentation
+# ============================================================================
+# WHY exclude docs?
+# - Not needed in production
+# - Reduces image size
+# - Keep README.md for reference (commented out)
+# README.md
+*.md
+!README.md
+docs
+
+# ============================================================================
+# IDE and Editor Files
+# ============================================================================
+# WHY exclude IDE files?
+# - Not needed in production
+# - Can be large (PHPStorm .idea/ can be 50MB+)
+.idea
+.vscode
+.phpstorm.meta.php
+_ide_helper.php
+.DS_Store
+Thumbs.db
+
+# ============================================================================
+# Docker Files
+# ============================================================================
+# WHY exclude Docker files?
+# - Don't need Dockerfile inside the image
+# - Prevents recursive Docker builds
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# ============================================================================
+# CI/CD
+# ============================================================================
+# WHY exclude CI/CD files?
+# - Not needed in production
+.github
+.gitlab-ci.yml
+.travis.yml
+.circleci
+
+# ============================================================================
+# Temporary Files
+# ============================================================================
+# WHY exclude temp files?
+# - Not needed in production
+# - Can cause issues if copied
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# ============================================================================
+# Build Artifacts
+# ============================================================================
+# WHY exclude build artifacts?
+# - We build fresh inside Docker
+# - Local builds may be for wrong platform
+public/hot
+public/storage
+public/build
+public/mix-manifest.json
+
+# ============================================================================
+# SUMMARY
+# ============================================================================
+# What gets copied into Docker image:
+# ✅ app/ - Application code
+# ✅ config/ - Configuration files
+# ✅ database/ - Migrations and seeders
+# ✅ public/ - Web root (index.php, assets)
+# ✅ resources/ - Views, lang files
+# ✅ routes/ - Route definitions
+# ✅ composer.json, composer.lock - Dependencies
+# ✅ artisan - CLI tool
+# ✅ .env.example - Template for environment variables
+#
+# What gets excluded:
+# ❌ .git - Version control history
+# ❌ .env - Sensitive environment variables
+# ❌ node_modules - Node dependencies
+# ❌ vendor - PHP dependencies (rebuilt in Docker)
+# ❌ storage/* - User uploads, logs, cache
+# ❌ tests - Test files
+# ❌ *.md - Documentation
+# ❌ IDE files - Editor configurations
+#
+# Result:
+# - Smaller Docker image (faster builds, faster deployments)
+# - More secure (no secrets, no .git history)
+# - Cleaner (only production files)
+# ============================================================================
