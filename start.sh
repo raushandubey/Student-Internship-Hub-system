@@ -87,6 +87,9 @@ echo "  ✓ Environment variables verified"
 # ============================================================================
 echo "Step 6: Caching Laravel configuration..."
 
+# Force clear any existing cache to ensure env vars take effect
+php artisan config:clear 2>/dev/null || true
+
 # Now cache with actual environment variables
 php artisan config:cache
 echo "  ✓ Config cached"
