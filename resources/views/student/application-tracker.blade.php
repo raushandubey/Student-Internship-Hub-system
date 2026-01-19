@@ -4,158 +4,168 @@
 <div class="tracker-container">
     <div class="container mx-auto px-4 py-6 max-w-7xl">
         
-        <!-- Floating Background Elements -->
-        <div class="floating-elements">
-            <div class="floating-circle circle-1"></div>
-            <div class="floating-circle circle-2"></div>
-            <div class="floating-circle circle-3"></div>
-        </div>
-
         <!-- Page Header -->
-        <div class="page-header-card" data-aos="fade-down">
+        <div class="page-header-card">
             <div class="header-content">
                 <div class="header-text">
                     <h1 class="page-title">
                         <i class="fas fa-clipboard-list"></i>
                         My Application Tracker
                     </h1>
-                    <p class="page-subtitle">
-                        Track all your internship applications in one place
-                    </p>
+                    <p class="page-subtitle">Track your internship applications through the hiring pipeline</p>
                 </div>
                 <div class="header-badge">
                     <div class="total-badge">
                         <i class="fas fa-file-alt"></i>
-                        <span>Total Applications: <strong>{{ $applications->count() }}</strong></span>
+                        <span>Total: <strong>{{ $applications->count() }}</strong></span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Summary Stats Row -->
-        <div class="stats-row" data-aos="fade-up" data-aos-delay="100">
-            <div class="stat-mini-card total">
-                <div class="stat-mini-icon">
-                    <i class="fas fa-paper-plane"></i>
+        <!-- Summary Stats -->
+        <div class="stats-row">
+            @php
+                $stages = [
+                    ['key' => 'pending', 'label' => 'Pending', 'icon' => 'fa-clock', 'color' => 'yellow'],
+                    ['key' => 'under_review', 'label' => 'Under Review', 'icon' => 'fa-search', 'color' => 'blue'],
+                    ['key' => 'shortlisted', 'label' => 'Shortlisted', 'icon' => 'fa-star', 'color' => 'purple'],
+                    ['key' => 'interview_scheduled', 'label' => 'Interview', 'icon' => 'fa-video', 'color' => 'indigo'],
+                    ['key' => 'approved', 'label' => 'Approved', 'icon' => 'fa-check-circle', 'color' => 'green'],
+                    ['key' => 'rejected', 'label' => 'Rejected', 'icon' => 'fa-times-circle', 'color' => 'red'],
+                ];
+            @endphp
+            @foreach($stages as $stage)
+                <div class="stat-mini-card {{ $stage['color'] }}">
+                    <div class="stat-mini-icon">
+                        <i class="fas {{ $stage['icon'] }}"></i>
+                    </div>
+                    <div class="stat-mini-content">
+                        <div class="stat-mini-value">{{ $applications->filter(fn($a) => $a->status->value === $stage['key'])->count() }}</div>
+                        <div class="stat-mini-label">{{ $stage['label'] }}</div>
+                    </div>
                 </div>
-                <div class="stat-mini-content">
-                    <div class="stat-mini-value">{{ $applications->count() }}</div>
-                    <div class="stat-mini-label">Total Applications</div>
-                </div>
-            </div>
-
-            <div class="stat-mini-card approved">
-                <div class="stat-mini-icon">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <div class="stat-mini-content">
-                    <div class="stat-mini-value">{{ $applications->where('status', 'approved')->count() }}</div>
-                    <div class="stat-mini-label">Approved</div>
-                </div>
-            </div>
-
-            <div class="stat-mini-card pending">
-                <div class="stat-mini-icon">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <div class="stat-mini-content">
-                    <div class="stat-mini-value">{{ $applications->where('status', 'pending')->count() }}</div>
-                    <div class="stat-mini-label">Pending</div>
-                </div>
-            </div>
+            @endforeach
         </div>
 
-        <!-- Applications Table -->
+        <!-- Applications with Progress Tracker -->
         @if($applications->count() > 0)
-            <div class="table-card" data-aos="fade-up" data-aos-delay="200">
-                <div class="table-header">
-                    <h2 class="table-title">
-                        <i class="fas fa-list"></i>
-                        Your Applications
-                    </h2>
-                    <div class="table-count">
-                        {{ $applications->count() }} {{ $applications->count() === 1 ? 'application' : 'applications' }}
-                    </div>
-                </div>
+            <div class="applications-list">
+                @foreach($applications as $application)
+                    @php
+                        $currentStatus = $application->status->value;
+                        $pipelineStages = ['pending', 'under_review', 'shortlisted', 'interview_scheduled', 'approved'];
+                        $currentIndex = array_search($currentStatus, $pipelineStages);
+                        $isRejected = $currentStatus === 'rejected';
+                    @endphp
+                    
+                    <div class="application-card {{ $isRejected ? 'rejected' : '' }}">
+                        <!-- Application Header -->
+                        <div class="app-header">
+                            <div class="app-info">
+                                <h3 class="app-title">{{ $application->internship->title }}</h3>
+                                <p class="app-org">
+                                    <i class="fas fa-building"></i>
+                                    {{ $application->internship->organization }}
+                                </p>
+                                <p class="app-date">
+                                    <i class="fas fa-calendar"></i>
+                                    Applied {{ $application->created_at->format('M d, Y') }}
+                                </p>
+                            </div>
+                            <div class="app-status-badge status-{{ $application->status->colorClass() }}">
+                                {{ $application->status->label() }}
+                            </div>
+                        </div>
 
-                <div class="table-wrapper">
-                    <table class="applications-table">
-                        <thead>
-                            <tr>
-                                <th class="th-title">
-                                    <i class="fas fa-briefcase me-2"></i>
-                                    Internship Title
-                                </th>
-                                <th class="th-org">
-                                    <i class="fas fa-building me-2"></i>
-                                    Organization
-                                </th>
-                                <th class="th-date">
-                                    <i class="fas fa-calendar me-2"></i>
-                                    Applied Date
-                                </th>
-                                <th class="th-status">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    Status
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($applications as $application)
-                                <tr class="table-row">
-                                    <td class="td-title">
-                                        <div class="title-cell">
-                                            <i class="fas fa-file-alt cell-icon"></i>
-                                            <span class="title-text">{{ $application->internship->title }}</span>
+                        <!-- Progress Pipeline -->
+                        @if(!$isRejected)
+                            <div class="progress-pipeline">
+                                @foreach($pipelineStages as $index => $stage)
+                                    @php
+                                        $stageLabels = [
+                                            'pending' => 'Applied',
+                                            'under_review' => 'Under Review',
+                                            'shortlisted' => 'Shortlisted',
+                                            'interview_scheduled' => 'Interview',
+                                            'approved' => 'Approved'
+                                        ];
+                                        $isCompleted = $currentIndex !== false && $index <= $currentIndex;
+                                        $isCurrent = $stage === $currentStatus;
+                                    @endphp
+                                    <div class="pipeline-stage {{ $isCompleted ? 'completed' : '' }} {{ $isCurrent ? 'current' : '' }}">
+                                        <div class="stage-dot">
+                                            @if($isCompleted && !$isCurrent)
+                                                <i class="fas fa-check"></i>
+                                            @else
+                                                {{ $index + 1 }}
+                                            @endif
                                         </div>
-                                    </td>
-                                    <td class="td-org">
-                                        <span class="org-text">{{ $application->internship->organization }}</span>
-                                    </td>
-                                    <td class="td-date">
-                                        <div class="date-cell">
-                                            <i class="fas fa-calendar-day date-icon"></i>
-                                            <span class="date-text">{{ $application->created_at->format('M d, Y') }}</span>
+                                        <span class="stage-label">{{ $stageLabels[$stage] }}</span>
+                                    </div>
+                                    @if($index < count($pipelineStages) - 1)
+                                        <div class="pipeline-connector {{ $isCompleted && $index < $currentIndex ? 'completed' : '' }}"></div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="rejected-notice">
+                                <i class="fas fa-info-circle"></i>
+                                <span>This application was not selected. Keep applying to other opportunities!</span>
+                            </div>
+                        @endif
+
+                        <!-- Status Timeline (Last 3 changes) -->
+                        @if($application->statusLogs->count() > 0)
+                            <div class="status-timeline">
+                                <h4 class="timeline-title">
+                                    <i class="fas fa-history"></i>
+                                    Recent Activity
+                                </h4>
+                                <div class="timeline-items">
+                                    @foreach($application->statusLogs->take(3) as $log)
+                                        <div class="timeline-item">
+                                            <div class="timeline-dot"></div>
+                                            <div class="timeline-content">
+                                                <span class="timeline-status">
+                                                    @if($log->from_status)
+                                                        {{ ucfirst(str_replace('_', ' ', $log->from_status)) }} → 
+                                                    @endif
+                                                    {{ ucfirst(str_replace('_', ' ', $log->to_status)) }}
+                                                </span>
+                                                <span class="timeline-date">{{ $log->created_at->diffForHumans() }}</span>
+                                            </div>
                                         </div>
-                                    </td>
-                                    <td class="td-status">
-                                        @if($application->status === 'pending')
-                                            <span class="status-badge status-pending">
-                                                <i class="fas fa-clock"></i>
-                                                Pending
-                                            </span>
-                                        @elseif($application->status === 'approved')
-                                            <span class="status-badge status-approved">
-                                                <i class="fas fa-check-circle"></i>
-                                                Approved
-                                            </span>
-                                        @elseif($application->status === 'rejected')
-                                            <span class="status-badge status-rejected">
-                                                <i class="fas fa-times-circle"></i>
-                                                Rejected
-                                            </span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Prediction Section (Phase 8) -->
+                        @if(isset($application->timeline['prediction']) && $application->timeline['prediction'])
+                            <div class="prediction-section">
+                                <div class="prediction-icon">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="prediction-content">
+                                    <span class="prediction-label">Estimated Next Action</span>
+                                    <span class="prediction-message">{{ $application->timeline['prediction']['message'] }}</span>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
             </div>
         @else
-            <!-- Empty State -->
-            <div class="empty-state-card" data-aos="fade-up" data-aos-delay="200">
+            <div class="empty-state-card">
                 <div class="empty-icon">
                     <i class="fas fa-inbox"></i>
                 </div>
                 <h3 class="empty-title">No Applications Yet</h3>
-                <p class="empty-description">
-                    You haven't applied to any internships yet. Start exploring opportunities that match your skills!
-                </p>
+                <p class="empty-description">Start exploring internship opportunities that match your skills!</p>
                 <a href="{{ route('recommendations.index') }}" class="empty-cta-button">
                     <i class="fas fa-search"></i>
                     <span>Browse Internships</span>
-                    <i class="fas fa-arrow-right"></i>
                 </a>
             </div>
         @endif
@@ -163,387 +173,355 @@
 </div>
 
 <style>
-/* Main Container */
 .tracker-container {
     min-height: 100vh;
-    position: relative;
-    overflow: hidden;
+    padding-bottom: 2rem;
 }
 
-/* Floating Background Elements */
-.floating-elements {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 0;
-}
-
-.floating-circle {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    animation: float 20s infinite linear;
-}
-
-.circle-1 {
-    width: 200px;
-    height: 200px;
-    top: 10%;
-    left: 10%;
-    animation-delay: -5s;
-}
-
-.circle-2 {
-    width: 150px;
-    height: 150px;
-    top: 60%;
-    right: 15%;
-    animation-delay: -10s;
-}
-
-.circle-3 {
-    width: 100px;
-    height: 100px;
-    bottom: 20%;
-    left: 70%;
-    animation-delay: -15s;
-}
-
-@keyframes float {
-    0% { transform: translateY(0px) rotate(0deg); }
-    33% { transform: translateY(-20px) rotate(120deg); }
-    66% { transform: translateY(20px) rotate(240deg); }
-    100% { transform: translateY(0px) rotate(360deg); }
-}
-
-/* Page Header Card */
 .page-header-card {
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 24px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    position: relative;
-    z-index: 1;
-    box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
-}
-
-.page-header-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    border-radius: 20px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
 }
 
 .header-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .page-title {
-    font-size: 2.5rem;
-    font-weight: 800;
+    font-size: 1.75rem;
+    font-weight: 700;
     color: white;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.page-title i {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.page-subtitle {
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 1.1rem;
-    margin-left: 3.5rem;
-}
-
-.total-badge {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    background: linear-gradient(135deg, #007bff, #0056b3);
-    padding: 1rem 1.5rem;
-    border-radius: 16px;
-    color: white;
-    font-size: 1rem;
-    box-shadow: 0 10px 25px rgba(0, 123, 255, 0.3);
-    white-space: nowrap;
+    margin-bottom: 0.25rem;
 }
 
-.total-badge i {
-    font-size: 1.5rem;
+.page-subtitle {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.95rem;
+}
+
+.total-badge {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    padding: 0.75rem 1.25rem;
+    border-radius: 12px;
+    color: white;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .total-badge strong {
-    font-size: 1.5rem;
-    font-weight: 800;
+    font-size: 1.25rem;
 }
 
-/* Summary Stats Row */
+/* Stats Row */
 .stats-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
     margin-bottom: 2rem;
 }
 
 .stat-mini-card {
     background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 20px;
-    padding: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    position: relative;
-    overflow: hidden;
-    transition: all 0.3s ease;
-    z-index: 1;
-}
-
-.stat-mini-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.1));
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.stat-mini-card:hover::before {
-    opacity: 1;
-}
-
-.stat-mini-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-}
-
-.stat-mini-icon {
-    width: 60px;
-    height: 60px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.8rem;
-    color: white;
-    flex-shrink: 0;
-}
-
-.stat-mini-card.total .stat-mini-icon {
-    background: linear-gradient(135deg, #007bff, #0056b3);
-}
-
-.stat-mini-card.approved .stat-mini-icon {
-    background: linear-gradient(135deg, #28a745, #1e7e34);
-}
-
-.stat-mini-card.pending .stat-mini-icon {
-    background: linear-gradient(135deg, #ffc107, #e0a800);
-}
-
-.stat-mini-value {
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: white;
-    line-height: 1;
-    margin-bottom: 0.25rem;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.stat-mini-label {
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 0.95rem;
-    font-weight: 500;
-}
-
-/* Table Card */
-.table-card {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 24px;
-    padding: 2rem;
-    position: relative;
-    z-index: 1;
-    box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-}
-
-.table-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.table-title {
-    color: white;
-    font-size: 1.5rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.table-count {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.95rem;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 0.5rem 1rem;
-    border-radius: 12px;
-}
-
-.table-wrapper {
-    overflow-x: auto;
-    border-radius: 16px;
-}
-
-.applications-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-}
-
-.applications-table thead tr {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.applications-table th {
-    padding: 1.25rem 1.5rem;
-    text-align: left;
-    color: rgba(255, 255, 255, 0.9);
-    font-weight: 600;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-.applications-table th:first-child {
-    border-top-left-radius: 12px;
-}
-
-.applications-table th:last-child {
-    border-top-right-radius: 12px;
-}
-
-.table-row {
-    background: rgba(255, 255, 255, 0.03);
-    transition: all 0.3s ease;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.table-row:hover {
-    background: rgba(255, 255, 255, 0.1);
-    transform: translateX(5px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
-.table-row:last-child {
-    border-bottom: none;
-}
-
-.applications-table td {
-    padding: 1.5rem 1.5rem;
-    color: white;
-}
-
-.title-cell {
+    padding: 1rem;
     display: flex;
     align-items: center;
     gap: 1rem;
 }
 
-.cell-icon {
-    color: #667eea;
-    font-size: 1.2rem;
-}
-
-.title-text {
-    font-weight: 600;
-    font-size: 1.05rem;
+.stat-mini-icon {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
     color: white;
 }
 
-.org-text {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.95rem;
+.stat-mini-card.yellow .stat-mini-icon { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.stat-mini-card.blue .stat-mini-icon { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+.stat-mini-card.purple .stat-mini-icon { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.stat-mini-card.indigo .stat-mini-icon { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+.stat-mini-card.green .stat-mini-icon { background: linear-gradient(135deg, #10b981, #059669); }
+.stat-mini-card.red .stat-mini-icon { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+.stat-mini-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    line-height: 1;
 }
 
-.date-cell {
+.stat-mini-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.75rem;
+}
+
+/* Application Cards */
+.applications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.application-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 1.5rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.application-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.application-card.rejected {
+    border-color: rgba(239, 68, 68, 0.3);
+    opacity: 0.85;
+}
+
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+}
+
+.app-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 0.5rem;
+}
+
+.app-org, .app-date {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.app-status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.status-yellow { background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; }
+.status-blue { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; }
+.status-purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; }
+.status-indigo { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; }
+.status-green { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+.status-red { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+
+/* Progress Pipeline */
+.progress-pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 0;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+}
+
+.pipeline-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 80px;
+}
+
+.stage-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
+    transition: all 0.3s;
+}
+
+.pipeline-stage.completed .stage-dot {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-color: #10b981;
+    color: white;
+}
+
+.pipeline-stage.current .stage-dot {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-color: #3b82f6;
+    color: white;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3); }
+    50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.1); }
+}
+
+.stage-label {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.pipeline-stage.completed .stage-label,
+.pipeline-stage.current .stage-label {
+    color: white;
+    font-weight: 500;
+}
+
+.pipeline-connector {
+    flex: 1;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 0 0.5rem;
+    margin-bottom: 1.5rem;
+    border-radius: 2px;
+}
+
+.pipeline-connector.completed {
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+/* Rejected Notice */
+.rejected-notice {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #fca5a5;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+/* Status Timeline */
+.status-timeline {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 1rem;
+}
+
+/* Prediction Section (Phase 8) */
+.prediction-section {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.prediction-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.prediction-content {
+    flex: 1;
+}
+
+.prediction-label {
+    display: block;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 0.25rem;
+}
+
+.prediction-message {
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.timeline-title {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 0.75rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
-.date-icon {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 0.9rem;
-}
-
-.date-text {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.9rem;
-}
-
-/* Status Badges */
-.status-badge {
-    display: inline-flex;
-    align-items: center;
+.timeline-items {
+    display: flex;
+    flex-direction: column;
     gap: 0.5rem;
-    padding: 0.6rem 1.2rem;
-    border-radius: 20px;
-    font-weight: 700;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s ease;
 }
 
-.status-badge:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+.timeline-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 
-.status-pending {
-    background: linear-gradient(135deg, #ffc107, #e0a800);
-    color: #000;
+.timeline-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
 }
 
-.status-approved {
-    background: linear-gradient(135deg, #28a745, #1e7e34);
-    color: white;
+.timeline-content {
+    display: flex;
+    justify-content: space-between;
+    flex: 1;
+    font-size: 0.8rem;
 }
 
-.status-rejected {
-    background: linear-gradient(135deg, #dc3545, #c82333);
-    color: white;
+.timeline-status {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.timeline-date {
+    color: rgba(255, 255, 255, 0.5);
 }
 
 /* Empty State */
@@ -554,154 +532,65 @@
     border-radius: 24px;
     padding: 4rem 2rem;
     text-align: center;
-    position: relative;
-    z-index: 1;
-    box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
 }
 
 .empty-icon {
-    width: 120px;
-    height: 120px;
-    margin: 0 auto 2rem;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 1.5rem;
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .empty-icon i {
-    font-size: 4rem;
-    color: rgba(255, 255, 255, 0.6);
+    font-size: 3rem;
+    color: rgba(255, 255, 255, 0.5);
 }
 
 .empty-title {
     color: white;
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
 }
 
 .empty-description {
     color: rgba(255, 255, 255, 0.7);
-    font-size: 1.1rem;
-    line-height: 1.6;
-    max-width: 500px;
-    margin: 0 auto 2rem;
+    margin-bottom: 1.5rem;
 }
 
 .empty-cta-button {
     display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 1rem 2rem;
-    background: linear-gradient(135deg, #007bff, #0056b3);
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #667eea, #764ba2);
     color: white;
     text-decoration: none;
-    border-radius: 16px;
-    font-weight: 600;
-    font-size: 1.05rem;
-    box-shadow: 0 10px 25px rgba(0, 123, 255, 0.3);
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.empty-cta-button::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.1);
-    transition: left 0.3s ease;
-}
-
-.empty-cta-button:hover::before {
-    left: 0;
+    border-radius: 12px;
+    font-weight: 500;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .empty-cta-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 15px 35px rgba(0, 123, 255, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
 }
 
-/* Responsive Design */
+/* Responsive */
 @media (max-width: 768px) {
-    .header-content {
-        flex-direction: column;
-        text-align: center;
-    }
-
-    .page-title {
-        font-size: 2rem;
-        justify-content: center;
-    }
-
-    .page-subtitle {
-        margin-left: 0;
-    }
-
-    .stats-row {
-        grid-template-columns: 1fr;
-    }
-
-    .table-wrapper {
-        overflow-x: scroll;
-    }
-
-    .applications-table {
-        min-width: 800px;
-    }
-
-    .table-header {
-        flex-direction: column;
-        gap: 1rem;
-        text-align: center;
-    }
+    .header-content { flex-direction: column; align-items: flex-start; }
+    .stats-row { grid-template-columns: repeat(3, 1fr); }
+    .progress-pipeline { justify-content: flex-start; gap: 0; }
+    .pipeline-stage { min-width: 60px; }
+    .stage-label { font-size: 0.6rem; }
 }
 
-@media (max-width: 576px) {
-    .page-header-card,
-    .table-card,
-    .empty-state-card {
-        padding: 1.5rem;
-    }
-
-    .page-title {
-        font-size: 1.75rem;
-    }
-
-    .stat-mini-card {
-        padding: 1rem;
-    }
-
-    .stat-mini-icon {
-        width: 50px;
-        height: 50px;
-        font-size: 1.5rem;
-    }
-
-    .stat-mini-value {
-        font-size: 2rem;
-    }
+@media (max-width: 480px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
-
-<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-<link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize AOS
-    AOS.init({
-        duration: 800,
-        easing: 'ease-out-cubic',
-        once: true,
-        offset: 50
-    });
-});
-</script>
 @endsection

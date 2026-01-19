@@ -1,0 +1,145 @@
+================================================================================
+RENDER BUILD FINAL FIX - DEPLOY NOW
+================================================================================
+
+ROOT CAUSES FIXED:
+1. ✅ Database connection during build - package:discover tried to connect when DB_HOST not available
+2. ✅ Job instantiation during bootstrap - Fixed with closures in routes/console.php
+3. ✅ Case-sensitive filenames - Verified correct
+
+SOLUTION:
+- Skip package:discover during Docker build (no DB connection available)
+- Run package:discover in start.sh after environment variables loaded
+- Add database connection test before caching
+
+================================================================================
+FILES CHANGED
+================================================================================
+
+1. Dockerfile (line 71-73)
+   REMOVED: RUN composer run-script post-autoload-dump
+   REASON: No database connection available during build
+
+2. start.sh (added steps 5.5, 6.5, 7)
+   ADDED: Database connection test
+   ADDED: Package discovery after env vars loaded
+   ADDED: Separate route/view caching step
+
+================================================================================
+LOCAL VERIFICATION
+================================================================================
+
+✅ Test 1: Verify autoloader works
+   composer dump-autoload --optimize
+   php artisan package:discover
+   # Should complete without errors
+
+✅ Test 2: Verify schedule works
+   php artisan schedule:list
+   # Should show both scheduled jobs
+
+✅ Test 3: Verify without database
+   unset DB_HOST
+   php artisan package:discover
+   # Should complete without database errors
+
+================================================================================
+GIT COMMANDS
+================================================================================
+
+git add Dockerfile start.sh
+git commit -m "fix: Skip package:discover during build, run at runtime
+
+- Remove composer run-script post-autoload-dump from Dockerfile
+- Add package:discover to start.sh after env vars loaded
+- Add database connection test in start.sh
+- Prevents 'getaddrinfo failed' error during build
+- Ensures DB_HOST available before package discovery"
+
+git push origin main
+
+================================================================================
+EXPECTED BUILD OUTPUT (Render)
+================================================================================
+
+✓ Step 1: composer install --no-scripts
+✓ Step 2: COPY . .
+✓ Step 3: composer dump-autoload --optimize --no-dev
+✓ Step 4: Skipping package:discover (no DB available)
+✓ Step 5: Set permissions
+✓ Build completes with exit code 0
+
+================================================================================
+EXPECTED RUNTIME OUTPUT (Render)
+================================================================================
+
+Step 1: Configuring Nginx... ✓
+Step 2: Verifying Laravel... ✓
+Step 3: Setting permissions... ✓
+Step 4: Clearing stale cache... ✓
+Step 5: Verifying environment variables... ✓
+Step 5.5: Testing database connection... ✓
+Step 6: Caching Laravel configuration... ✓
+Step 6.5: Running package discovery... ✓
+Step 7: Caching routes and views... ✓
+Step 8: Testing Laravel boot... ✓
+Step 9: Configuration summary... ✓
+Step 10: Starting services... ✓
+Application ready on port 10000
+
+================================================================================
+RENDER ENVIRONMENT VARIABLES CHECKLIST
+================================================================================
+
+Verify these are set in Render dashboard:
+
+✓ APP_KEY (generate with: php artisan key:generate --show)
+✓ APP_ENV=production
+✓ APP_DEBUG=false
+✓ DB_HOST (Internal Database URL from Render MySQL)
+✓ DB_DATABASE
+✓ DB_USERNAME
+✓ DB_PASSWORD
+✓ DB_PORT=3306
+✓ SESSION_DRIVER=file
+✓ CACHE_STORE=file
+✓ QUEUE_CONNECTION=sync
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+If build still fails:
+
+1. Check Render build logs for exact error
+2. Verify DB_HOST is NOT set during build (should only be at runtime)
+3. Verify no service providers query database in boot() method
+4. Check composer.json scripts section doesn't have database queries
+
+If runtime fails:
+
+1. Check Render logs: "View Logs" in dashboard
+2. Verify all environment variables are set
+3. Test database connection: php artisan db:show
+4. Check storage/logs/laravel.log for errors
+
+================================================================================
+WHAT NOT TO DO AGAIN
+================================================================================
+
+❌ DON'T run package:discover during Docker build
+❌ DON'T cache config during Docker build
+❌ DON'T query database in service provider boot() methods
+❌ DON'T use Schedule::job(new ClassName) - use closures
+❌ DON'T set DB_HOST as build-time environment variable
+
+✅ DO run package:discover at runtime (start.sh)
+✅ DO cache config at runtime (start.sh)
+✅ DO use Schedule::call(function() { ... })
+✅ DO set DB_HOST as runtime environment variable only
+
+================================================================================
+NEXT STEP
+================================================================================
+
+Run the git commands above to deploy the fix to Render.
