@@ -40,25 +40,34 @@ class SendStatusUpdateNotification implements ShouldQueue
             'timestamp' => now()->toISOString()
         ]);
 
-        // Store in database
-        EmailLog::create([
+        // Store in database (with idempotency protection)
+        $emailLog = EmailLog::createIdempotent([
             'user_id' => $user->id,
             'email_type' => 'status_updated',
             'subject' => $subject,
             'recipient' => $user->email,
             'body' => $body,
             'status' => 'sent',
-            'metadata' => json_encode([
+            'metadata' => [
                 'application_id' => $application->id,
                 'old_status' => $event->oldStatus->value,
-                'new_status' => $event->newStatus->value
-            ])
+                'new_status' => $event->newStatus->value,
+            ],
         ]);
 
-        Log::info('Status update notification sent', [
-            'application_id' => $application->id,
-            'new_status' => $event->newStatus->value
-        ]);
+        if ($emailLog->wasRecentlyCreated) {
+            Log::info('Status update notification logged', [
+                'email_log_id' => $emailLog->id,
+                'application_id' => $application->id,
+                'new_status' => $event->newStatus->value
+            ]);
+        } else {
+            Log::info('Duplicate status update notification prevented', [
+                'email_log_id' => $emailLog->id,
+                'application_id' => $application->id,
+                'new_status' => $event->newStatus->value
+            ]);
+        }
     }
 
     public function failed(ApplicationStatusChanged $event, \Throwable $exception): void
