@@ -54,13 +54,19 @@ Artisan::command('app:run-jobs-sync', function () {
  */
 
 // Run daily at 6 AM - Mark stale applications
-Schedule::job(new MarkStaleApplications)->dailyAt('06:00')
+// Use closure to avoid instantiating Job during bootstrap
+Schedule::call(function () {
+    dispatch(new MarkStaleApplications());
+})->dailyAt('06:00')
     ->name('mark-stale-applications')
     ->withoutOverlapping()
     ->onOneServer();
 
 // Run daily at 7 AM - Generate admin summary
-Schedule::job(new GenerateDailyAdminSummary)->dailyAt('07:00')
+// Use closure to avoid instantiating Job during bootstrap
+Schedule::call(function () {
+    dispatch(new GenerateDailyAdminSummary());
+})->dailyAt('07:00')
     ->name('daily-admin-summary')
     ->withoutOverlapping()
     ->onOneServer();
