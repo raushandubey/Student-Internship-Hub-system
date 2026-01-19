@@ -83,6 +83,24 @@ fi
 echo "  ✓ Environment variables verified"
 
 # ============================================================================
+# Step 5.5: Test Database Connection
+# ============================================================================
+echo "Step 5.5: Testing database connection..."
+
+if [ -n "$DB_HOST" ]; then
+    # Try to connect to database (non-blocking)
+    if timeout 5 php artisan db:show 2>/dev/null; then
+        echo "  ✓ Database connection successful"
+    else
+        echo "  ⚠ WARNING: Database connection failed or timed out"
+        echo "  → Application will start but database operations may fail"
+        echo "  → Verify DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD in Render"
+    fi
+else
+    echo "  ⚠ WARNING: DB_HOST not set, skipping database test"
+fi
+
+# ============================================================================
 # Step 6: Cache Laravel Configuration (WITH environment variables)
 # ============================================================================
 echo "Step 6: Caching Laravel configuration..."
@@ -94,6 +112,20 @@ php artisan config:clear 2>/dev/null || true
 php artisan config:cache
 echo "  ✓ Config cached"
 
+# ============================================================================
+# Step 6.5: Run Package Discovery (WITH environment variables)
+# ============================================================================
+echo "Step 6.5: Running package discovery..."
+
+# Run package discovery now that env vars are available
+php artisan package:discover --ansi
+echo "  ✓ Packages discovered"
+
+# ============================================================================
+# Step 7: Cache Routes and Views
+# ============================================================================
+echo "Step 7: Caching routes and views..."
+
 php artisan route:cache
 echo "  ✓ Routes cached"
 
@@ -101,9 +133,9 @@ php artisan view:cache
 echo "  ✓ Views cached"
 
 # ============================================================================
-# Step 7: Test Laravel Boot
+# Step 8: Test Laravel Boot
 # ============================================================================
-echo "Step 7: Testing Laravel boot..."
+echo "Step 8: Testing Laravel boot..."
 
 # Try to run a simple artisan command to verify Laravel can boot
 if php artisan --version > /dev/null 2>&1; then
@@ -116,9 +148,9 @@ else
 fi
 
 # ============================================================================
-# Step 8: Display Configuration
+# Step 9: Display Configuration
 # ============================================================================
-echo "Step 8: Configuration summary..."
+echo "Step 9: Configuration summary..."
 echo "  → PHP Version: $(php -v | head -n 1)"
 echo "  → Laravel Version: $(php artisan --version)"
 echo "  → Environment: ${APP_ENV:-production}"
@@ -129,9 +161,9 @@ echo "  → APP_KEY: ${APP_KEY:0:20}... (set)"
 echo "  → DB_HOST: ${DB_HOST:-not set}"
 
 # ============================================================================
-# Step 9: Start Supervisor (Nginx + PHP-FPM)
+# Step 10: Start Supervisor (Nginx + PHP-FPM)
 # ============================================================================
-echo "Step 9: Starting services..."
+echo "Step 10: Starting services..."
 echo "  → Starting PHP-FPM..."
 echo "  → Starting Nginx..."
 echo "========================================="

@@ -69,8 +69,8 @@ COPY . .
 # Generate optimized autoloader AFTER copying application code
 RUN composer dump-autoload --optimize --no-dev
 
-# Run post-install scripts (now autoloader knows about all classes)
-RUN composer run-script post-autoload-dump
+# DO NOT run package:discover here - no database connection available
+# Will run in start.sh after environment variables are loaded
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html
