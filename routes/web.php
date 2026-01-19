@@ -21,6 +21,16 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
+// Health check endpoint (no database required)
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now()->toISOString(),
+        'app' => config('app.name'),
+        'env' => config('app.env'),
+    ], 200);
+})->name('health');
+
 // Public internships listing (for browsing without login)
 Route::get('/internships', [InternshipController::class, 'publicIndex'])->name('internships.public');
 Route::get('/internships/{internship}', [InternshipController::class, 'show'])->name('internships.show');

@@ -1,0 +1,189 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    RENDER DEPLOYMENT - QUICK REFERENCE                     ║
+║                         ALL FIXES APPLIED ✅                               ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ STEP 1: GET REAL DATABASE HOSTNAME                                        ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+1. Go to Render Dashboard
+2. Click your MySQL Database service
+3. Find "Internal Database URL"
+4. Extract hostname from: mysql://user:pass@HOSTNAME:3306/database
+
+Example:
+mysql://user:pass@dpg-abc123-a.oregon-postgres.render.com:3306/db
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  THIS IS YOUR DB_HOST
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ STEP 2: SET RENDER ENVIRONMENT VARIABLES                                  ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+Go to: Render Dashboard → Your Web Service → Environment
+
+REQUIRED VARIABLES:
+┌────────────────────────────────────────────────────────────────────────────┐
+│ APP_KEY=base64:dt5cVqAJ4XEBCBlOE/IDoCSnDtbAU4/7UCcQy2nhBjU=                │
+│ APP_ENV=production                                                         │
+│ APP_DEBUG=false                                                            │
+│ APP_URL=https://your-app.onrender.com                                     │
+│                                                                            │
+│ DB_HOST=dpg-abc123-a.oregon-postgres.render.com  ← REAL HOSTNAME          │
+│ DB_PORT=3306                                                               │
+│ DB_DATABASE=your_database_name                                             │
+│ DB_USERNAME=your_database_user                                             │
+│ DB_PASSWORD=your_database_password                                         │
+│                                                                            │
+│ SESSION_DRIVER=file  ← CRITICAL: Must be 'file'                           │
+│ CACHE_STORE=file     ← CRITICAL: Must be 'file'                           │
+│ QUEUE_CONNECTION=sync                                                      │
+│ APP_TIMEZONE=Asia/Kolkata                                                  │
+└────────────────────────────────────────────────────────────────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ STEP 3: VERIFY FILES EXIST                                                ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+Check these files are in your repo:
+[ ] php-fpm-www.conf
+[ ] Dockerfile (updated with PHP-FPM config)
+[ ] routes/web.php (has /health endpoint)
+[ ] start.sh (has non-blocking DB test)
+[ ] config/session.php (defaults to 'file')
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ STEP 4: DEPLOY                                                            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+Render will auto-deploy from GitHub.
+
+Monitor: Render Dashboard → Logs
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ STEP 5: VERIFY BUILD LOGS                                                 ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+EXPECTED:
+✓ Composer install completed
+✓ Autoloader generated
+✓ Docker image built
+✓ Build completed successfully
+
+MUST NOT SEE:
+✗ Class "App\Jobs\..." not found
+✗ SQLSTATE[HY000] [2002] getaddrinfo failed
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ STEP 6: VERIFY RUNTIME LOGS                                               ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+EXPECTED (ALL 10 STEPS):
+Step 1: Configuring Nginx... ✓
+Step 2: Verifying Laravel... ✓
+Step 3: Setting permissions... ✓
+Step 4: Clearing stale cache... ✓
+Step 5: Verifying environment variables... ✓
+Step 5.5: Testing database connection... ✓
+Step 6: Caching Laravel configuration... ✓
+Step 6.5: Running package discovery... ✓
+Step 7: Caching routes and views... ✓
+Step 8: Testing Laravel boot... ✓
+Step 10: Starting services... ✓
+✓ Application ready on port 10000
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ STEP 7: TEST ENDPOINTS                                                    ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+curl https://your-app.onrender.com/health
+→ Expected: {"status":"healthy",...}
+
+curl https://your-app.onrender.com/
+→ Expected: HTML (not 500 error)
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ STEP 8: RUN MIGRATIONS (Render Shell)                                     ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+php artisan migrate --force
+php artisan db:seed --class=AdminSeeder --force
+php artisan db:seed --class=InternshipSeeder --force
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ WHAT WAS FIXED                                                             ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+1. PHP-FPM Configuration
+   ✓ Created php-fpm-www.conf to force TCP port 9000
+   ✓ Fixes "connection refused" error
+
+2. Health Check Endpoint
+   ✓ Added /health route that doesn't query database
+   ✓ Returns 200 even if DB unavailable
+
+3. Database Connection
+   ✓ Made DB test non-blocking in start.sh
+   ✓ App boots even if DB temporarily unavailable
+
+4. Session Driver
+   ✓ Changed default to 'file' (not 'database')
+   ✓ No DB query during boot
+
+5. Job Classes
+   ✓ Already fixed (lazy instantiation)
+   ✓ No "Class not found" during autoload
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ CRITICAL NOTES                                                             ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+1. DB_HOST must be REAL internal hostname (starts with dpg-)
+2. DB_HOST must NOT be placeholder (your-mysql-host...)
+3. SESSION_DRIVER must be 'file' (not 'database')
+4. CACHE_STORE must be 'file' (not 'database')
+5. Application boots even if database unavailable
+6. Homepage returns 200 even if database down
+7. Health check never queries database
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ TROUBLESHOOTING                                                            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+Build fails with "Class not found":
+→ Already fixed (lazy instantiation in routes/console.php)
+
+Build fails with "getaddrinfo failed":
+→ Check DB_HOST is real internal hostname
+→ Verify composer.json doesn't run package:discover during build
+
+Runtime "Connection refused":
+→ Already fixed (php-fpm-www.conf forces TCP port 9000)
+
+Homepage returns 500:
+→ Check SESSION_DRIVER=file in Render environment
+→ Check /health endpoint (should return 200)
+
+Database connection fails:
+→ Verify DB_HOST is internal hostname (not external)
+→ Verify DB_DATABASE, DB_USERNAME, DB_PASSWORD are correct
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║ SUCCESS CRITERIA                                                           ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+✓ Build completes without errors
+✓ All 10 startup steps complete
+✓ /health returns 200
+✓ / returns 200
+✓ /login returns 200
+✓ Database connection works
+✓ Migrations run successfully
+✓ Can login and use application
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                           READY TO DEPLOY ✅                               ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+See PRODUCTION_DEPLOYMENT_FINAL.md for complete details.

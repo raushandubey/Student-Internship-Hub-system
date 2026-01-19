@@ -83,21 +83,25 @@ fi
 echo "  ✓ Environment variables verified"
 
 # ============================================================================
-# Step 5.5: Test Database Connection
+# Step 5.5: Test Database Connection (NON-BLOCKING)
 # ============================================================================
 echo "Step 5.5: Testing database connection..."
 
 if [ -n "$DB_HOST" ]; then
-    # Try to connect to database (non-blocking)
+    # Try to connect to database (non-blocking, timeout 5 seconds)
     if timeout 5 php artisan db:show 2>/dev/null; then
         echo "  ✓ Database connection successful"
+        DB_AVAILABLE=true
     else
         echo "  ⚠ WARNING: Database connection failed or timed out"
-        echo "  → Application will start but database operations may fail"
+        echo "  → Application will start WITHOUT database"
+        echo "  → Homepage will work, but database features will fail"
         echo "  → Verify DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD in Render"
+        DB_AVAILABLE=false
     fi
 else
     echo "  ⚠ WARNING: DB_HOST not set, skipping database test"
+    DB_AVAILABLE=false
 fi
 
 # ============================================================================

@@ -45,6 +45,9 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY nginx.conf /etc/nginx/nginx.conf
 RUN rm -f /etc/nginx/sites-enabled/default
 
+# Configure PHP-FPM to listen on TCP port 9000
+COPY php-fpm-www.conf /usr/local/etc/php-fpm.d/www.conf
+
 # Configure Supervisor
 RUN mkdir -p /var/log/supervisor
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
