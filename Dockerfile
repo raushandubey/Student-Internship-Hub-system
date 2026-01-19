@@ -55,19 +55,21 @@ WORKDIR /var/www/html
 # Copy composer files
 COPY composer.json composer.lock ./
 
-# Install dependencies
+# Install dependencies (without scripts, without autoloader optimization)
 RUN composer install \
     --no-dev \
     --no-interaction \
     --no-progress \
     --no-scripts \
-    --prefer-dist \
-    --optimize-autoloader
+    --prefer-dist
 
 # Copy application code
 COPY . .
 
-# Run post-install scripts
+# Generate optimized autoloader AFTER copying application code
+RUN composer dump-autoload --optimize --no-dev
+
+# Run post-install scripts (now autoloader knows about all classes)
 RUN composer run-script post-autoload-dump
 
 # Set permissions

@@ -1,0 +1,84 @@
+================================================================================
+RENDER BUILD FIX - DEPLOY NOW
+================================================================================
+
+ROOT CAUSE:
+Dockerfile generated autoloader BEFORE copying application code.
+Linux couldn't find App\Jobs\MarkStaleApplications because autoloader
+was built without it.
+
+FIX APPLIED:
+Changed Dockerfile build sequence to generate autoloader AFTER copying code.
+
+================================================================================
+GIT COMMANDS TO RUN NOW
+================================================================================
+
+# 1. Verify the fix
+git status
+git diff Dockerfile
+
+# 2. Commit the fix
+git add Dockerfile
+git commit -m "fix: Correct Dockerfile autoloader generation sequence
+
+- Generate autoloader after copying application code
+- Fixes Class 'App\Jobs\MarkStaleApplications' not found error
+- Ensures Linux filesystem can find all application classes"
+
+# 3. Push to trigger Render deployment
+git push origin main
+
+================================================================================
+WHAT CHANGED IN DOCKERFILE
+================================================================================
+
+BEFORE (BROKEN):
+  composer install --optimize-autoloader --no-scripts
+  COPY . .
+  composer run-script post-autoload-dump
+  ❌ Autoloader generated WITHOUT application code
+
+AFTER (FIXED):
+  composer install --no-scripts
+  COPY . .
+  composer dump-autoload --optimize --no-dev
+  composer run-script post-autoload-dump
+  ✅ Autoloader generated WITH application code
+
+================================================================================
+EXPECTED RENDER BUILD OUTPUT
+================================================================================
+
+✓ Step 1: composer install (dependencies only)
+✓ Step 2: COPY . . (application code copied)
+✓ Step 3: composer dump-autoload (autoloader generated with all classes)
+✓ Step 4: composer run-script post-autoload-dump (Laravel bootstraps successfully)
+✓ Step 5: Build completes with exit code 0
+
+================================================================================
+VERIFICATION
+================================================================================
+
+After deployment succeeds:
+
+1. Application loads at your Render URL
+2. No "Class not found" errors in logs
+3. Scheduled jobs are registered
+4. All routes work correctly
+
+================================================================================
+TECHNICAL DETAILS
+================================================================================
+
+File Modified: Dockerfile (lines 57-75)
+Classes Affected: App\Jobs\MarkStaleApplications, App\Jobs\GenerateDailyAdminSummary
+Root Cause: Autoloader classmap generated before application files existed
+Solution: Regenerate autoloader after copying all application code
+Linux Requirement: Case-sensitive filesystem requires exact autoload sequence
+
+================================================================================
+NEXT STEP
+================================================================================
+
+Run the git commands above to deploy the fix.
