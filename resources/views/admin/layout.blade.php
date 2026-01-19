@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Admin Panel') - SIH</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="bg-gray-50">
     <!-- Navigation -->
@@ -29,6 +30,10 @@
                         <a href="{{ route('admin.users.index') }}" 
                            class="px-4 py-2 rounded-lg hover:bg-white hover:bg-opacity-20 transition {{ request()->routeIs('admin.users.*') ? 'bg-white bg-opacity-20' : '' }}">
                             Students
+                        </a>
+                        <a href="{{ route('admin.analytics') }}" 
+                           class="px-4 py-2 rounded-lg hover:bg-white hover:bg-opacity-20 transition {{ request()->routeIs('admin.analytics') ? 'bg-white bg-opacity-20' : '' }}">
+                            Analytics
                         </a>
                     </div>
                 </div>

@@ -172,9 +172,14 @@
                                 </div>
                             </div>
                             
-                            <!-- Match Score -->
+                            <!-- Match Score with Confidence Badge (Phase 8) -->
                             <div class="match-score-section">
-                                @if($isPremium)
+                                @if(isset($rec['confidence']))
+                                    <div class="confidence-badge confidence-{{ $rec['confidence']['color'] }}">
+                                        <i class="fas fa-{{ $rec['confidence']['level'] === 'excellent' ? 'star' : ($rec['confidence']['level'] === 'good' ? 'thumbs-up' : 'info-circle') }}"></i>
+                                        {{ $rec['confidence']['label'] }}
+                                    </div>
+                                @elseif($isPremium)
                                     <div class="match-badge premium">
                                         <i class="fas fa-crown"></i>
                                         PREMIUM
@@ -200,6 +205,14 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Why Recommended (Phase 8) -->
+                        @if(isset($rec['why_recommended']) && $rec['why_recommended'])
+                            <div class="why-recommended">
+                                <i class="fas fa-lightbulb"></i>
+                                <span>{{ $rec['why_recommended'] }}</span>
+                            </div>
+                        @endif
 
                         <!-- Job Details -->
                         <div class="job-details">
@@ -260,6 +273,27 @@
                                         @endforeach
                                         @if(count($rec['matching_skills']) > 3)
                                             <span class="skill-tag matching more">+{{ count($rec['matching_skills']) - 3 }}</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endif
+
+                            <!-- Skill Gap Analysis -->
+                            @if(!empty($rec['missing_skills']) && count($rec['missing_skills']) > 0)
+                                <div class="skills-group skill-gap">
+                                    <h4 class="skills-title gap-title">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        Skills to Learn
+                                    </h4>
+                                    <div class="skills-container">
+                                        @foreach(array_slice($rec['missing_skills'], 0, 3) as $skill)
+                                            <span class="skill-tag missing">
+                                                <i class="fas fa-plus"></i>
+                                                {{ $skill }}
+                                            </span>
+                                        @endforeach
+                                        @if(count($rec['missing_skills']) > 3)
+                                            <span class="skill-tag missing more">+{{ count($rec['missing_skills']) - 3 }}</span>
                                         @endif
                                     </div>
                                 </div>
@@ -847,6 +881,61 @@
     animation: premiumGlow 2s ease-in-out infinite;
 }
 
+/* Confidence Badge (Phase 8) */
+.confidence-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 16px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.confidence-green {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.confidence-blue {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.confidence-yellow {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.confidence-gray {
+    background: rgba(107, 114, 128, 0.2);
+    color: #9ca3af;
+    border: 1px solid rgba(107, 114, 128, 0.3);
+}
+
+/* Why Recommended (Phase 8) */
+.why-recommended {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    margin: 0 2rem 1rem;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.why-recommended i {
+    color: #f59e0b;
+    font-size: 1rem;
+}
+
 @keyframes premiumGlow {
     0%, 100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
     50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); }
@@ -1002,6 +1091,24 @@
     background: rgba(4, 101, 50, 0.5);
     color: #28b101;
     border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.skill-tag.missing {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.skill-tag.missing i {
+    font-size: 0.65rem;
+}
+
+.skill-gap .gap-title {
+    color: #ffc107;
+}
+
+.skill-gap .gap-title i {
+    color: #ffc107;
 }
 
 .skill-tag.more {
