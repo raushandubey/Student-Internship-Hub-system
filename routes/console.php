@@ -1,7 +1,5 @@
 <?php
 
-use App\Jobs\GenerateDailyAdminSummary;
-use App\Jobs\MarkStaleApplications;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -12,16 +10,21 @@ Artisan::command('inspire', function () {
 
 /**
  * Manual Job Triggers (for demo/testing)
+ * 
+ * CRITICAL: Do NOT import or instantiate Job classes at file level.
+ * Use string class names to avoid autoload issues during build.
  */
 Artisan::command('app:mark-stale', function () {
     $this->info('Dispatching MarkStaleApplications job...');
-    dispatch(new MarkStaleApplications());
+    $jobClass = \App\Jobs\MarkStaleApplications::class;
+    dispatch(new $jobClass());
     $this->info('Job dispatched! Run "php artisan queue:work" to process.');
 })->purpose('Manually trigger stale applications job');
 
 Artisan::command('app:daily-summary', function () {
     $this->info('Dispatching GenerateDailyAdminSummary job...');
-    dispatch(new GenerateDailyAdminSummary());
+    $jobClass = \App\Jobs\GenerateDailyAdminSummary::class;
+    dispatch(new $jobClass());
     $this->info('Job dispatched! Run "php artisan queue:work" to process.');
 })->purpose('Manually trigger daily summary job');
 
@@ -29,10 +32,12 @@ Artisan::command('app:run-jobs-sync', function () {
     $this->info('Running jobs synchronously for demo...');
     
     $this->info('1. Marking stale applications...');
-    (new MarkStaleApplications())->handle(app(\App\Services\ApplicationService::class));
+    $markStaleJob = new \App\Jobs\MarkStaleApplications();
+    $markStaleJob->handle(app(\App\Services\ApplicationService::class));
     
     $this->info('2. Generating daily summary...');
-    (new GenerateDailyAdminSummary())->handle();
+    $summaryJob = new \App\Jobs\GenerateDailyAdminSummary();
+    $summaryJob->handle();
     
     $this->info('Done! Check storage/logs/laravel.log for results.');
 })->purpose('Run all scheduled jobs synchronously (for demo)');
@@ -54,18 +59,20 @@ Artisan::command('app:run-jobs-sync', function () {
  */
 
 // Run daily at 6 AM - Mark stale applications
-// Use closure to avoid instantiating Job during bootstrap
+// Use string class name to avoid instantiation during file load
 Schedule::call(function () {
-    dispatch(new MarkStaleApplications());
+    $jobClass = \App\Jobs\MarkStaleApplications::class;
+    dispatch(new $jobClass());
 })->dailyAt('06:00')
     ->name('mark-stale-applications')
     ->withoutOverlapping()
     ->onOneServer();
 
 // Run daily at 7 AM - Generate admin summary
-// Use closure to avoid instantiating Job during bootstrap
+// Use string class name to avoid instantiation during file load
 Schedule::call(function () {
-    dispatch(new GenerateDailyAdminSummary());
+    $jobClass = \App\Jobs\GenerateDailyAdminSummary::class;
+    dispatch(new $jobClass());
 })->dailyAt('07:00')
     ->name('daily-admin-summary')
     ->withoutOverlapping()
