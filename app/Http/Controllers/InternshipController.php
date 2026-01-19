@@ -3,21 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Models\Internship;
+use App\Models\Application;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\InternshipsExport;
-use App\Imports\InternshipsImport;
+use Illuminate\Support\Facades\Auth;
 
+/**
+ * InternshipController
+ * 
+ * Handles public internship browsing and student interactions.
+ */
 class InternshipController extends Controller
 {
     /**
-     * Display a listing of internships with search, filter, and sort
+     * Display public listing of internships with search and filters
      */
-    public function index(Request $request)
+    public function publicIndex(Request $request)
     {
-        $query = Internship::query();
+        $query = Internship::where('is_active', true);
 
         // Search functionality
         if ($request->filled('search')) {
@@ -26,18 +28,8 @@ class InternshipController extends Controller
                 $q->where('title', 'LIKE', "%{$search}%")
                   ->orWhere('organization', 'LIKE', "%{$search}%")
                   ->orWhere('location', 'LIKE', "%{$search}%")
-                  ->orWhere('description', 'LIKE', "%{$search}%")
-                  ->orWhereJsonContains('required_skills', $search);
+                  ->orWhere('description', 'LIKE', "%{$search}%");
             });
-        }
-
-        // Filter by status
-        if ($request->filled('status')) {
-            if ($request->status === 'active') {
-                $query->where('is_active', true);
-            } elseif ($request->status === 'inactive') {
-                $query->where('is_active', false);
-            }
         }
 
         // Filter by location
@@ -48,9 +40,102 @@ class InternshipController extends Controller
         // Filter by organization
         if ($request->filled('organization')) {
             $query->where('organization', 'LIKE', "%{$request->organization}%");
+        }
+
+        $internships = $query->orderBy('created_at', 'desc')->paginate(12);
+        
+        // Get unique locations for filter dropdown
+        $locations = Internship::where('is_active', true)
+            ->distinct()
+            ->pluck('location')
+            ->filter()
+            ->values();
+
+        return view('internships.index', compact('internships', 'locations'));
+    }
+
+    /**
+     * Display a single internship
+     */
+    public function show(Internship $internship)
+    {
+        $hasApplied = false;
+        
+        if (Auth::check()) {
+            $hasApplied = Application::where('user_id', Auth::id())
+                ->where('internship_id', $internship->id)
                 ->exists();
         }
         
         return view('internships.show', compact('internship', 'hasApplied'));
+    }
+
+    /**
+     * Get user's bookmarked internships
+     */
+    public function bookmarks()
+    {
+        return view('student.bookmarks', ['bookmarks' => collect()]);
+    }
+
+    /**
+     * Toggle bookmark for an internship
+     */
+    public function toggleBookmark(Internship $internship)
+    {
+        return back()->with('info', 'Bookmarks feature coming soon.');
+    }
+
+    /**
+     * Search skills for autocomplete
+     */
+    public function searchSkills(Request $request)
+    {
+        $query = $request->get('q', '');
+        
+        $skills = Internship::where('is_active', true)
+            ->get()
+            ->pluck('required_skills')
+            ->flatten()
+            ->unique()
+            ->filter(function($skill) use ($query) {
+                return stripos($skill, $query) !== false;
+            })
+            ->values()
+            ->take(10);
+
+        return response()->json($skills);
+    }
+
+    /**
+     * Search organizations for autocomplete
+     */
+    public function searchOrganizations(Request $request)
+    {
+        $query = $request->get('q', '');
+        
+        $organizations = Internship::where('is_active', true)
+            ->where('organization', 'LIKE', "%{$query}%")
+            ->distinct()
+            ->pluck('organization')
+            ->take(10);
+
+        return response()->json($organizations);
+    }
+
+    /**
+     * Search locations for autocomplete
+     */
+    public function searchLocations(Request $request)
+    {
+        $query = $request->get('q', '');
+        
+        $locations = Internship::where('is_active', true)
+            ->where('location', 'LIKE', "%{$query}%")
+            ->distinct()
+            ->pluck('location')
+            ->take(10);
+
+        return response()->json($locations);
     }
 }

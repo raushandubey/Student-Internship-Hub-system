@@ -23,4 +23,28 @@ class Internship extends Model
         'required_skills' => 'array',
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Get all applications for this internship
+     */
+    public function applications()
+    {
+        return $this->hasMany(Application::class);
+    }
+
+    /**
+     * Scope: Active internships only
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope: With application counts
+     */
+    public function scopeWithApplicationStats($query)
+    {
+        return $query->withCount('applications');
+    }
 }
