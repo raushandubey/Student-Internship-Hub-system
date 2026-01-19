@@ -26,12 +26,3 @@ $response = $kernel->handle(
 $response->send();
 
 $kernel->terminate($request, $response);
-$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
-
-$response = $kernel->handle(
-    $request = Request::capture()
-);
-
-$response->send();
-
-$kernel->terminate($request, $response);

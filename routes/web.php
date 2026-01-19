@@ -7,7 +7,6 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\InternshipController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\RecommendationController;
-use App\Http\Controllers\Admin\AdminController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -33,15 +32,24 @@ Route::get('/internships/{internship}', [InternshipController::class, 'show'])->
 */
 
 // Student Authentication
+// Phase 9: Rate limiting to prevent brute force attacks
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
+    Route::post('/login', [AuthController::class, 'login'])
+        ->middleware('throttle:5,1') // 5 attempts per minute
+        ->name('login.submit');
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('/register', [AuthController::class, 'register'])->name('register.submit');
+    Route::post('/register', [AuthController::class, 'register'])
+        ->middleware('throttle:3,1') // 3 registrations per minute
+        ->name('register.submit');
     Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
-    Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
+    Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])
+        ->middleware('throttle:3,1') // 3 reset requests per minute
+        ->name('password.email');
     Route::get('/reset-password/{token}', [AuthController::class, 'showResetForm'])->name('password.reset');
-    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+        ->middleware('throttle:3,1') // 3 reset attempts per minute
+        ->name('password.update');
 });
 
 // Logout route (for authenticated users)
@@ -75,12 +83,11 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     });
     
     // Recommendations
+    // Phase 9: Rate limiting to prevent abuse of recommendation engine
     Route::prefix('recommendations')->name('recommendations.')->group(function () {
-        Route::post('/feedback', [RecommendationController::class, 'feedback'])->name('feedback');
-        Route::get('/similar/{internship}', [RecommendationController::class, 'similar'])->name('similar');
-        Route::post('/preferences', [RecommendationController::class, 'updatePreferences'])->name('preferences.update');
-        Route::get('/export', [RecommendationController::class, 'export'])->name('export');
-        Route::get('/', [RecommendationController::class, 'index'])->name('index');
+        Route::get('/', [RecommendationController::class, 'index'])
+            ->middleware('throttle:30,1') // 30 requests per minute
+            ->name('index');
         Route::post('/feedback', [RecommendationController::class, 'feedback'])->name('feedback');
         Route::get('/similar/{internship}', [RecommendationController::class, 'similar'])->name('similar');
         Route::post('/preferences', [RecommendationController::class, 'updatePreferences'])->name('preferences.update');
@@ -88,15 +95,12 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     });
     
     // Internship Applications (Student side)
+    // Phase 9: Rate limiting to prevent spam applications
     Route::prefix('applications')->name('applications.')->group(function () {
         Route::get('/', [ApplicationController::class, 'myApplications'])->name('index');
-        Route::post('/apply/{internship}', [ApplicationController::class, 'apply'])->name('apply');
-    
-    // Saved/Bookmarked Internships
-    Route::prefix('bookmarks')->name('bookmarks.')->group(function () {
-        Route::get('/', [InternshipController::class, 'bookmarks'])->name('index');
-        Route::post('/toggle/{internship}', [InternshipController::class, 'toggleBookmark'])->name('toggle');
-    });
+        Route::post('/apply/{internship}', [ApplicationController::class, 'apply'])
+            ->middleware('throttle:10,1') // 10 applications per minute (reasonable for bulk apply)
+            ->name('apply');
         Route::delete('/{application}', [ApplicationController::class, 'cancel'])->name('cancel');
     });
     
@@ -104,38 +108,11 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/my-applications', [ApplicationController::class, 'myApplications'])->name('my-applications');
     
     // Saved/Bookmarked Internships
-
-/*
-|--------------------------------------------------------------------------
-| API Routes (for AJAX calls)
-|--------------------------------------------------------------------------
-*/
-
-Route::prefix('api')->name('api.')->middleware('auth')->group(function () {
-    // Recommendation API endpoints
-    Route::get('/recommendations/filters', [RecommendationController::class, 'getFilters'])->name('recommendations.filters');
-    Route::post('/recommendations/feedback', [RecommendationController::class, 'feedback'])->name('recommendations.feedback');
-    
-    // Search & Autocomplete
-    Route::get('/search/skills', [InternshipController::class, 'searchSkills'])->name('search.skills');
-    Route::get('/search/organizations', [InternshipController::class, 'searchOrganizations'])->name('search.organizations');
-    Route::get('/search/locations', [InternshipController::class, 'searchLocations'])->name('search.locations');
-    
-    // Dashboard data
-    Route::get('/dashboard/stats', [DashboardController::class, 'getStats'])->name('dashboard.stats');
-    Route::get('/dashboard/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
-});
     Route::prefix('bookmarks')->name('bookmarks.')->group(function () {
         Route::get('/', [InternshipController::class, 'bookmarks'])->name('index');
         Route::post('/toggle/{internship}', [InternshipController::class, 'toggleBookmark'])->name('toggle');
     });
 });
-
-/*
-|--------------------------------------------------------------------------
-| Protected Admin Routes (handled in routes/admin.php)
-|--------------------------------------------------------------------------
-*/
 
 /*
 |--------------------------------------------------------------------------
