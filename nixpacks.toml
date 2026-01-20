@@ -9,8 +9,6 @@ cmds = [
 
 [phases.build]
 cmds = [
-  "php -m | grep -i pdo",
-  "php -m | grep -i mysql",
   "php artisan config:clear",
   "php artisan route:clear",
   "php artisan view:clear"
