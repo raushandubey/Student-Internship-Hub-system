@@ -3,16 +3,16 @@ nixPkgs = ["php82", "php82Extensions.pdo_mysql", "php82Extensions.mysqli", "php8
 
 [phases.install]
 cmds = [
-  "composer install --no-dev --optimize-autoloader --no-interaction",
-  "chmod -R 775 storage bootstrap/cache"
+  "composer install --no-dev --optimize-autoloader --no-interaction"
 ]
 
 [phases.build]
 cmds = [
+  "chmod -R 775 storage bootstrap/cache",
   "php artisan config:clear",
   "php artisan route:clear",
   "php artisan view:clear"
 ]
 
 [start]
-cmd = "php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan serve --host=0.0.0.0 --port=$PORT"
+cmd = "php artisan optimize && php artisan serve --host=0.0.0.0 --port=$PORT"

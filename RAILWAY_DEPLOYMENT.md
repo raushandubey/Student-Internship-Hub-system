@@ -1,55 +1,46 @@
-# RAILWAY DEPLOYMENT GUIDE
+# Railway Deployment Guide
 
-## SETUP
+## Environment Variables
 
-1. Push code to GitHub
-2. Create new Railway project
-3. Connect GitHub repository
-4. Add MySQL plugin to project
-
-## ENVIRONMENT VARIABLES
-
-Railway Dashboard → Variables → Add:
+Set these in Railway Dashboard → Variables → Raw Editor:
 
 ```
-APP_KEY=base64:GENERATE_WITH_php_artisan_key_generate
+APP_NAME=Student Internship Hub
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://your-app.railway.app
+APP_KEY=base64:H7aEu5IOU0QAE7UIMSf78EHXdMLf1HKyLijhOGlO//I=
+APP_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}
 
 DB_CONNECTION=mysql
-DB_HOST=${MYSQLHOST}
-DB_PORT=${MYSQLPORT}
-DB_DATABASE=${MYSQLDATABASE}
-DB_USERNAME=${MYSQLUSER}
-DB_PASSWORD=${MYSQLPASSWORD}
+DB_HOST=${{MYSQLHOST}}
+DB_PORT=${{MYSQLPORT}}
+DB_DATABASE=${{MYSQLDATABASE}}
+DB_USERNAME=${{MYSQLUSER}}
+DB_PASSWORD=${{MYSQLPASSWORD}}
 
+CACHE_DRIVER=file
 SESSION_DRIVER=file
-CACHE_STORE=file
+SESSION_LIFETIME=120
 QUEUE_CONNECTION=sync
+
+LOG_CHANNEL=stack
 LOG_LEVEL=error
+
+MAIL_MAILER=log
 ```
 
-## MYSQL PLUGIN
+## Deployment Steps
 
-Railway automatically provides these variables when MySQL plugin is added:
-- MYSQLHOST
-- MYSQLPORT
-- MYSQLDATABASE
-- MYSQLUSER
-- MYSQLPASSWORD
+1. Push to GitHub
+2. Create Railway project from GitHub repo
+3. Add MySQL database plugin
+4. Set environment variables above
+5. Deploy automatically
+6. Run migrations: `railway run php artisan migrate --force`
+7. Seed admin: `railway run php artisan db:seed --class=AdminSeeder`
 
-## DEPLOYMENT
+## Verify
 
-Railway auto-deploys on git push.
+Visit: `https://your-app.up.railway.app/health`
 
-## RUN MIGRATIONS
-
-Railway Dashboard → Service → Settings → Deploy → Add command:
-```
-php artisan migrate --force
-```
-
-## VERIFY
-
-Visit: https://your-app.railway.app
+Expected: `database_connected: true`
