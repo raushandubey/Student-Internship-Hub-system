@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["php82", "php82Packages.composer"]
+nixPkgs = ["php82", "php82Extensions.pdo_mysql", "php82Extensions.mysqli", "php82Packages.composer"]
 
 [phases.install]
 cmds = [
@@ -9,10 +9,12 @@ cmds = [
 
 [phases.build]
 cmds = [
+  "php -m | grep -i pdo",
+  "php -m | grep -i mysql",
   "php artisan config:clear",
   "php artisan route:clear",
   "php artisan view:clear"
 ]
 
 [start]
-cmd = "php artisan config:clear && php artisan route:clear && php artisan view:clear && php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan serve --host=0.0.0.0 --port=$PORT"
+cmd = "php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan serve --host=0.0.0.0 --port=$PORT"

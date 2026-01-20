@@ -21,13 +21,34 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-// Health check endpoint (no database required)
+// Health check endpoint (Railway diagnostics)
 Route::get('/health', function () {
+    $pdoDrivers = PDO::getAvailableDrivers();
+    $dbConnected = false;
+    $dbError = null;
+    
+    try {
+        DB::connection()->getPdo();
+        $dbConnected = true;
+    } catch (\Exception $e) {
+        $dbError = $e->getMessage();
+    }
+    
     return response()->json([
         'status' => 'healthy',
+        'php_version' => PHP_VERSION,
+        'pdo_drivers' => $pdoDrivers,
+        'pdo_mysql_loaded' => extension_loaded('pdo_mysql'),
+        'mysqli_loaded' => extension_loaded('mysqli'),
+        'database_connected' => $dbConnected,
+        'database_error' => $dbError,
+        'env_check' => [
+            'DB_CONNECTION' => config('database.default'),
+            'DB_HOST' => config('database.connections.mysql.host'),
+            'DB_PORT' => config('database.connections.mysql.port'),
+            'DB_DATABASE' => config('database.connections.mysql.database'),
+        ],
         'timestamp' => now()->toISOString(),
-        'app' => config('app.name'),
-        'env' => config('app.env'),
     ], 200);
 })->name('health');
 
