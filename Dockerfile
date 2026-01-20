@@ -1,19 +1,6 @@
-# ============================================================================
-# Student Internship Hub - Production Dockerfile for Render
-# ============================================================================
-# 
-# Architecture: Nginx → PHP-FPM → Laravel → Database (external)
-# 
-# WHY Nginx + PHP-FPM instead of Apache?
-# - Nginx: Lightweight, high-performance, better for static files
-# - PHP-FPM: Process manager, better resource handling, production-grade
-# - Separation of concerns: Nginx serves static, PHP-FPM handles dynamic
-# - Industry standard for modern Laravel deployments
-# ============================================================================
-
 FROM php:8.2-fpm
 
-# Install system dependencies
+# Install system dependencies (PostgreSQL client library required)
 RUN apt-get update && apt-get install -y \
     nginx \
     supervisor \
@@ -24,12 +11,13 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libpq-dev \
+    postgresql-client \
     zip \
     unzip \
     libzip-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions (PostgreSQL only, MySQL removed)
+# Install PHP extensions (PostgreSQL only)
 RUN docker-php-ext-install \
     pdo_pgsql \
     pgsql \
@@ -47,7 +35,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY nginx.conf /etc/nginx/nginx.conf
 RUN rm -f /etc/nginx/sites-enabled/default
 
-# Configure PHP-FPM to listen on TCP port 9000
+# Configure PHP-FPM
 COPY php-fpm-www.conf /usr/local/etc/php-fpm.d/www.conf
 
 # Configure Supervisor
@@ -60,7 +48,7 @@ WORKDIR /var/www/html
 # Copy composer files
 COPY composer.json composer.lock ./
 
-# Install dependencies (without scripts, without autoloader optimization)
+# Install dependencies
 RUN composer install \
     --no-dev \
     --no-interaction \
@@ -71,11 +59,8 @@ RUN composer install \
 # Copy application code
 COPY . .
 
-# Generate optimized autoloader AFTER copying application code
+# Generate optimized autoloader
 RUN composer dump-autoload --optimize --no-dev
-
-# DO NOT run package:discover here - no database connection available
-# Will run in start.sh after environment variables are loaded
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html
@@ -83,9 +68,6 @@ RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 RUN find /var/www/html -type f -exec chmod 644 {} \;
 RUN find /var/www/html -type d -exec chmod 755 {} \;
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
-
-# DO NOT cache Laravel here - environment variables not available yet
-# Caching will be done in start.sh after env vars are loaded
 
 # Copy and set startup script
 COPY start.sh /start.sh
