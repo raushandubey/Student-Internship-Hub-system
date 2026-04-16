@@ -11,13 +11,33 @@ class ProfileController extends Controller
 {
     public function show()
     {
-        $profile = Auth::user()->profile;
+        $user = Auth::user();
+        $profile = $user->profile;
+        
+        // Create profile if it doesn't exist
+        if (!$profile) {
+            $profile = Profile::create([
+                'user_id' => $user->id,
+                'name' => $user->name,
+            ]);
+        }
+        
         return view('profile.show', compact('profile'));
     }
 
     public function edit()
     {
-        $profile = Auth::user()->profile;
+        $user = Auth::user();
+        $profile = $user->profile;
+        
+        // Create profile if it doesn't exist
+        if (!$profile) {
+            $profile = Profile::create([
+                'user_id' => $user->id,
+                'name' => $user->name,
+            ]);
+        }
+        
         return view('profile.edit', compact('profile'));
     }
 

@@ -9,8 +9,10 @@ class InternshipSeeder extends Seeder
 {
     public function run()
     {
-        // Clear existing internships
+        // Clear existing internships (disable foreign key checks to allow truncate)
+        \DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         Internship::truncate();
+        \DB::statement('SET FOREIGN_KEY_CHECKS=1;');
         
         $workTypes = ['Remote', 'On-site', 'Hybrid'];
         $locations = [

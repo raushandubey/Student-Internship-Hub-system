@@ -100,7 +100,7 @@
                                 <i class="fas fa-bullseye"></i>
                                 Career Interests
                             </h3>
-                            
+
                             <div class="interests-content">
                                 @if($profile->career_interests)
                                     <div class="interests-text">

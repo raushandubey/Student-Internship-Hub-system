@@ -50,7 +50,7 @@ class AdminApplicationController extends Controller
     public function updateStatus(Request $request, Application $application)
     {
         $validated = $request->validate([
-            'status' => 'required|in:pending,approved,rejected,under_review,shortlisted,interview_scheduled',
+            'status' => 'required|in:pending,under_review,shortlisted,interview_scheduled,approved,rejected',
         ]);
 
         try {
