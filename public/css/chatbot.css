@@ -1,0 +1,2210 @@
+/**
+ * ShreeRam AI - Premium Spiritual + Modern Tech Fusion
+ * Saffron/Bhagwa Theme with Glassmorphism Design
+ * 
+ * @version 2.0.0
+ * @theme Saffron (#ff7a00, #ffb347) + Dark (#0f0f0f)
+ */
+
+/* ============================================
+   CSS VARIABLES - PREMIUM SAFFRON THEME
+   ============================================ */
+
+:root {
+    /* ========================================
+       PRIMARY SAFFRON COLORS
+       ========================================
+       Brand colors representing the spiritual saffron/bhagwa theme.
+       
+       Usage Guidelines:
+       - Use --saffron-primary for primary actions, buttons, and brand elements
+       - Use --saffron-light for gradients, hover states, and lighter accents
+       - Use --saffron-glow for shadow effects and glowing borders (50% opacity)
+       - Use --gold-accent sparingly for special highlights and premium touches
+       
+       Color Combinations:
+       - Gradient: linear-gradient(135deg, var(--saffron-primary), var(--saffron-light))
+       - Glow: box-shadow: 0 0 20px var(--saffron-glow)
+    */
+    --saffron-primary: #ff7a00;
+    --saffron-light: #ffb347;
+    --saffron-glow: rgba(255, 122, 0, 0.5);
+    --gold-accent: #ffd700;
+    
+    /* ========================================
+       DARK BACKGROUNDS
+       ========================================
+       Dark theme backgrounds for the glassmorphism design.
+       
+       Usage Guidelines:
+       - Use --dark-bg for solid dark backgrounds
+       - Use --dark-secondary for slightly lighter sections
+       - Use --dark-glass for main glassmorphism containers (85% opacity)
+       - Use --dark-glass-light for secondary glass elements (70% opacity)
+       
+       Best Practices:
+       - Always pair glass backgrounds with backdrop-filter: blur(20px)
+       - Use for chat window, message containers, and overlay elements
+    */
+    --dark-bg: #0f0f0f;
+    --dark-secondary: #1a1a1a;
+    --dark-glass: rgba(15, 15, 15, 0.85);
+    --dark-glass-light: rgba(30, 30, 30, 0.7);
+    
+    /* ========================================
+       GLASS EFFECTS
+       ========================================
+       Subtle glass overlays and borders for glassmorphism design.
+       
+       Usage Guidelines:
+       - Use --white-glass for subtle white overlays (5% opacity)
+       - Use --border-glass for glass borders with saffron tint (20% opacity)
+       
+       Application:
+       - Combine with backdrop-filter for true glassmorphism effect
+       - Use for borders, overlays, and subtle highlights
+    */
+    --white-glass: rgba(255, 255, 255, 0.05);
+    --border-glass: rgba(255, 122, 0, 0.2);
+    
+    /* ========================================
+       SEMANTIC COLORS
+       ========================================
+       Status and feedback colors for UI states.
+       
+       Usage Guidelines:
+       - Use --success for positive actions, confirmations, completed states
+       - Use --info for informational messages and neutral notifications
+       - Use --warning for caution messages and important notices
+       - Use --error for error states, validation failures, destructive actions
+       
+       Accessibility:
+       - All colors meet WCAG AA contrast requirements on dark backgrounds
+       - Never use color alone to convey information
+    */
+    --success: #22c55e;
+    --info: #3b82f6;
+    --warning: #fbbf24;
+    --error: #ef4444;
+    
+    /* ========================================
+       SPACING SYSTEM
+       ========================================
+       Consistent spacing scale based on 4px increments.
+       
+       Usage Guidelines:
+       - Use --space-xs (4px) for tight spacing, icon gaps
+       - Use --space-sm (8px) for small gaps between related elements
+       - Use --space-md (12px) for message spacing, button gaps
+       - Use --space-lg (16px) for component padding, section spacing
+       - Use --space-xl (20px) for header padding, larger sections
+       - Use --space-2xl (24px) for major section spacing
+       - Use --space-3xl (32px) for large gaps, page-level spacing
+       
+       Application Examples:
+       - Message spacing: margin-bottom: var(--space-md)
+       - Button padding: padding: var(--space-sm) var(--space-lg)
+       - Container padding: padding: var(--space-xl)
+    */
+    --space-xs: 0.25rem;   /* 4px */
+    --space-sm: 0.5rem;    /* 8px */
+    --space-md: 0.75rem;   /* 12px */
+    --space-lg: 1rem;      /* 16px */
+    --space-xl: 1.25rem;   /* 20px */
+    --space-2xl: 1.5rem;   /* 24px */
+    --space-3xl: 2rem;     /* 32px */
+    
+    /* ========================================
+       TYPOGRAPHY SYSTEM
+       ========================================
+       Font families, sizes, weights, and line heights for consistent typography.
+       
+       Font Family Guidelines:
+       - Use --font-primary (Inter) for body text, UI elements, messages
+       - Use --font-secondary (Poppins) for headings and special emphasis
+       
+       Font Size Guidelines:
+       - Use --text-xs (11px) for timestamps, metadata, fine print
+       - Use --text-sm (14px) for body text, buttons, labels
+       - Use --text-base (15px) for message content, comfortable reading
+       - Use --text-lg (16px) for emphasized text, subheadings
+       - Use --text-xl (18px) for section headings, titles
+       - Use --text-2xl (24px) for main headings, hero text
+       
+       Font Weight Guidelines:
+       - Use --font-normal (400) for body text, paragraphs
+       - Use --font-medium (500) for buttons, labels, emphasis
+       - Use --font-semibold (600) for subheadings, important text
+       - Use --font-bold (700) for headings, titles, strong emphasis
+       
+       Line Height Guidelines:
+       - Use --leading-tight (1.25) for headings, compact text
+       - Use --leading-normal (1.5) for body text, comfortable reading
+       - Use --leading-relaxed (1.6) for long-form content, accessibility
+       
+       Accessibility:
+       - Minimum font size is 11px (--text-xs) for WCAG compliance
+       - Body text uses 14-15px for comfortable reading
+       - Line heights ensure readability and proper spacing
+    */
+    --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-secondary: 'Poppins', sans-serif;
+    
+    /* Font Sizes */
+    --text-xs: 0.6875rem;   /* 11px */
+    --text-sm: 0.875rem;    /* 14px */
+    --text-base: 0.9375rem; /* 15px */
+    --text-lg: 1rem;        /* 16px */
+    --text-xl: 1.125rem;    /* 18px */
+    --text-2xl: 1.5rem;     /* 24px */
+    
+    /* Font Weights */
+    --font-normal: 400;
+    --font-medium: 500;
+    --font-semibold: 600;
+    --font-bold: 700;
+    
+    /* Line Heights */
+    --leading-tight: 1.25;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.6;
+    
+    /* ========================================
+       ANIMATION SYSTEM
+       ========================================
+       Timing functions, durations, and delays for smooth animations.
+       
+       Timing Function Guidelines:
+       - Use --ease-smooth for most transitions (buttons, hovers, fades)
+       - Use --ease-bounce for playful entrances (messages, modals)
+       - Use --ease-in-out for smooth bidirectional animations
+       
+       Duration Guidelines:
+       - Use --duration-fast (200ms) for micro-interactions, hovers
+       - Use --duration-normal (300ms) for standard transitions, fades
+       - Use --duration-slow (500ms) for complex animations, entrances
+       
+       Delay Guidelines:
+       - Use --delay-short (100ms) for immediate feedback
+       - Use --delay-medium (150ms) for staggered animations
+       - Use --delay-long (300ms) for sequential reveals
+       
+       Performance Best Practices:
+       - Always animate transform and opacity (GPU-accelerated)
+       - Avoid animating width, height, top, left, margin, padding
+       - Use will-change sparingly before animations
+       - Target 60 FPS for all animations
+       
+       Accessibility:
+       - All animations respect prefers-reduced-motion media query
+       - Animations enhance UX but are not required for functionality
+    */
+    /* Timing Functions */
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.6, 1);
+    
+    /* Durations */
+    --duration-fast: 200ms;
+    --duration-normal: 300ms;
+    --duration-slow: 500ms;
+    
+    /* Delays */
+    --delay-short: 100ms;
+    --delay-medium: 150ms;
+    --delay-long: 300ms;
+    
+    /* ========================================
+       SHADOW SYSTEM
+       ========================================
+       Consistent shadow depths and glow effects for visual hierarchy.
+       
+       Shadow Depth Guidelines:
+       - Use --shadow-sm for subtle elevation (cards, buttons)
+       - Use --shadow-md for moderate elevation (dropdowns, tooltips)
+       - Use --shadow-lg for prominent elevation (modals, popovers)
+       - Use --shadow-xl for high elevation (floating elements)
+       - Use --shadow-2xl for maximum elevation (overlays, dialogs)
+       
+       Glow Effect Guidelines:
+       - Use --shadow-glow for subtle saffron glow (buttons, borders)
+       - Use --shadow-glow-strong for prominent glow (floating button, focus states)
+       
+       Application Examples:
+       - Button: box-shadow: var(--shadow-md), var(--shadow-glow)
+       - Modal: box-shadow: var(--shadow-2xl)
+       - Hover state: box-shadow: var(--shadow-lg), var(--shadow-glow-strong)
+       
+       Performance:
+       - Avoid animating box-shadow (expensive)
+       - Use transform: translateY() for hover lift effects instead
+       - Combine multiple shadows for depth + glow effects
+    */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.2);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.3);
+    --shadow-2xl: 0 25px 50px rgba(0, 0, 0, 0.4);
+    --shadow-glow: 0 0 40px rgba(255, 122, 0, 0.3);
+    --shadow-glow-strong: 0 0 60px rgba(255, 122, 0, 0.4);
+}
+
+/* ============================================
+   CHAT WINDOW ANIMATIONS
+   ============================================ */
+
+#chatbot-window {
+    transform-origin: bottom right;
+    animation: slideInScale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#chatbot-window.hidden {
+    animation: slideOutScale 0.3s cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes slideInScale {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes slideOutScale {
+    from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(30px) scale(0.9);
+    }
+}
+
+/* ============================================
+   FLOATING BUTTON - SAFFRON GLOW
+   ============================================ */
+
+.shreeram-float-btn {
+    /* Desktop size: 80x80px (Requirements 10.7, 13.3) */
+    width: 5rem;
+    height: 5rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--saffron-primary) 0%, var(--saffron-light) 100%);
+    /* Multi-layer shadow: depth + saffron glow (Requirements 10.3, 10.8) */
+    box-shadow: 
+        0 8px 16px rgba(0, 0, 0, 0.3),
+        0 12px 32px rgba(255, 122, 0, 0.45),
+        0 0 48px rgba(255, 122, 0, 0.35),
+        0 0 80px rgba(255, 122, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -2px 8px rgba(0, 0, 0, 0.15);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    /* Subtle breathing pulse animation (Requirements 10.4, 2.9) */
+    animation: buttonPulse 3.5s ease-in-out infinite;
+}
+
+/* Pulse animation rings (Requirements 10.4) */
+.shreeram-float-btn::before,
+.shreeram-float-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 122, 0, 0.4);
+    animation: pulseRing 3.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    pointer-events: none;
+}
+
+.shreeram-float-btn::after {
+    animation-delay: 1.75s;
+}
+
+@keyframes pulseRing {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.6;
+        border-width: 3px;
+    }
+    50% {
+        opacity: 0.3;
+        border-width: 2px;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.8);
+        opacity: 0;
+        border-width: 1px;
+    }
+}
+
+/* Subtle breathing pulse for the button itself (Requirements 10.4, 2.9) */
+@keyframes buttonPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* Enhanced hover state with increased glow intensity (Requirements 10.5, 10.6, 9.1, 9.5) */
+.shreeram-float-btn:hover {
+    transform: scale(1.15) translateY(-4px);
+    animation: none; /* Pause pulse on hover */
+    box-shadow: 
+        0 16px 32px rgba(0, 0, 0, 0.4),
+        0 20px 48px rgba(255, 122, 0, 0.6),
+        0 0 72px rgba(255, 122, 0, 0.5),
+        0 0 120px rgba(255, 122, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -2px 8px rgba(0, 0, 0, 0.15);
+    filter: brightness(1.1);
+}
+
+/* Active state with refined scale and lift (Requirements 10.6, 9.1) */
+.shreeram-float-btn:active {
+    transform: scale(1.08) translateY(-2px);
+    animation: none; /* Pause pulse on active */
+    box-shadow: 
+        0 12px 24px rgba(0, 0, 0, 0.35),
+        0 16px 40px rgba(255, 122, 0, 0.55),
+        0 0 60px rgba(255, 122, 0, 0.45),
+        0 0 100px rgba(255, 122, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 0 -2px 8px rgba(0, 0, 0, 0.15);
+    filter: brightness(1.05);
+}
+
+/* Gold drop-shadow on Om symbol (Requirements 10.3) */
+.om-symbol {
+    filter: drop-shadow(0 2px 10px rgba(255, 215, 0, 0.7))
+            drop-shadow(0 0 20px rgba(255, 215, 0, 0.5));
+    animation: omGlow 3s ease-in-out infinite;
+}
+
+@keyframes omGlow {
+    0%, 100% {
+        filter: drop-shadow(0 2px 10px rgba(255, 215, 0, 0.7))
+                drop-shadow(0 0 20px rgba(255, 215, 0, 0.5));
+    }
+    50% {
+        filter: drop-shadow(0 4px 16px rgba(255, 215, 0, 0.95))
+                drop-shadow(0 0 32px rgba(255, 215, 0, 0.7));
+    }
+}
+
+/* ============================================
+   CHAT WINDOW - GLASSMORPHISM DARK
+   ============================================ */
+
+.shreeram-chat-window {
+    /* Dark gradient background from #0f0f0f to #1a1a1a (Requirements 1.2) */
+    background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+    /* Subtle radial saffron glow in background (Requirements 1.3) */
+    background-image: 
+        radial-gradient(circle at 50% 50%, rgba(255, 122, 0, 0.08) 0%, transparent 60%),
+        linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+    /* Glassmorphism effect with Safari support (Requirements 1.1, 1.7, 18.8) */
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    /* Rounded corners with smaller 16px border-radius for better appearance */
+    border-radius: 1rem;
+    /* Soft glowing orange outline (Requirements 1.4, Task 3.2) */
+    border: 1px solid rgba(255, 122, 0, 0.2);
+    /* Multi-layer shadow: deep + saffron glow (Requirements 1.6, 15.5, Task 3.2) */
+    box-shadow: 
+        0 25px 50px -12px rgba(0, 0, 0, 0.8),
+        0 12px 32px rgba(255, 122, 0, 0.25),
+        0 0 48px rgba(255, 122, 0, 0.15),
+        0 0 0 1px rgba(255, 122, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ============================================
+   ANIMATED BACKGROUND PARTICLES
+   ============================================
+   Performance Optimizations (Task 4.2):
+   - z-index: 0 ensures particles stay behind all content (Req 2.8)
+   - pointer-events: none prevents interference with user interactions (Req 2.9)
+   - transform property used for GPU-accelerated animation (Req 19.3)
+   - will-change hint for optimal performance (Req 19.6)
+   - Target: 60 FPS maintained throughout animation
+   ============================================ */
+
+.shreeram-particles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    /* Prevent interaction with particles (Req 2.9) */
+    pointer-events: none;
+    /* Behind all content (Req 2.8) */
+    z-index: 0;
+}
+
+.shreeram-particles::before,
+.shreeram-particles::after {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    /* GPU-accelerated blur effect */
+    filter: blur(80px);
+    /* Subtle opacity within spec range (0.05-0.1) */
+    opacity: 0.08;
+    /* GPU-accelerated animation using transform (Req 19.3) */
+    animation: particleFloat 20s ease-in-out infinite;
+    /* Performance hint for browser optimization (Req 19.6) */
+    will-change: transform;
+}
+
+.shreeram-particles::before {
+    background: radial-gradient(circle, var(--saffron-primary) 0%, transparent 70%);
+    top: -100px;
+    left: -100px;
+    animation-delay: 0s;
+}
+
+.shreeram-particles::after {
+    background: radial-gradient(circle, var(--gold-accent) 0%, transparent 70%);
+    bottom: -100px;
+    right: -100px;
+    animation-delay: 10s;
+}
+
+@keyframes particleFloat {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+    }
+    33% {
+        transform: translate(50px, -50px) scale(1.1);
+    }
+    66% {
+        transform: translate(-30px, 30px) scale(0.9);
+    }
+}
+
+/* ============================================
+   HEADER - SAFFRON GRADIENT
+   ============================================ */
+
+.shreeram-header {
+    background: linear-gradient(135deg, var(--saffron-primary) 0%, var(--saffron-light) 100%);
+    box-shadow: 
+        0 4px 20px rgba(255, 122, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    /* Proper spacing (Requirements 3.8, 11.3, Task 5.3) */
+    padding: 1.25rem 1.5rem;
+    /* Rounded top corners to match window border-radius */
+    border-radius: 1rem 1rem 0 0;
+}
+
+/* Header Typography - Premium Design (Task 5.3) */
+.shreeram-header h3 {
+    /* Title: 20px (1.25rem), bold (700), white (Requirements 3.2, 3.9, 12.4, Task 5.3) */
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: white;
+    /* WCAG AA contrast: white on saffron gradient exceeds 4.5:1 (Requirements 3.9, 12.7, 17.1, Task 5.3) */
+}
+
+.shreeram-header p {
+    /* Subtitle: 14px (0.875rem), normal (400), orange-100 (Requirements 3.3, 12.5, Task 5.3) */
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: #fed7aa;
+    /* WCAG AA contrast: orange-100 on saffron gradient meets 4.5:1 minimum (Requirements 12.7, 17.1, Task 5.3) */
+}
+
+.shreeram-avatar {
+    width: 3rem;
+    height: 3rem;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.2),
+        0 0 20px rgba(255, 215, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    animation: avatarPulse 3s ease-in-out infinite;
+}
+
+@keyframes avatarPulse {
+    0%, 100% {
+        box-shadow: 
+            0 4px 12px rgba(0, 0, 0, 0.2),
+            0 0 20px rgba(255, 215, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+    50% {
+        box-shadow: 
+            0 4px 12px rgba(0, 0, 0, 0.2),
+            0 0 30px rgba(255, 215, 0, 0.6),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+}
+
+.shreeram-close-btn {
+    /* Minimum 40x40px touch target (Requirements 3.6, 9.1, Task 5.4) */
+    width: 2.5rem;
+    height: 2.5rem;
+    /* Glassmorphism background (Requirements 3.6, Task 5.4) */
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    /* Smooth 300ms transition (Requirements 9.5, Task 5.4) */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    /* Subtle base shadow */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.shreeram-close-btn:hover {
+    /* Enhanced glassmorphism on hover */
+    background: rgba(255, 255, 255, 0.25);
+    /* Rotate 90deg and scale 1.1 (Requirements 3.6, 9.1, Task 5.4) */
+    transform: rotate(90deg) scale(1.1);
+    /* Glow effect with saffron tint (Requirements 9.1, Task 5.4) */
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.3),
+        0 0 20px rgba(255, 122, 0, 0.3),
+        0 0 30px rgba(255, 122, 0, 0.2);
+    border-color: rgba(255, 122, 0, 0.3);
+}
+
+/* ============================================
+   MESSAGES CONTAINER - DARK GLASSMORPHISM
+   ============================================ */
+
+.shreeram-messages-container {
+    background: rgba(0, 0, 0, 0.2);
+    position: relative;
+    z-index: 1;
+    padding: 1.5rem 1rem !important;
+    height: 320px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    display: block !important;
+    visibility: visible !important;
+}
+
+.shreeram-messages-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.shreeram-messages-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.shreeram-messages-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--saffron-primary) 0%, var(--saffron-light) 100%);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.shreeram-messages-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, var(--saffron-light) 0%, var(--gold-accent) 100%);
+}
+
+/* ============================================
+   MESSAGE BUBBLES - MODERN CLEAN DESIGN
+   ============================================ */
+
+/* ============================================
+   MESSAGE APPEARANCE ANIMATION - ENHANCED
+   ============================================
+   Task 6.3: Enhanced message appearance animation
+   
+   Animation Features (Requirements 5.1-5.10):
+   - Fade in from transparent to opaque (opacity: 0 → 1)
+   - Slide in from bottom (translateY(15px) → 0)
+   - Slight scale effect (0.95 → 1.0) for depth
+   - Duration: 400ms with cubic-bezier(0.34, 1.56, 0.64, 1) for bounce
+   - Slight delay (50ms) for natural pacing
+   
+   Performance (Requirements 5.6, 5.10, 19.2):
+   - Uses only transform and opacity (GPU-accelerated)
+   - Maintains 60 FPS performance
+   - No layout shifts or jank
+   ============================================ */
+
+#chatbot-messages > div {
+    /* Enhanced animation with natural pacing delay (Requirements 5.1-5.10) */
+    animation: messageSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s backwards;
+    margin-bottom: 1.25rem !important;
+}
+
+@keyframes messageSlideIn {
+    from {
+        /* Fade in from transparent (Requirement 5.1) */
+        opacity: 0;
+        /* Slide in from bottom + scale effect (Requirements 5.2, 5.3) */
+        transform: translateY(15px) scale(0.95);
+    }
+    to {
+        /* Fade to opaque (Requirement 5.1) */
+        opacity: 1;
+        /* Final position with full scale (Requirements 5.2, 5.3) */
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Bot message bubble - Clean light design with soft glow border (Task 6.1) */
+.shreeram-bot-bubble {
+    /* Background with glassmorphism (Requirements 4.1) */
+    background: rgba(245, 245, 245, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    /* Soft glow border effect (Requirements 4.4, Task 6.1) */
+    border: 1px solid rgba(255, 122, 0, 0.15);
+    /* Subtle shadow with soft glow (Requirements 4.4, Task 6.1) */
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.08),
+        0 1px 2px rgba(0, 0, 0, 0.05),
+        0 0 0 1px rgba(255, 122, 0, 0.08),
+        0 0 12px rgba(255, 122, 0, 0.06);
+    /* Rounded corners (Requirements 4.8, Task 6.1) */
+    border-radius: 1.125rem 1.125rem 1.125rem 0.25rem;
+    transition: all 0.2s ease;
+    color: #2d3748;
+    padding: 0.875rem 1.125rem !important;
+    max-width: 75%;
+}
+
+.shreeram-bot-bubble:hover {
+    /* Enhanced shadow and glow on hover (Requirements 4.4, 9.1) */
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.12),
+        0 2px 4px rgba(0, 0, 0, 0.08),
+        0 0 0 1px rgba(255, 122, 0, 0.12),
+        0 0 16px rgba(255, 122, 0, 0.1);
+    transform: translateY(-1px);
+    border-color: rgba(255, 122, 0, 0.2);
+}
+
+/* User message bubble - Saffron gradient clean (Task 6.2) */
+.shreeram-user-bubble {
+    /* Background: saffron gradient (135deg, #ff7a00 → #ffb347) (Requirements 4.5, Task 6.2) */
+    background: linear-gradient(135deg, var(--saffron-primary) 0%, var(--saffron-light) 100%);
+    /* Shadow: 0 2px 8px rgba(255, 122, 0, 0.25) (Requirements 4.7, Task 6.2) */
+    box-shadow: 
+        0 2px 8px rgba(255, 122, 0, 0.25),
+        0 1px 2px rgba(255, 122, 0, 0.15);
+    /* Border-radius: 1.125rem 1.125rem 0.25rem 1.125rem (Requirements 4.8, Task 6.2) */
+    border-radius: 1.125rem 1.125rem 0.25rem 1.125rem;
+    transition: all 0.2s ease;
+    /* White text with text-shadow for sufficient contrast (Requirements 4.5-4.7, 17.1, Task 6.2) */
+    color: white;
+    /* Add subtle text shadow to improve readability and contrast on gradient background */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    padding: 0.875rem 1.125rem !important;
+    max-width: 85%;
+}
+
+.shreeram-user-bubble:hover {
+    box-shadow: 
+        0 4px 12px rgba(255, 122, 0, 0.35),
+        0 2px 4px rgba(255, 122, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+/* Message avatar - Cleaner design */
+.shreeram-msg-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    background: linear-gradient(135deg, rgba(255, 122, 0, 0.15) 0%, rgba(255, 179, 71, 0.15) 100%);
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 
+        0 2px 6px rgba(255, 122, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border: 2px solid rgba(255, 122, 0, 0.25);
+    margin-bottom: auto;
+}
+
+.shreeram-msg-avatar span {
+    font-size: 1rem;
+}
+
+/* ============================================
+   MODERN MESSAGE DISPLAY PATTERNS
+   ============================================ */
+
+/* Welcome Message - Special Styling */
+.shreeram-welcome-message {
+    background: linear-gradient(135deg, rgba(255, 122, 0, 0.15) 0%, rgba(255, 179, 71, 0.1) 100%);
+    border: 2px solid rgba(255, 122, 0, 0.3);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    margin: 1rem 0;
+    position: relative;
+    overflow: hidden;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.shreeram-welcome-message::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, 
+        var(--saffron-primary) 0%, 
+        var(--gold-accent) 50%, 
+        var(--saffron-primary) 100%);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.shreeram-welcome-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #ffb347 !important;
+    margin-bottom: 0.5rem;
+    display: flex !important;
+    align-items: center;
+    gap: 0.5rem;
+    visibility: visible !important;
+}
+
+.shreeram-welcome-title i {
+    font-size: 1.5rem;
+    animation: wave 2s ease-in-out infinite;
+}
+
+@keyframes wave {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+    25% {
+        transform: rotate(20deg);
+    }
+    75% {
+        transform: rotate(-20deg);
+    }
+}
+
+.shreeram-welcome-text {
+    color: #ffffff !important;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    display: block !important;
+    visibility: visible !important;
+}
+
+/* Message Group Container */
+.shreeram-message-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+
+/* Typing Indicator - Enhanced */
+.shreeram-typing-enhanced {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--dark-glass-light);
+    border-radius: 1.25rem;
+    border: 1px solid rgba(255, 122, 0, 0.15);
+    width: fit-content;
+}
+
+.shreeram-typing-enhanced .typing-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--saffron-primary);
+    border-radius: 50%;
+    animation: typingBounce 1.4s infinite ease-in-out;
+}
+
+.shreeram-typing-enhanced .typing-dot:nth-child(1) {
+    animation-delay: 0ms;
+}
+
+.shreeram-typing-enhanced .typing-dot:nth-child(2) {
+    animation-delay: 200ms;
+}
+
+.shreeram-typing-enhanced .typing-dot:nth-child(3) {
+    animation-delay: 400ms;
+}
+
+@keyframes typingBounce {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.7;
+    }
+    30% {
+        transform: translateY(-10px);
+        opacity: 1;
+    }
+}
+
+/* Message with Icon Header */
+.shreeram-message-with-icon {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.shreeram-message-icon-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 122, 0, 0.1);
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 122, 0, 0.2);
+}
+
+.shreeram-message-icon-header i {
+    font-size: 1.5rem;
+    color: var(--saffron-primary);
+}
+
+.shreeram-message-icon-header .title {
+    font-weight: 600;
+    color: var(--saffron-light);
+    font-size: 1rem;
+}
+
+.shreeram-message-icon-header .subtitle {
+    font-size: 0.8125rem;
+    color: rgba(255, 179, 71, 0.7);
+}
+
+/* Inline Action Buttons */
+.shreeram-inline-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+}
+
+.shreeram-inline-btn {
+    padding: 0.5rem 1rem;
+    background: rgba(255, 122, 0, 0.15);
+    border: 1px solid rgba(255, 122, 0, 0.3);
+    border-radius: 1.5rem;
+    color: var(--saffron-light);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.shreeram-inline-btn:hover {
+    background: linear-gradient(135deg, var(--saffron-primary) 0%, var(--saffron-light) 100%);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 122, 0, 0.3);
+}
+
+.shreeram-inline-btn i {
+    font-size: 0.875rem;
+}
+
+/* Quick Reply Pills - See line 1529 for current implementation */
+
+/* Message Footer - Metadata */
+.shreeram-message-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    margin-top: 0.5rem;
+    border-top: 1px solid rgba(255, 122, 0, 0.1);
+    font-size: 0.75rem;
+    color: rgba(255, 179, 71, 0.6);
+}
+
+.shreeram-message-footer .time {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.shreeram-message-footer .actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.shreeram-message-footer .action-icon {
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+    transition: all 0.2s ease;
+}
+
+.shreeram-message-footer .action-icon:hover {
+    background: rgba(255, 122, 0, 0.2);
+    color: var(--saffron-light);
+}
+
+/* Collapsible Message Section */
+.shreeram-collapsible-section {
+    margin: 0.75rem 0;
+}
+
+.shreeram-collapsible-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    background: rgba(255, 122, 0, 0.1);
+    border: 1px solid rgba(255, 122, 0, 0.2);
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.shreeram-collapsible-header:hover {
+    background: rgba(255, 122, 0, 0.15);
+    border-color: rgba(255, 122, 0, 0.3);
+}
+
+.shreeram-collapsible-header .title {
+    font-weight: 600;
+    color: var(--saffron-light);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.shreeram-collapsible-header .toggle-icon {
+    transition: transform 0.3s ease;
+    color: var(--saffron-primary);
+}
+
+.shreeram-collapsible-section.expanded .toggle-icon {
+    transform: rotate(180deg);
+}
+
+.shreeram-collapsible-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    padding: 0 1rem;
+}
+
+.shreeram-collapsible-section.expanded .shreeram-collapsible-content {
+    max-height: 1000px;
+    padding: 1rem;
+}
+
+/* Image Message Display */
+.shreeram-image-message {
+    margin: 0.75rem 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    border: 1px solid rgba(255, 122, 0, 0.2);
+}
+
+.shreeram-image-message img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.shreeram-image-caption {
+    padding: 0.75rem;
+    background: rgba(255, 122, 0, 0.08);
+    color: #e5e5e5;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+/* Link Preview Card */
+.shreeram-link-preview {
+    margin: 0.75rem 0;
+    background: rgba(255, 122, 0, 0.08);
+    border: 1px solid rgba(255, 122, 0, 0.2);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.shreeram-link-preview:hover {
+    background: rgba(255, 122, 0, 0.12);
+    border-color: rgba(255, 122, 0, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 122, 0, 0.2);
+}
+
+.shreeram-link-preview-image {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.shreeram-link-preview-content {
+    padding: 0.875rem;
+}
+
+.shreeram-link-preview-title {
+    font-weight: 600;
+    color: var(--saffron-light);
+    font-size: 0.9375rem;
+    margin-bottom: 0.25rem;
+}
+
+.shreeram-link-preview-description {
+    color: rgba(229, 229, 229, 0.8);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+}
+
+.shreeram-link-preview-url {
+    color: rgba(255, 179, 71, 0.6);
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* Emoji Reaction Bar */
+.shreeram-reaction-bar {
+    display: flex;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.shreeram-reaction {
+    padding: 0.25rem 0.5rem;
+    background: rgba(255, 122, 0, 0.1);
+    border: 1px solid rgba(255, 122, 0, 0.2);
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.shreeram-reaction:hover {
+    background: rgba(255, 122, 0, 0.2);
+    border-color: rgba(255, 122, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.shreeram-reaction.active {
+    background: rgba(255, 122, 0, 0.25);
+    border-color: var(--saffron-primary);
+}
+
+.shreeram-reaction .count {
+    color: var(--saffron-light);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* ============================================
+   TYPING INDICATOR - SAFFRON THEME
+   ============================================ */
+
+.shreeram-typing-container {
+    position: relative;
+    z-index: 1;
+}
+
+.shreeram-typing-avatar {
+    width: 2rem;
+    height: 2rem;
+    background: rgba(255, 122, 0, 0.2);
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.3),
+        0 0 15px rgba(255, 215, 0, 0.3);
+    border: 1px solid rgba(255, 122, 0, 0.3);
+}
+
+.shreeram-typing-bubble {
+    background: var(--dark-glass-light);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 122, 0, 0.15);
+    border-radius: 1.25rem;
+    padding: 0.75rem 1rem;
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+@keyframes bounce {
+    0%, 60%, 100% {
+        transform: translateY(0);
+    }
+    30% {
+        transform: translateY(-10px);
+    }
+}
+
+#chatbot-typing .animate-bounce {
+    animation: bounce 1.4s infinite ease-in-out;
+}
+
+/* ============================================
+   QUICK ACTION CHIPS - MODERN PILL DESIGN
+   ============================================ */
+
+.shreeram-chip {
+    background: white;
+    backdrop-filter: blur(10px);
+    border: 1.5px solid rgba(255, 122, 0, 0.25);
+    border-radius: 2rem;
+    padding: 0.625rem 1.125rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--saffron-primary);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+}
+
+.shreeram-chip:hover {
+    background: linear-gradient(135deg, var(--saffron-primary) 0%, var(--saffron-light) 100%);
+    color: white;
+    border-color: var(--saffron-primary);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 
+        0 4px 12px rgba(255, 122, 0, 0.3),
+        0 2px 6px rgba(255, 122, 0, 0.2);
+}
+
+.shreeram-chip:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* ============================================
+   NAVIGATION LINKS - CLEAN BUTTON STYLE
+   ============================================ */
+
+.shreeram-nav-link {
+    background: white;
+    backdrop-filter: blur(10px);
+    border: 1.5px solid rgba(255, 122, 0, 0.2);
+    border-radius: 0.875rem;
+    padding: 0.875rem 1.125rem;
+    color: var(--saffron-primary);
+    font-weight: 500;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    text-decoration: none;
+}
+
+.shreeram-nav-link:hover {
+    background: linear-gradient(135deg, var(--saffron-primary) 0%, var(--saffron-light) 100%);
+    color: white;
+    border-color: var(--saffron-primary);
+    transform: translateX(4px);
+    box-shadow: 
+        0 4px 12px rgba(255, 122, 0, 0.3),
+        0 2px 6px rgba(255, 122, 0, 0.2);
+}
+
+.shreeram-nav-link i {
+    transition: transform 0.25s ease;
+    font-size: 1rem;
+}
+
+.shreeram-nav-link:hover i.fa-arrow-right {
+    transform: translateX(3px);
+}
+
+/* ============================================
+   INPUT AREA - DARK THEME
+   ============================================ */
+
+.shreeram-input-container {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 122, 0, 0.2);
+    position: relative;
+    z-index: 1;
+    /* Rounded bottom corners to match window border-radius */
+    border-radius: 0 0 1rem 1rem;
+}
+
+.shreeram-input {
+    width: 100%;
+    height: 3rem;
+    background: rgba(30, 30, 30, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 122, 0, 0.2);
+    border-radius: 1.5rem;
+    padding: 0 1.25rem;
+    color: #f5f5f5;
+    font-size: 0.9375rem;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.shreeram-input::placeholder {
+    color: rgba(255, 179, 71, 0.5);
+}
+
+.shreeram-input:focus {
+    outline: none;
+    background: rgba(30, 30, 30, 0.95);
+    border-color: var(--saffron-primary);
+    box-shadow: 
+        0 0 0 3px rgba(255, 122, 0, 0.2),
+        0 0 20px rgba(255, 122, 0, 0.3),
+        inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Character count badge */
+#chatbot-char-count {
+    animation: fadeIn 0.2s ease;
+}
+
+#chatbot-char-count span {
+    background: rgba(255, 122, 0, 0.2);
+    color: var(--saffron-light);
+    border: 1px solid rgba(255, 122, 0, 0.3);
+}
+
+#chatbot-char-count.text-red-500 span {
+    background: rgba(220, 38, 38, 0.2);
+    color: #fca5a5;
+    border-color: rgba(220, 38, 38, 0.4);
+    font-weight: 600;
+}
+
+/* ============================================
+   SEND BUTTON - SAFFRON GLOW
+   ============================================ */
+
+.shreeram-send-btn {
+    width: 3.5rem;
+    height: 3.5rem;
+    background: linear-gradient(135deg, var(--saffron-primary) 0%, var(--saffron-light) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 
+        0 4px 12px rgba(255, 122, 0, 0.4),
+        0 0 20px rgba(255, 122, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+
+.shreeram-send-btn:not(:disabled):hover {
+    transform: scale(1.15) translateY(-2px);
+    box-shadow: 
+        0 8px 20px rgba(255, 122, 0, 0.5),
+        0 0 30px rgba(255, 122, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.shreeram-send-btn:not(:disabled):active {
+    transform: scale(1.08);
+}
+
+.shreeram-send-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+    background: rgba(255, 122, 0, 0.3);
+    box-shadow: none;
+}
+
+/* ============================================
+   SMOOTH SCROLLING
+   ============================================ */
+
+#chatbot-messages {
+    scroll-behavior: smooth;
+}
+
+/* ============================================
+   FOCUS INDICATORS (Accessibility)
+   ============================================ */
+
+.shreeram-float-btn:focus,
+.shreeram-close-btn:focus,
+.shreeram-send-btn:focus,
+.shreeram-input:focus {
+    outline: none;
+}
+
+.shreeram-float-btn:focus-visible {
+    box-shadow: 
+        0 20px 40px rgba(255, 122, 0, 0.5),
+        0 0 60px rgba(255, 122, 0, 0.4),
+        0 0 0 4px rgba(255, 122, 0, 0.3);
+}
+
+/* ============================================
+   FADE IN ANIMATION
+   ============================================ */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* ============================================
+   MESSAGE TIMESTAMP
+   ============================================ */
+
+.message-timestamp {
+    font-size: 0.6875rem;
+    color: rgba(107, 114, 128, 0.7);
+    margin-top: 0.375rem;
+    opacity: 1;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+/* ============================================
+   MODERN MESSAGE DISPLAY PATTERNS
+   ============================================ */
+
+/* Welcome Message - Special Styling */
+.shreeram-welcome-message {
+    background: linear-gradient(135deg, rgba(255, 122, 0, 0.08) 0%, rgba(255, 179, 71, 0.05) 100%);
+    border: 2px solid rgba(255, 122, 0, 0.2);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    margin: 0.5rem 0 1rem 0;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(255, 122, 0, 0.1);
+}
+
+.shreeram-welcome-message::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, 
+        var(--saffron-primary) 0%, 
+        var(--gold-accent) 50%, 
+        var(--saffron-primary) 100%);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.shreeram-welcome-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--saffron-primary);
+    margin-bottom: 0.625rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.shreeram-welcome-title i {
+    font-size: 1.5rem;
+    animation: wave 2s ease-in-out infinite;
+}
+
+@keyframes wave {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+    25% {
+        transform: rotate(20deg);
+    }
+    75% {
+        transform: rotate(-20deg);
+    }
+}
+
+.shreeram-welcome-text {
+    color: #4a5568;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    margin-bottom: 0;
+}
+
+/* Quick Reply Pills - Enhanced Modern Style */
+.shreeram-quick-replies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.875rem;
+    padding: 0;
+}
+
+.shreeram-quick-reply-pill {
+    padding: 0.625rem 1.125rem;
+    min-height: 2.75rem; /* Ensures 44px minimum touch target */
+    background: white;
+    border: 1.5px solid rgba(255, 122, 0, 0.25);
+    border-radius: 2rem;
+    color: var(--saffron-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.shreeram-quick-reply-pill:hover {
+    background: linear-gradient(135deg, var(--saffron-primary) 0%, var(--saffron-light) 100%);
+    color: white;
+    border-color: var(--saffron-primary);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 
+        0 4px 12px rgba(255, 122, 0, 0.3),
+        0 2px 6px rgba(255, 122, 0, 0.2);
+}
+
+.shreeram-quick-reply-pill:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 768px) {
+    #chatbot-window {
+        width: 95vw;
+        height: 80vh;
+        max-width: none;
+        max-height: none;
+        bottom: 5rem;
+        right: 2.5vw;
+    }
+    
+    .shreeram-float-btn {
+        /* Mobile size: 72x72px (min 48x48px touch target) (Requirements 10.7, 13.3) */
+        width: 4.5rem;
+        height: 4.5rem;
+        border-radius: 50%;
+    }
+    
+    .shreeram-chip,
+    .shreeram-nav-link {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+@media (max-width: 480px) {
+    #chatbot-window {
+        width: 100vw;
+        height: 100vh;
+        bottom: 0;
+        right: 0;
+        border-radius: 0;
+    }
+}
+
+/* ============================================
+   GPU ACCELERATION
+   ============================================ */
+
+#chatbot-window,
+.shreeram-float-btn,
+#chatbot-messages > div,
+.shreeram-chip,
+.shreeram-nav-link {
+    will-change: transform, opacity;
+}
+
+/* Remove will-change after animation completes */
+#chatbot-window.animation-complete,
+.shreeram-float-btn.animation-complete,
+#chatbot-messages > div.animation-complete {
+    will-change: auto;
+}
+
+/* ============================================
+   PREVENT TEXT SELECTION ON UI ELEMENTS
+   ============================================ */
+
+.shreeram-float-btn,
+.shreeram-close-btn,
+.shreeram-send-btn,
+.shreeram-chip {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+}
+
+/* ============================================
+   HIGH CONTRAST MODE SUPPORT
+   ============================================ */
+
+@media (prefers-contrast: high) {
+    .shreeram-float-btn,
+    .shreeram-send-btn {
+        border: 2px solid currentColor;
+    }
+    
+    .shreeram-bot-bubble,
+    .shreeram-user-bubble {
+        border: 2px solid currentColor;
+    }
+}
+
+/* ============================================
+   REDUCED MOTION SUPPORT
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    #chatbot-window,
+    #chatbot-messages > div,
+    .shreeram-float-btn,
+    .shreeram-chip,
+    .shreeram-nav-link,
+    .om-symbol,
+    .shreeram-avatar,
+    .shreeram-particles::before,
+    .shreeram-particles::after {
+        animation: none;
+        transition: none;
+    }
+    
+    #chatbot-messages {
+        scroll-behavior: auto;
+    }
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+    #shreeram-chatbot {
+        display: none !important;
+    }
+}
+
+/* ============================================
+   LOADING STATE
+   ============================================ */
+
+.chatbot-loading {
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+/* ============================================
+   PROFESSIONAL BOX DESIGN PATTERNS
+   ============================================ */
+
+/* Card Container - Premium Box Design */
+.shreeram-card {
+    background: var(--dark-glass-light);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 122, 0, 0.2);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    margin: 0.75rem 0;
+    box-shadow: 
+        0 4px 16px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(255, 122, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.shreeram-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        var(--saffron-primary) 50%, 
+        transparent 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.shreeram-card:hover {
+    border-color: rgba(255, 122, 0, 0.4);
+    box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.4),
+        0 0 30px rgba(255, 122, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
+}
+
+.shreeram-card:hover::before {
+    opacity: 1;
+}
+
+/* Card Header */
+.shreeram-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255, 122, 0, 0.15);
+}
+
+.shreeram-card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--saffron-light);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.shreeram-card-title i {
+    color: var(--saffron-primary);
+    font-size: 1.125rem;
+}
+
+/* Card Body */
+.shreeram-card-body {
+    color: #e5e5e5;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+}
+
+/* Card Footer */
+.shreeram-card-footer {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 122, 0, 0.1);
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Info Box - Highlighted Information */
+.shreeram-info-box {
+    background: rgba(59, 130, 246, 0.1);
+    border-left: 3px solid #3b82f6;
+    border-radius: 0.5rem;
+    padding: 0.875rem 1rem;
+    margin: 0.75rem 0;
+    color: #93c5fd;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.shreeram-info-box i {
+    margin-right: 0.5rem;
+    color: #60a5fa;
+}
+
+/* Success Box */
+.shreeram-success-box {
+    background: rgba(34, 197, 94, 0.1);
+    border-left: 3px solid #22c55e;
+    border-radius: 0.5rem;
+    padding: 0.875rem 1rem;
+    margin: 0.75rem 0;
+    color: #86efac;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
+}
+
+.shreeram-success-box i {
+    margin-right: 0.5rem;
+    color: #4ade80;
+}
+
+/* Warning Box */
+.shreeram-warning-box {
+    background: rgba(251, 191, 36, 0.1);
+    border-left: 3px solid #fbbf24;
+    border-radius: 0.5rem;
+    padding: 0.875rem 1rem;
+    margin: 0.75rem 0;
+    color: #fde68a;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.1);
+}
+
+.shreeram-warning-box i {
+    margin-right: 0.5rem;
+    color: #fcd34d;
+}
+
+/* List Container - Professional List Design */
+.shreeram-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.75rem 0;
+}
+
+.shreeram-list-item {
+    background: rgba(255, 122, 0, 0.05);
+    border: 1px solid rgba(255, 122, 0, 0.15);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.shreeram-list-item:hover {
+    background: rgba(255, 122, 0, 0.1);
+    border-color: rgba(255, 122, 0, 0.3);
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(255, 122, 0, 0.2);
+}
+
+.shreeram-list-item i {
+    color: var(--saffron-primary);
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.shreeram-list-item-content {
+    flex: 1;
+    color: #e5e5e5;
+    font-size: 0.9375rem;
+}
+
+.shreeram-list-item-badge {
+    background: rgba(255, 122, 0, 0.2);
+    color: var(--saffron-light);
+    padding: 0.25rem 0.625rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid rgba(255, 122, 0, 0.3);
+}
+
+/* Grid Layout - Professional Grid System */
+.shreeram-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+}
+
+.shreeram-grid-item {
+    background: rgba(255, 122, 0, 0.08);
+    border: 1px solid rgba(255, 122, 0, 0.2);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.shreeram-grid-item:hover {
+    background: rgba(255, 122, 0, 0.15);
+    border-color: rgba(255, 122, 0, 0.4);
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(255, 122, 0, 0.2);
+}
+
+.shreeram-grid-item i {
+    font-size: 1.75rem;
+    color: var(--saffron-primary);
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.shreeram-grid-item-label {
+    color: #e5e5e5;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Divider - Professional Section Separator */
+.shreeram-divider {
+    height: 1px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 122, 0, 0.3) 50%, 
+        transparent 100%);
+    margin: 1.25rem 0;
+    position: relative;
+}
+
+.shreeram-divider-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--dark-glass);
+    padding: 0 1rem;
+    color: rgba(255, 179, 71, 0.7);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Badge - Status Indicators */
+.shreeram-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid;
+    backdrop-filter: blur(10px);
+}
+
+.shreeram-badge-primary {
+    background: rgba(255, 122, 0, 0.2);
+    color: var(--saffron-light);
+    border-color: rgba(255, 122, 0, 0.4);
+}
+
+.shreeram-badge-success {
+    background: rgba(34, 197, 94, 0.2);
+    color: #86efac;
+    border-color: rgba(34, 197, 94, 0.4);
+}
+
+.shreeram-badge-info {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.shreeram-badge-warning {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fde68a;
+    border-color: rgba(251, 191, 36, 0.4);
+}
+
+/* Progress Bar - Visual Progress Indicator */
+.shreeram-progress {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 1rem;
+    height: 0.5rem;
+    overflow: hidden;
+    margin: 0.75rem 0;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.shreeram-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--saffron-primary) 0%, var(--saffron-light) 100%);
+    border-radius: 1rem;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 10px rgba(255, 122, 0, 0.5);
+    position: relative;
+    overflow: hidden;
+}
+
+.shreeram-progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.3) 50%, 
+        transparent 100%);
+    animation: progressShine 2s infinite;
+}
+
+@keyframes progressShine {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Stat Box - Metric Display */
+.shreeram-stat-box {
+    background: rgba(255, 122, 0, 0.08);
+    border: 1px solid rgba(255, 122, 0, 0.2);
+    border-radius: 0.875rem;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.shreeram-stat-box:hover {
+    border-color: rgba(255, 122, 0, 0.4);
+    box-shadow: 0 4px 12px rgba(255, 122, 0, 0.2);
+    transform: translateY(-2px);
+}
+
+.shreeram-stat-value {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: var(--saffron-light);
+    line-height: 1;
+    margin-bottom: 0.375rem;
+    background: linear-gradient(135deg, var(--saffron-primary) 0%, var(--gold-accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.shreeram-stat-label {
+    font-size: 0.8125rem;
+    color: rgba(255, 179, 71, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+/* Action Button Group */
+.shreeram-btn-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.75rem 0;
+}
+
+.shreeram-btn {
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1px solid;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    backdrop-filter: blur(10px);
+}
+
+.shreeram-btn-primary {
+    background: linear-gradient(135deg, var(--saffron-primary) 0%, var(--saffron-light) 100%);
+    color: white;
+    border-color: var(--saffron-primary);
+    box-shadow: 0 2px 8px rgba(255, 122, 0, 0.3);
+}
+
+.shreeram-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 122, 0, 0.4);
+}
+
+.shreeram-btn-secondary {
+    background: rgba(255, 122, 0, 0.15);
+    color: var(--saffron-light);
+    border-color: rgba(255, 122, 0, 0.3);
+}
+
+.shreeram-btn-secondary:hover {
+    background: rgba(255, 122, 0, 0.25);
+    border-color: rgba(255, 122, 0, 0.5);
+    transform: translateY(-2px);
+}
+
+/* Timeline - Event Timeline Display */
+.shreeram-timeline {
+    position: relative;
+    padding-left: 2rem;
+    margin: 1rem 0;
+}
+
+.shreeram-timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.5rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, 
+        var(--saffron-primary) 0%, 
+        rgba(255, 122, 0, 0.3) 100%);
+}
+
+.shreeram-timeline-item {
+    position: relative;
+    padding-bottom: 1.5rem;
+}
+
+.shreeram-timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -1.5rem;
+    top: 0.25rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: var(--saffron-primary);
+    border: 2px solid var(--dark-glass);
+    box-shadow: 0 0 10px rgba(255, 122, 0, 0.5);
+}
+
+.shreeram-timeline-content {
+    background: rgba(255, 122, 0, 0.08);
+    border: 1px solid rgba(255, 122, 0, 0.2);
+    border-radius: 0.75rem;
+    padding: 0.875rem 1rem;
+    color: #e5e5e5;
+    font-size: 0.875rem;
+}
+
+.shreeram-timeline-time {
+    color: rgba(255, 179, 71, 0.6);
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+/* Accordion - Collapsible Content */
+.shreeram-accordion {
+    margin: 0.75rem 0;
+}
+
+.shreeram-accordion-item {
+    background: rgba(255, 122, 0, 0.05);
+    border: 1px solid rgba(255, 122, 0, 0.15);
+    border-radius: 0.75rem;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+}
+
+.shreeram-accordion-header {
+    padding: 0.875rem 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--saffron-light);
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.shreeram-accordion-header:hover {
+    background: rgba(255, 122, 0, 0.1);
+}
+
+.shreeram-accordion-header i {
+    transition: transform 0.3s ease;
+}
+
+.shreeram-accordion-item.active .shreeram-accordion-header i {
+    transform: rotate(180deg);
+}
+
+.shreeram-accordion-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    color: #e5e5e5;
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+
+.shreeram-accordion-item.active .shreeram-accordion-body {
+    max-height: 500px;
+    padding: 0 1rem 1rem 1rem;
+}
+
+/* Tag Cloud - Topic Tags */
+.shreeram-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+}
+
+.shreeram-tag {
+    background: rgba(255, 122, 0, 0.15);
+    color: var(--saffron-light);
+    padding: 0.375rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border: 1px solid rgba(255, 122, 0, 0.25);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.shreeram-tag:hover {
+    background: rgba(255, 122, 0, 0.25);
+    border-color: rgba(255, 122, 0, 0.4);
+    transform: translateY(-1px);
+}

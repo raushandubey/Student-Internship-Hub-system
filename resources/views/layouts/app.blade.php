@@ -474,7 +474,7 @@
                         @endif
                         
                         @if(auth()->user()->isAdmin())
-                            <a href="{{ route('internships.index') }}" class="nav-link">
+                            <a href="{{ route('admin.internships.index') }}" class="nav-link">
                                 <i class="fas fa-cogs me-2"></i>Manage Internships
                             </a>
                         @endif
@@ -510,7 +510,7 @@
                     @endif
                     
                     @if(auth()->user()->isAdmin())
-                        <a href="{{ route('internships.index') }}" class="mobile-nav-link">
+                        <a href="{{ route('admin.internships.index') }}" class="mobile-nav-link">
                             <i class="fas fa-cogs me-2"></i>Manage Internships
                         </a>
                     @endif
@@ -644,5 +644,12 @@
         `;
         document.head.appendChild(style);
     </script>
+
+    {{-- ShreeRam AI Guide Chatbot (only for authenticated students) --}}
+    @auth
+        @if(auth()->user()->isStudent())
+            @include('components.chatbot')
+        @endif
+    @endauth
 </body>
 </html>

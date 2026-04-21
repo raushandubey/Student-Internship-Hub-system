@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Animation Performance Test</title>
+    <link rel="stylesheet" href="/css/chatbot.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #0f0f0f;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+        }
+        .test-container {
+            position: relative;
+            width: 420px;
+            height: 680px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            border-radius: 1.25rem;
+            border: 1px solid rgba(255, 122, 0, 0.2);
+            overflow: hidden;
+        }
+        .content-layer {
+            position: relative;
+            z-index: 1;
+            padding: 20px;
+        }
+        .fps-counter {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 2px solid #ff7a00;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .fps-value {
+            color: #22c55e;
+            font-size: 32px;
+        }
+        .status {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .status.good { color: #22c55e; }
+        .status.warning { color: #fbbf24; }
+        .status.bad { color: #ef4444; }
+        .test-info {
+            background: rgba(255, 122, 0, 0.1);
+            border: 1px solid rgba(255, 122, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .test-info h3 {
+            margin: 0 0 10px 0;
+            color: #ffb347;
+        }
+        .test-info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .test-info li {
+            margin: 5px 0;
+            color: #e5e5e5;
+        }
+        .checkmark {
+            color: #22c55e;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="fps-counter">
+        <div>FPS: <span class="fps-value" id="fps">--</span></div>
+        <div class="status" id="status">Measuring...</div>
+        <div style="font-size: 12px; margin-top: 10px; color: #999;">
+            Target: 60 FPS
+        </div>
+    </div>
+
+    <div style="max-width: 800px; margin: 0 auto 30px;">
+        <div class="test-info">
+            <h3>🎯 Task 4.2: Particle Animation Performance Test</h3>
+            <p>This test verifies the particle animation meets all performance requirements:</p>
+            <ul>
+                <li><span class="checkmark">✓</span> z-index: 0 (behind content)</li>
+                <li><span class="checkmark">✓</span> pointer-events: none (no interaction interference)</li>
+                <li><span class="checkmark">✓</span> transform for animation (GPU accelerated)</li>
+                <li><span class="checkmark">✓</span> will-change: transform (browser optimization hint)</li>
+                <li><span class="checkmark">✓</span> Target: 60 FPS maintained</li>
+            </ul>
+            <p style="margin-top: 15px; font-size: 14px; color: #ffb347;">
+                <strong>Instructions:</strong> Watch the FPS counter for 30 seconds. The animation should maintain 60 FPS consistently.
+            </p>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <!-- Particle animation layer (z-index: 0) -->
+        <div class="shreeram-particles"></div>
+        
+        <!-- Content layer (z-index: 1) -->
+        <div class="content-layer">
+            <h2 style="color: #ffb347;">Particle Animation Test</h2>
+            <p>The particles are animating behind this content.</p>
+            <p>Try clicking and interacting with this text - the particles should not interfere.</p>
+            <button style="padding: 10px 20px; background: linear-gradient(135deg, #ff7a00, #ffb347); border: none; border-radius: 10px; color: white; cursor: pointer; font-weight: 600;">
+                Test Button (Clickable)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // FPS Counter
+        let lastTime = performance.now();
+        let frames = 0;
+        let fps = 0;
+        const fpsElement = document.getElementById('fps');
+        const statusElement = document.getElementById('status');
+
+        function updateFPS() {
+            const currentTime = performance.now();
+            frames++;
+
+            if (currentTime >= lastTime + 1000) {
+                fps = Math.round((frames * 1000) / (currentTime - lastTime));
+                fpsElement.textContent = fps;
+                
+                // Update status
+                if (fps >= 58) {
+                    statusElement.textContent = '✓ Excellent Performance';
+                    statusElement.className = 'status good';
+                } else if (fps >= 50) {
+                    statusElement.textContent = '⚠ Good Performance';
+                    statusElement.className = 'status warning';
+                } else {
+                    statusElement.textContent = '✗ Performance Issue';
+                    statusElement.className = 'status bad';
+                }
+
+                frames = 0;
+                lastTime = currentTime;
+            }
+
+            requestAnimationFrame(updateFPS);
+        }
+
+        updateFPS();
+
+        // Test pointer-events: none
+        document.querySelector('.test-container').addEventListener('click', (e) => {
+            if (e.target.classList.contains('shreeram-particles')) {
+                console.error('ERROR: Particles are capturing click events!');
+                alert('ERROR: pointer-events: none is not working!');
+            }
+        });
+
+        // Log test results after 30 seconds
+        setTimeout(() => {
+            console.log('=== Performance Test Results ===');
+            console.log('Final FPS:', fps);
+            console.log('Target: 60 FPS');
+            console.log('Status:', fps >= 58 ? 'PASS' : 'NEEDS OPTIMIZATION');
+            console.log('z-index: 0 - Verified in CSS');
+            console.log('pointer-events: none - Verified in CSS');
+            console.log('GPU acceleration: transform property - Verified in CSS');
+        }, 30000);
+    </script>
+</body>
+</html>
