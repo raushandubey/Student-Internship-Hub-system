@@ -80,7 +80,7 @@
                             required>
                             <option value="" disabled selected>Choose your role</option>
                             <option value="student" {{ old('role') == 'student' ? 'selected' : '' }}>Student</option>
-                            <option value="admin" {{ old('role') == 'admin' ? 'selected' : '' }}>Admin</option> 
+                            <!-- <option value="admin" {{ old('role') == 'admin' ? 'selected' : '' }}>Admin</option>  -->
                         </select>
                         <i class="fas fa-chevron-down select-arrow"></i>
                     </div>
