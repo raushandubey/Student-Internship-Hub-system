@@ -63,10 +63,10 @@
                         <!-- Application Header -->
                         <div class="app-header">
                             <div class="app-info">
-                                <h3 class="app-title">{{ $application->internship->title }}</h3>
+                                <h3 class="app-title">{{ $application->internship->title ?? 'Internship No Longer Available' }}</h3>
                                 <p class="app-org">
                                     <i class="fas fa-building"></i>
-                                    {{ $application->internship->organization }}
+                                    {{ $application->internship->organization ?? 'N/A' }}
                                 </p>
                                 <p class="app-date">
                                     <i class="fas fa-calendar"></i>

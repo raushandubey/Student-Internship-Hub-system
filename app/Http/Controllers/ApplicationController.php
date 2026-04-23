@@ -63,20 +63,47 @@ class ApplicationController extends Controller
     /**
      * View student's own applications (Application Tracker)
      * Phase 8: Enhanced with timeline predictions
+     * Production Fix: Filter out applications with deleted internships
      */
     public function myApplications()
     {
-        $applications = $this->applicationService->getUserApplications(Auth::id());
-        
-        // Add timeline data to each application
-        $applicationsWithTimeline = $applications->map(function ($app) {
-            $app->timeline = $this->timelineService->getApplicationTimeline($app);
-            return $app;
-        });
+        try {
+            $applications = $this->applicationService->getUserApplications(Auth::id());
+            
+            // CRITICAL FIX: Filter out applications with null internships
+            $validApplications = $applications->filter(function ($app) {
+                return $app->internship !== null;
+            });
+            
+            // Add timeline data to each application
+            $applicationsWithTimeline = $validApplications->map(function ($app) {
+                try {
+                    $app->timeline = $this->timelineService->getApplicationTimeline($app);
+                } catch (\Exception $e) {
+                    // If timeline fails, set empty timeline
+                    \Log::warning('Timeline generation failed', [
+                        'application_id' => $app->id,
+                        'error' => $e->getMessage()
+                    ]);
+                    $app->timeline = ['prediction' => null];
+                }
+                return $app;
+            });
 
-        return view('student.application-tracker', [
-            'applications' => $applicationsWithTimeline,
-        ]);
+            return view('student.application-tracker', [
+                'applications' => $applicationsWithTimeline,
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('My Applications page error', [
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->route('dashboard')
+                ->with('error', 'Unable to load applications. Please try again or contact support.');
+        }
     }
 
     /**

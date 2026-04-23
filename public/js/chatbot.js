@@ -260,15 +260,28 @@
             this.elements.input.value = '';
             this.validateInput();
             
-            // Process message
+            // PRODUCTION FIX: Add comprehensive error handling
             try {
                 await this.MessageHandler.process(text);
             } catch (error) {
                 console.error('[ShreeRam Chatbot] Message processing error:', error);
+                
+                // Hide typing indicator if shown
+                this.hideTyping();
+                
+                // Show user-friendly error message
                 this.displayMessage({
                     type: 'bot',
-                    text: "I'm having trouble right now. Please try again or contact support.",
-                    timestamp: new Date()
+                    text: "I apologize, but I'm having trouble processing your message right now. Please try:\n\n• Refreshing the page\n• Asking a simpler question\n• Using the quick reply buttons below",
+                    timestamp: new Date(),
+                    quickReplies: ['How to Apply', 'Resume Tips', 'Track Applications', 'Profile Help']
+                });
+                
+                // Log error for debugging
+                this.logAnalytics('chatbot_error', {
+                    error: error.message,
+                    stack: error.stack,
+                    userMessage: text
                 });
             }
         },
@@ -555,11 +568,13 @@
             await this.delay(400);
             this.hideTyping();
 
-            const p = window.chatbotUserProfile;
-            const name = p ? p.name.split(' ')[0] : null;
-            const completion = p ? p.profileCompletion : null;
+            // PRODUCTION FIX: Safe profile access with fallbacks
+            const p = window.chatbotUserProfile || {};
+            const name = p.name ? p.name.split(' ')[0] : null;
+            const completion = typeof p.profileCompletion === 'number' ? p.profileCompletion : null;
 
             let text = '🙏 Jai Shree Ram! I am ShreeRam AI, your personal career assistant. How can I help you today?';
+            
             if (name && completion !== null) {
                 text = `🙏 Jai Shree Ram, ${name}! I am ShreeRam AI, your personal career assistant.\n\nYour profile is ${completion}% complete. Ask me about resume tips, skills to learn, or job application strategy — I'll give you advice based on your profile!`;
             }
