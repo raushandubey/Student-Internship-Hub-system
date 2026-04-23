@@ -281,13 +281,11 @@ class S3StorageIntegrationTest extends TestCase
             'resume_path' => 'resumes/nonexistent_file.pdf'
         ]);
         
-        // Get resume URL - should fall back to route-based serving
+        // Get resume URL - should return null for missing files
         $url = $profile->getResumeUrl();
         
-        // With the current implementation, it falls back to route serving
-        // So URL is not null, but contains the route
-        $this->assertNotNull($url);
-        $this->assertStringContainsString('resume/serve', $url);
+        // New architecture: returns null for missing files (no fallback route)
+        $this->assertNull($url);
         
         // Verify hasResumeFile returns false
         $this->assertFalse($profile->hasResumeFile());

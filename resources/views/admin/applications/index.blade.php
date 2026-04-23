@@ -560,7 +560,7 @@ function renderProfileData(data) {
         aiSummarySection.classList.add('hidden');
     }
     
-    // Resume
+    // Resume - Handle direct S3 URLs with proper error handling
     const resumePreview = document.getElementById('resumePreview');
     const resumeNotFound = document.getElementById('resumeNotFound');
     
@@ -568,17 +568,20 @@ function renderProfileData(data) {
         const resumeIframe = document.getElementById('resumeIframe');
         const resumeDownload = document.getElementById('resumeDownload');
         
-        // Append #toolbar=0 for cleaner PDF display in browsers
-        resumeIframe.src = profile.resume_path + '#toolbar=0';
+        // Direct S3 URL - no modifications needed
+        resumeIframe.src = profile.resume_path;
         resumeDownload.href = profile.resume_path;
-        resumeDownload.download = profile.resume_path.split('/').pop();
-
+        resumeDownload.download = profile.resume_path.split('/').pop().split('?')[0]; // Remove query params from filename
+        
         // Handle iframe load errors gracefully
-        resumeIframe.onerror = function() {
+        resumeIframe.addEventListener('error', function() {
+            console.error('Resume iframe failed to load');
             resumeIframe.style.display = 'none';
-            resumeDownload.insertAdjacentHTML('beforebegin', 
-                '<p class="text-sm text-gray-500 italic mb-2">Preview unavailable — use the download button below.</p>');
-        };
+            const errorMsg = document.createElement('p');
+            errorMsg.className = 'text-sm text-red-500 italic mb-2';
+            errorMsg.textContent = 'Preview unavailable — use the download button below.';
+            resumeDownload.parentNode.insertBefore(errorMsg, resumeDownload);
+        });
         
         resumePreview.classList.remove('hidden');
         resumeNotFound.classList.add('hidden');

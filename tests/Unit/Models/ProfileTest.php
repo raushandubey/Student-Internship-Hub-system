@@ -64,7 +64,7 @@ class ProfileTest extends TestCase
     }
 
     /** @test */
-    public function test_get_resume_url_returns_fallback_route_when_file_not_found_on_s3()
+    public function test_get_resume_url_returns_null_when_file_not_found_on_s3()
     {
         // Arrange
         config(['filesystems.default' => 's3']);
@@ -76,10 +76,8 @@ class ProfileTest extends TestCase
         // Act
         $url = $this->profile->getResumeUrl();
         
-        // Assert - Should fall back to route-based serving
-        $this->assertNotNull($url);
-        $this->assertStringContainsString('resume/serve', $url);
-        $this->assertStringContainsString('nonexistent.pdf', $url);
+        // Assert - Should return null for missing files (no fallback route)
+        $this->assertNull($url);
     }
 
     /** @test */

@@ -108,9 +108,9 @@ Route::middleware(['auth'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-// Resume Management - Accessible to authenticated users (students can view their own, admins can view all)
+// Resume Management - API endpoints only (NO file serving through Laravel)
 Route::middleware(['auth'])->prefix('resume')->name('resume.')->group(function () {
-    Route::get('/serve/{filename}', [\App\Http\Controllers\ResumeController::class, 'serve'])->name('serve');
+    Route::get('/url/{profileId}', [\App\Http\Controllers\ResumeController::class, 'getUrl'])->name('url');
     Route::get('/download/{profileId}', [\App\Http\Controllers\ResumeController::class, 'download'])->name('download');
     Route::get('/check/{profileId}', [\App\Http\Controllers\ResumeController::class, 'check'])->name('check');
 });

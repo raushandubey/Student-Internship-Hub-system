@@ -29,8 +29,12 @@ class Profile extends Model
     }
 
     /**
-     * Get the public URL for the resume file
-     * PRODUCTION-SAFE: Handles both S3 and local storage with multiple fallback strategies
+     * Get the direct URL for the resume file
+     * 
+     * ARCHITECTURE: Direct S3 URLs - NO Laravel routing for file serving
+     * - S3: Returns signed URL directly from storage (only if file exists)
+     * - Local: Returns public storage URL (only if file exists)
+     * - Returns null if file doesn't exist
      */
     public function getResumeUrl(): ?string
     {
@@ -40,44 +44,54 @@ class Profile extends Model
 
         try {
             $disk = config('filesystems.default');
+            $normalizedPath = ltrim($this->resume_path, '/');
             
-            // Strategy 1: S3 Storage (Production)
+            // S3 Storage (Production) - Check existence then generate URL
             if ($disk === 's3') {
-                if (\Illuminate\Support\Facades\Storage::disk('s3')->exists($this->resume_path)) {
-                    // Try to generate a temporary signed URL with 1 hour expiration
-                    // This provides better security and handles private buckets
-                    try {
-                        return \Illuminate\Support\Facades\Storage::disk('s3')
-                            ->temporaryUrl($this->resume_path, now()->addHour());
-                    } catch (\Exception $e) {
-                        // If temporaryUrl fails (e.g., bucket is public), fall back to regular URL
-                        \Log::debug('Falling back to regular S3 URL', [
-                            'profile_id' => $this->id,
-                            'error' => $e->getMessage()
-                        ]);
-                        return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->resume_path);
-                    }
+                // Check if file exists on S3 first
+                if (!\Illuminate\Support\Facades\Storage::disk('s3')->exists($normalizedPath)) {
+                    \Log::warning('Resume file not found on S3', [
+                        'profile_id' => $this->id,
+                        'resume_path' => $normalizedPath
+                    ]);
+                    return null;
+                }
+                
+                try {
+                    // Generate temporary signed URL (1 hour expiration) for private buckets
+                    return \Illuminate\Support\Facades\Storage::disk('s3')
+                        ->temporaryUrl($normalizedPath, now()->addHour());
+                } catch (\Exception $e) {
+                    // Fallback to regular URL for public buckets
+                    \Log::debug('Using regular S3 URL', [
+                        'profile_id' => $this->id,
+                        'error' => $e->getMessage()
+                    ]);
+                    return \Illuminate\Support\Facades\Storage::disk('s3')->url($normalizedPath);
                 }
             }
             
-            // Strategy 2: Public disk (Local/Development)
-            $normalizedPath = ltrim($this->resume_path, '/');
-            
+            // Local/Public Storage (Development) - Check existence then generate URL
             if (\Illuminate\Support\Facades\Storage::disk('public')->exists($normalizedPath)) {
                 return \Illuminate\Support\Facades\Storage::disk('public')->url($normalizedPath);
             }
             
-            // Strategy 3: Direct filesystem check
+            // Direct filesystem check (fallback for symlink issues)
             $fullPath = storage_path('app/public/' . $normalizedPath);
             if (file_exists($fullPath)) {
                 return asset('storage/' . $normalizedPath);
             }
             
-            // Strategy 4: Route-based serving (fallback for missing symlink)
-            return route('resume.serve', ['filename' => basename($normalizedPath)]);
+            // File not found - return null
+            \Log::warning('Resume file not found', [
+                'profile_id' => $this->id,
+                'resume_path' => $this->resume_path
+            ]);
+            
+            return null;
             
         } catch (\Exception $e) {
-            \Log::warning('Resume URL generation failed', [
+            \Log::error('Resume URL generation failed', [
                 'profile_id' => $this->id,
                 'resume_path' => $this->resume_path,
                 'error' => $e->getMessage()
