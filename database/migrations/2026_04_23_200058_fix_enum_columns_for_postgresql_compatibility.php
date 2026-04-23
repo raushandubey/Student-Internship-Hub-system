@@ -11,59 +11,86 @@ return new class extends Migration
      * Run the migrations.
      * 
      * This migration fixes ENUM columns to be PostgreSQL-compatible by converting them to VARCHAR.
-     * Safe to run on existing databases - preserves all data.
+     * Uses PostgreSQL-safe approach: create new column, copy data, drop old, rename new.
+     * Does NOT require Doctrine DBAL or ->change() method.
      */
     public function up(): void
     {
-        // Fix users.role column if it exists as ENUM
+        // Fix users.role column if it exists
         if (Schema::hasColumn('users', 'role')) {
-            Schema::table('users', function (Blueprint $table) {
-                $table->string('role', 20)->default('student')->change();
-            });
+            $this->convertColumnToString('users', 'role', 20, 'student');
         }
 
-        // Fix applications.status column if it exists as ENUM
+        // Fix applications.status column if it exists
         if (Schema::hasTable('applications') && Schema::hasColumn('applications', 'status')) {
-            Schema::table('applications', function (Blueprint $table) {
-                $table->string('status', 30)->default('pending')->change();
-            });
+            $this->convertColumnToString('applications', 'status', 30, 'pending');
             
-            // Add index for performance if not exists
-            if (!$this->indexExists('applications', 'applications_status_index')) {
-                Schema::table('applications', function (Blueprint $table) {
-                    $table->index('status');
-                });
-            }
+            // Add index for performance
+            $this->addIndexIfNotExists('applications', 'status');
         }
 
-        // Fix recruiter_profiles.approval_status column if it exists as ENUM
+        // Fix recruiter_profiles.approval_status column if it exists
         if (Schema::hasTable('recruiter_profiles') && Schema::hasColumn('recruiter_profiles', 'approval_status')) {
-            Schema::table('recruiter_profiles', function (Blueprint $table) {
-                $table->string('approval_status', 20)->default('pending')->change();
-            });
+            $this->convertColumnToString('recruiter_profiles', 'approval_status', 20, 'pending');
         }
     }
 
     /**
      * Reverse the migrations.
-     * 
-     * No rollback - string type is more flexible and database-agnostic than ENUM.
      */
     public function down(): void
     {
-        // No rollback needed - string columns are compatible with all databases
-        // and more flexible than ENUM columns
+        // No rollback - string columns are more flexible and database-agnostic
     }
 
     /**
-     * Check if an index exists on a table.
+     * Convert a column to string type without using ->change() or Doctrine DBAL.
+     * PostgreSQL-safe approach: create temp column, copy data, drop old, rename temp.
      */
-    private function indexExists(string $table, string $index): bool
+    private function convertColumnToString(string $table, string $column, int $length, string $default): void
     {
-        $connection = Schema::getConnection();
-        $schemaManager = $connection->getDoctrineSchemaManager();
-        $indexes = $schemaManager->listTableIndexes($table);
+        $tempColumn = $column . '_temp';
         
-        return isset($indexes[$index]);
+        // Step 1: Create new temporary string column
+        Schema::table($table, function (Blueprint $table) use ($tempColumn, $length, $default) {
+            $table->string($tempColumn, $length)->default($default)->nullable();
+        });
+
+        // Step 2: Copy data from old column to new column
+        DB::statement("UPDATE {$table} SET {$tempColumn} = {$column}::text");
+
+        // Step 3: Drop old column
+        Schema::table($table, function (Blueprint $table) use ($column) {
+            $table->dropColumn($column);
+        });
+
+        // Step 4: Rename temporary column to original name
+        Schema::table($table, function (Blueprint $table) use ($tempColumn, $column) {
+            $table->renameColumn($tempColumn, $column);
+        });
+
+        // Step 5: Set NOT NULL constraint and default value using raw SQL
+        DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET NOT NULL");
+        DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET DEFAULT '{$default}'");
+    }
+
+    /**
+     * Add index if it doesn't exist (PostgreSQL-safe).
+     */
+    private function addIndexIfNotExists(string $table, string $column): void
+    {
+        $indexName = "{$table}_{$column}_index";
+        
+        // Check if index exists using PostgreSQL system catalog
+        $exists = DB::select(
+            "SELECT 1 FROM pg_indexes WHERE tablename = ? AND indexname = ?",
+            [$table, $indexName]
+        );
+
+        if (empty($exists)) {
+            Schema::table($table, function (Blueprint $table) use ($column) {
+                $table->index($column);
+            });
+        }
     }
 };

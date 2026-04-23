@@ -22,13 +22,14 @@ DB_USERNAME=your_username
 DB_PASSWORD=your_password
 ```
 
-### 3. Verify Dependencies
+### 3. Verify NO Doctrine DBAL
 ```bash
-# Check composer.json includes doctrine/dbal
+# Ensure doctrine/dbal is NOT in composer.json
 composer show doctrine/dbal
+# Should show: Package doctrine/dbal not found
 
-# If not installed
-composer require doctrine/dbal
+# If it exists, remove it
+composer remove doctrine/dbal
 ```
 
 ## Deployment Steps
@@ -191,6 +192,13 @@ php artisan view:clear
 
 ## Common Issues
 
+### Issue: "Method getDoctrineSchemaManager does not exist"
+**Solution:** Remove doctrine/dbal and use PostgreSQL-native approach
+```bash
+composer remove doctrine/dbal
+php artisan migrate
+```
+
 ### Issue: "SQLSTATE[42P01]: Undefined table"
 **Solution:** Run migrations
 ```bash
@@ -204,16 +212,18 @@ php artisan migrate --path=database/migrations/2026_04_23_200058_fix_enum_column
 ```
 
 ### Issue: "Class 'Doctrine\DBAL\Driver\PDO\PgSQL\Driver' not found"
-**Solution:** Install doctrine/dbal
+**Solution:** This error should NOT occur anymore - doctrine/dbal has been removed
 ```bash
-composer require doctrine/dbal
+# Verify it's removed
+composer show doctrine/dbal
+# Should show: Package doctrine/dbal not found
 ```
 
 ### Issue: "Column type change not supported"
-**Solution:** Ensure doctrine/dbal is installed and clear cache
+**Solution:** Use the PostgreSQL-native migration (already implemented)
 ```bash
-composer require doctrine/dbal
-php artisan config:clear
+# The fix migration uses create/copy/drop/rename approach
+# No ->change() method needed
 php artisan migrate
 ```
 

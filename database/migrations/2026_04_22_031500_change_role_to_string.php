@@ -13,10 +13,8 @@ return new class extends Migration
     public function up(): void
     {
         // Ensure role column is string type (PostgreSQL-compatible)
-        // This migration is idempotent - safe to run multiple times
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('role', 20)->default('student')->change();
-        });
+        // This migration is a no-op - the column is already string from previous migration
+        // No action needed
     }
 
     /**
@@ -24,7 +22,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Keep as string - no reversion needed
-        // String type is more flexible and database-agnostic
+        // No action needed
     }
 };

@@ -13,13 +13,8 @@ return new class extends Migration
     public function up(): void
     {
         // Update role column to support 'recruiter' value
-        // PostgreSQL-compatible: Use Schema::table with change()
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('role', 20)->default('student')->change();
-        });
-        
-        // No schema change needed - string already supports all values
-        // This migration ensures the column is properly typed as string
+        // PostgreSQL-compatible: No action needed since string already supports all values
+        // This migration is a no-op for PostgreSQL - string columns don't need modification
     }
 
     /**
@@ -28,6 +23,5 @@ return new class extends Migration
     public function down(): void
     {
         // No action needed - string column remains
-        // Data integrity maintained through application-level validation
     }
 };
