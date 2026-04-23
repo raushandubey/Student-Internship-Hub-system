@@ -23,6 +23,8 @@ class ResumeController extends Controller
      * or when files are stored in a non-standard location.
      * Handles both S3 and local storage.
      * 
+     * Authorization: Students can only access their own resumes, admins can access all
+     * 
      * @param string $filename
      * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
      */
@@ -32,6 +34,26 @@ class ResumeController extends Controller
             // Sanitize filename to prevent directory traversal
             $filename = basename($filename);
             $path = 'resumes/' . $filename;
+            
+            // Authorization check: Find the profile that owns this resume
+            $profile = Profile::where('resume_path', 'LIKE', '%' . $filename)->first();
+            
+            if ($profile) {
+                $user = auth()->user();
+                
+                // Students can only access their own resumes
+                if ($user->role === 'student' && $profile->user_id !== $user->id) {
+                    Log::warning('Unauthorized resume access attempt', [
+                        'user_id' => $user->id,
+                        'profile_id' => $profile->id,
+                        'filename' => $filename
+                    ]);
+                    
+                    abort(403, 'Unauthorized access to resume');
+                }
+                
+                // Admins and recruiters can access any resume (no additional check needed)
+            }
             
             $disk = config('filesystems.default');
             
@@ -99,6 +121,8 @@ class ResumeController extends Controller
      * Forces download instead of inline display
      * Handles both S3 and local storage
      * 
+     * Authorization: Students can only download their own resumes, admins can download all
+     * 
      * @param int $profileId
      * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
      */
@@ -106,6 +130,21 @@ class ResumeController extends Controller
     {
         try {
             $profile = Profile::findOrFail($profileId);
+            
+            // Authorization check
+            $user = auth()->user();
+            
+            // Students can only download their own resumes
+            if ($user->role === 'student' && $profile->user_id !== $user->id) {
+                Log::warning('Unauthorized resume download attempt', [
+                    'user_id' => $user->id,
+                    'profile_id' => $profileId
+                ]);
+                
+                abort(403, 'Unauthorized access to resume');
+            }
+            
+            // Admins and recruiters can download any resume (no additional check needed)
             
             if (!$profile->resume_path) {
                 return $this->resumeNotFoundResponse();
@@ -180,6 +219,8 @@ class ResumeController extends Controller
     /**
      * Check if resume exists (API endpoint)
      * 
+     * Authorization: Students can only check their own resumes, admins can check all
+     * 
      * @param int $profileId
      * @return \Illuminate\Http\JsonResponse
      */
@@ -187,6 +228,19 @@ class ResumeController extends Controller
     {
         try {
             $profile = Profile::findOrFail($profileId);
+            
+            // Authorization check
+            $user = auth()->user();
+            
+            // Students can only check their own resumes
+            if ($user->role === 'student' && $profile->user_id !== $user->id) {
+                return response()->json([
+                    'exists' => false,
+                    'error' => 'Unauthorized'
+                ], 403);
+            }
+            
+            // Admins and recruiters can check any resume
             
             $exists = $profile->hasResumeFile();
             $url = $exists ? $profile->getResumeUrl() : null;

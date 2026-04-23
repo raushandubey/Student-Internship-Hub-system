@@ -108,6 +108,13 @@ Route::middleware(['auth'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
+// Resume Management - Accessible to authenticated users (students can view their own, admins can view all)
+Route::middleware(['auth'])->prefix('resume')->name('resume.')->group(function () {
+    Route::get('/serve/{filename}', [\App\Http\Controllers\ResumeController::class, 'serve'])->name('serve');
+    Route::get('/download/{profileId}', [\App\Http\Controllers\ResumeController::class, 'download'])->name('download');
+    Route::get('/check/{profileId}', [\App\Http\Controllers\ResumeController::class, 'check'])->name('check');
+});
+
 Route::middleware(['auth', 'role:student'])->group(function () {
     
     // Profile Management
@@ -117,13 +124,6 @@ Route::middleware(['auth', 'role:student'])->group(function () {
         Route::put('/update', [ProfileController::class, 'update'])->name('update');
         Route::post('/avatar', [ProfileController::class, 'updateAvatar'])->name('avatar.update');
         Route::delete('/avatar', [ProfileController::class, 'deleteAvatar'])->name('avatar.delete');
-    });
-    
-    // Resume Management
-    Route::prefix('resume')->name('resume.')->group(function () {
-        Route::get('/serve/{filename}', [\App\Http\Controllers\ResumeController::class, 'serve'])->name('serve');
-        Route::get('/download/{profileId}', [\App\Http\Controllers\ResumeController::class, 'download'])->name('download');
-        Route::get('/check/{profileId}', [\App\Http\Controllers\ResumeController::class, 'check'])->name('check');
     });
     
     // Recommendations
