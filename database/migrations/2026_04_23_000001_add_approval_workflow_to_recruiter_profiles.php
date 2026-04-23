@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('recruiter_profiles', function (Blueprint $table) {
-            // Approval workflow columns
-            $table->enum('approval_status', ['pending', 'approved', 'rejected', 'suspended'])
+            // Approval workflow columns - using string instead of enum for PostgreSQL compatibility
+            $table->string('approval_status', 20)
                   ->default('pending')
                   ->after('logo_path');
             

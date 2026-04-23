@@ -10,13 +10,8 @@ return new class extends Migration
     public function up()
     {
         Schema::table('users', function (Blueprint $table) {
-            // For SQLite compatibility, we'll use string instead of enum
-            // SQLite will treat this as TEXT without CHECK constraint
-            if (DB::getDriverName() === 'sqlite') {
-                $table->string('role', 20)->default('student');
-            } else {
-                $table->enum('role', ['student', 'admin'])->default('student');
-            }
+            // Use string for cross-database compatibility (PostgreSQL, MySQL, SQLite)
+            $table->string('role', 20)->default('student');
         });
     }
 

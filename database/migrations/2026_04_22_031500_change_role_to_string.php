@@ -12,14 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Change role from enum to string to avoid truncation warnings
-        // Use database-agnostic approach for testing compatibility
-        if (DB::getDriverName() === 'sqlite') {
-            // SQLite doesn't support MODIFY COLUMN, so we skip this for SQLite
-            // The role column is already created as string in SQLite
-        } else {
-            DB::statement("ALTER TABLE users MODIFY COLUMN role VARCHAR(20) DEFAULT 'student'");
-        }
+        // Ensure role column is string type (PostgreSQL-compatible)
+        // This migration is idempotent - safe to run multiple times
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('role', 20)->default('student')->change();
+        });
     }
 
     /**
@@ -27,11 +24,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Revert back to enum
-        if (DB::getDriverName() === 'sqlite') {
-            // SQLite doesn't support MODIFY COLUMN, so we skip this for SQLite
-        } else {
-            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('student', 'admin', 'recruiter') DEFAULT 'student'");
-        }
+        // Keep as string - no reversion needed
+        // String type is more flexible and database-agnostic
     }
 };

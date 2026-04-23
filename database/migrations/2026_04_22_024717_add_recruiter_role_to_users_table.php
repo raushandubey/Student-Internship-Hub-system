@@ -12,15 +12,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Modify the role enum to include 'recruiter'
-        // Use database-agnostic approach for testing compatibility
-        if (DB::getDriverName() === 'sqlite') {
-            // SQLite doesn't support MODIFY COLUMN or ENUM
-            // For SQLite, we'll use a string column which is already created
-            // No action needed as SQLite treats ENUM as TEXT
-        } else {
-            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('student', 'admin', 'recruiter') DEFAULT 'student'");
-        }
+        // Update role column to support 'recruiter' value
+        // PostgreSQL-compatible: Use Schema::table with change()
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('role', 20)->default('student')->change();
+        });
+        
+        // No schema change needed - string already supports all values
+        // This migration ensures the column is properly typed as string
     }
 
     /**
@@ -28,12 +27,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Revert back to original enum values
-        if (DB::getDriverName() === 'sqlite') {
-            // SQLite doesn't support MODIFY COLUMN or ENUM
-            // No action needed
-        } else {
-            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('student', 'admin') DEFAULT 'student'");
-        }
+        // No action needed - string column remains
+        // Data integrity maintained through application-level validation
     }
 };
