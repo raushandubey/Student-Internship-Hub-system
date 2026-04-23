@@ -402,7 +402,89 @@ tail -f storage/logs/laravel.log | grep "Profile update failed"
    curl -I https://s3.amazonaws.com
    ```
 
-#### Error 2: Resume Link Returns 404 or Null
+#### Error 2: Resume Link Returns "InvalidArgument" or "Authorization" Error
+
+**Symptoms:**
+- Resume link shows XML error with "InvalidArgument" code
+- Error message mentions "Authorization"
+- Browser shows S3/CloudFlare storage URL with error
+
+**Possible Causes:**
+1. S3 bucket is private but signed URLs are not working correctly
+2. AWS credentials don't have proper permissions
+3. Bucket CORS configuration is incorrect
+4. Signed URL has expired (though the app generates 1-hour URLs)
+
+**Solution:**
+
+The application automatically generates temporary signed URLs (valid for 1 hour) for private S3 buckets. If you're seeing authorization errors, you have two options:
+
+**Option A: Use Private Bucket with Signed URLs (Recommended)**
+
+1. **Verify IAM permissions include `s3:GetObject`:**
+   ```json
+   {
+     "Effect": "Allow",
+     "Action": [
+       "s3:PutObject",
+       "s3:GetObject",
+       "s3:DeleteObject",
+       "s3:ListBucket"
+     ],
+     "Resource": [
+       "arn:aws:s3:::your-bucket-name/*",
+       "arn:aws:s3:::your-bucket-name"
+     ]
+   }
+   ```
+
+2. **Ensure bucket is NOT publicly accessible** (this is more secure)
+
+3. **Clear application cache:**
+   ```bash
+   php artisan config:clear
+   php artisan cache:clear
+   ```
+
+**Option B: Use Public Bucket (Less Secure)**
+
+1. **Make bucket publicly readable:**
+   - Go to AWS S3 Console
+   - Select your bucket
+   - Go to "Permissions" tab
+   - Edit "Block public access" settings
+   - Uncheck "Block all public access"
+   - Add bucket policy:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Sid": "PublicReadGetObject",
+         "Effect": "Allow",
+         "Principal": "*",
+         "Action": "s3:GetObject",
+         "Resource": "arn:aws:s3:::your-bucket-name/*"
+       }
+     ]
+   }
+   ```
+
+2. **Configure CORS (if accessing from browser):**
+   ```json
+   [
+     {
+       "AllowedHeaders": ["*"],
+       "AllowedMethods": ["GET", "HEAD"],
+       "AllowedOrigins": ["*"],
+       "ExposeHeaders": []
+     }
+   ]
+   ```
+
+**Note:** The application will automatically fall back to regular URLs if signed URLs fail, so Option B should work without code changes.
+
+#### Error 3: Resume Link Returns 404 or Null
 
 **Symptoms:**
 - Resume link doesn't work
@@ -412,8 +494,7 @@ tail -f storage/logs/laravel.log | grep "Profile update failed"
 **Possible Causes:**
 1. File doesn't exist on S3
 2. Incorrect file path in database
-3. S3 bucket permissions issue
-4. Missing `AWS_URL` configuration
+3. Missing `AWS_URL` configuration
 
 **Diagnosis Steps:**
 
@@ -447,17 +528,18 @@ tail -f storage/logs/laravel.log | grep "Resume URL generation failed"
    => "resumes/1705318245_resume.pdf"  # Should NOT start with /
    ```
 
-3. **Check S3 bucket public access:**
-   - S3 bucket should NOT be publicly accessible
-   - Application uses signed URLs or IAM credentials
+3. **Verify bucket configuration:**
+   - Ensure bucket exists
+   - Check bucket region matches `AWS_DEFAULT_REGION`
+   - Verify IAM permissions include `s3:GetObject`
 
-4. **Verify AWS_URL configuration:**
-   ```env
-   # If using CloudFront
-   AWS_URL=https://d1234567890.cloudfront.net
+4. **Test URL generation:**
+   ```bash
+   php artisan tinker
+   >>> Storage::disk('s3')->temporaryUrl('resumes/test.pdf', now()->addHour());
    ```
 
-#### Error 3: Migration Command Fails
+#### Error 4: Migration Command Fails
 
 **Symptoms:**
 - Migration reports failures
@@ -504,7 +586,7 @@ ls -la storage/app/public/resumes/
    ping s3.amazonaws.com
    ```
 
-#### Error 4: "Class 'League\Flysystem\AwsS3V3\AwsS3V3Adapter' not found"
+#### Error 5: "Class 'League\Flysystem\AwsS3V3\AwsS3V3Adapter' not found"
 
 **Symptoms:**
 - Application crashes when trying to use S3

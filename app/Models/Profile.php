@@ -44,7 +44,19 @@ class Profile extends Model
             // Strategy 1: S3 Storage (Production)
             if ($disk === 's3') {
                 if (\Illuminate\Support\Facades\Storage::disk('s3')->exists($this->resume_path)) {
-                    return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->resume_path);
+                    // Try to generate a temporary signed URL with 1 hour expiration
+                    // This provides better security and handles private buckets
+                    try {
+                        return \Illuminate\Support\Facades\Storage::disk('s3')
+                            ->temporaryUrl($this->resume_path, now()->addHour());
+                    } catch (\Exception $e) {
+                        // If temporaryUrl fails (e.g., bucket is public), fall back to regular URL
+                        \Log::debug('Falling back to regular S3 URL', [
+                            'profile_id' => $this->id,
+                            'error' => $e->getMessage()
+                        ]);
+                        return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->resume_path);
+                    }
                 }
             }
             
