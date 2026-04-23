@@ -172,14 +172,27 @@ class AnalyticsService
     public function getTopPerformingInternships(int $limit = 5): array
     {
         try {
+            // Detect database driver for cross-database compatibility
+            $driver = config('database.default');
+            $connection = config("database.connections.{$driver}.driver");
+            
+            // Use appropriate CAST syntax based on database
+            if ($connection === 'pgsql') {
+                // PostgreSQL: CAST to TEXT
+                $statusCast = "CAST(applications.status AS TEXT)";
+            } else {
+                // MySQL/MariaDB: CAST to CHAR or direct comparison
+                $statusCast = "applications.status";
+            }
+            
             $results = Internship::select([
                     'internships.id',
                     'internships.title',
                     'internships.organization'
                 ])
                 ->selectRaw('COUNT(applications.id) as total_apps')
-                // FIXED: PostgreSQL-compatible enum comparison using CAST
-                ->selectRaw("SUM(CASE WHEN CAST(applications.status AS TEXT) = 'approved' THEN 1 ELSE 0 END) as approved_count")
+                // FIXED: Cross-database compatible enum comparison
+                ->selectRaw("SUM(CASE WHEN {$statusCast} = 'approved' THEN 1 ELSE 0 END) as approved_count")
                 ->selectRaw('AVG(applications.match_score) as avg_score')
                 ->leftJoin('applications', 'internships.id', '=', 'applications.internship_id')
                 ->groupBy('internships.id', 'internships.title', 'internships.organization')
