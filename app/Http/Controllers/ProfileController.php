@@ -52,24 +52,54 @@ class ProfileController extends Controller
             'aadhaar_number' => 'nullable|string|max:12',
         ]);
 
-        $user = Auth::user();
-        $profile = $user->profile ?? new Profile(['user_id' => $user->id]);
+        try {
+            $user = Auth::user();
+            $profile = $user->profile ?? new Profile(['user_id' => $user->id]);
 
-        $profile->name = $request->name;
-        $profile->academic_background = $request->academic_background;
-        $profile->skills = $request->skills ? explode(',', $request->skills) : [];
-        $profile->career_interests = $request->career_interests;
-        $profile->aadhaar_number = $request->aadhaar_number;
+            $profile->name = $request->name;
+            $profile->academic_background = $request->academic_background;
+            $profile->skills = $request->skills ? explode(',', $request->skills) : [];
+            $profile->career_interests = $request->career_interests;
+            $profile->aadhaar_number = $request->aadhaar_number;
 
-        if ($request->hasFile('resume')) {
-            if ($profile->resume_path) {
-                Storage::disk('public')->delete($profile->resume_path);
+            // Handle resume upload with proper error handling
+            if ($request->hasFile('resume')) {
+                // Delete old resume if exists
+                if ($profile->resume_path && Storage::disk('public')->exists($profile->resume_path)) {
+                    Storage::disk('public')->delete($profile->resume_path);
+                }
+                
+                // Store new resume with sanitized filename
+                $file = $request->file('resume');
+                $filename = time() . '_' . preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $file->getClientOriginalName());
+                $path = $file->storeAs('resumes', $filename, 'public');
+                
+                if ($path) {
+                    $profile->resume_path = $path;
+                    \Log::info('Resume uploaded successfully', [
+                        'user_id' => $user->id,
+                        'path' => $path,
+                        'filename' => $filename
+                    ]);
+                } else {
+                    throw new \Exception('Failed to store resume file');
+                }
             }
-            $profile->resume_path = $request->file('resume')->store('resumes', 'public');
+
+            $profile->save();
+
+            return redirect()->route('profile.show')->with('success', 'Profile updated successfully!');
+            
+        } catch (\Exception $e) {
+            \Log::error('Profile update failed', [
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to update profile. Please try again.');
         }
-
-        $profile->save();
-
-        return redirect()->route('profile.show')->with('success', 'Profile updated successfully!');
     }
 }

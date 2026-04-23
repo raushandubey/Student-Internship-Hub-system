@@ -136,6 +136,7 @@ class ProfileService
 
     /**
      * Format profile data for JSON response
+     * PRODUCTION-SAFE: Proper URL generation with fallback
      * 
      * @param Profile $profile
      * @param User $user
@@ -144,6 +145,9 @@ class ProfileService
      */
     protected function formatProfileData(Profile $profile, User $user, ?array $aiSummary = null): array
     {
+        // Use the model's getResumeUrl() method for consistent URL generation
+        $resumeUrl = $profile->getResumeUrl();
+        
         $data = [
             'user' => [
                 'id' => $user->id,
@@ -154,10 +158,8 @@ class ProfileService
                 'academic_background' => $profile->academic_background,
                 'skills' => $profile->skills ?? [],
                 'career_interests' => $profile->career_interests,
-                'resume_path' => $profile->resume_path
-                    ? \Illuminate\Support\Facades\Storage::disk('public')->url(ltrim($profile->resume_path, '/'))
-                    : null,
-                'has_resume' => !empty($profile->resume_path),
+                'resume_path' => $resumeUrl,
+                'has_resume' => $profile->hasResumeFile(),
             ],
         ];
 

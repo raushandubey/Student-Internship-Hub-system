@@ -30,6 +30,7 @@ class Profile extends Model
 
     /**
      * Get the public URL for the resume file
+     * PRODUCTION-SAFE: Multiple fallback strategies
      */
     public function getResumeUrl(): ?string
     {
@@ -37,16 +38,54 @@ class Profile extends Model
             return null;
         }
 
-        // Try public disk first
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($this->resume_path)) {
-            return \Illuminate\Support\Facades\Storage::disk('public')->url($this->resume_path);
+        try {
+            // Normalize path (remove leading slash if present)
+            $normalizedPath = ltrim($this->resume_path, '/');
+            
+            // Strategy 1: Check public disk (primary storage)
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($normalizedPath)) {
+                return \Illuminate\Support\Facades\Storage::disk('public')->url($normalizedPath);
+            }
+            
+            // Strategy 2: Check if file exists in storage/app/public directly
+            $fullPath = storage_path('app/public/' . $normalizedPath);
+            if (file_exists($fullPath)) {
+                return asset('storage/' . $normalizedPath);
+            }
+            
+            // Strategy 3: Use route-based serving (fallback for missing symlink)
+            return route('resume.serve', ['filename' => basename($normalizedPath)]);
+            
+        } catch (\Exception $e) {
+            \Log::warning('Resume URL generation failed', [
+                'profile_id' => $this->id,
+                'resume_path' => $this->resume_path,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Final fallback: return null (will show "No resume" in UI)
+            return null;
         }
-
-        // Fallback to default disk
-        if (\Illuminate\Support\Facades\Storage::exists($this->resume_path)) {
-            return \Illuminate\Support\Facades\Storage::url($this->resume_path);
+    }
+    
+    /**
+     * Check if resume file actually exists on disk
+     */
+    public function hasResumeFile(): bool
+    {
+        if (!$this->resume_path) {
+            return false;
         }
-
-        return null;
+        
+        $normalizedPath = ltrim($this->resume_path, '/');
+        
+        // Check public disk
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($normalizedPath)) {
+            return true;
+        }
+        
+        // Check direct file system
+        $fullPath = storage_path('app/public/' . $normalizedPath);
+        return file_exists($fullPath);
     }
 }

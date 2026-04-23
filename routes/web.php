@@ -119,6 +119,13 @@ Route::middleware(['auth', 'role:student'])->group(function () {
         Route::delete('/avatar', [ProfileController::class, 'deleteAvatar'])->name('avatar.delete');
     });
     
+    // Resume Management
+    Route::prefix('resume')->name('resume.')->group(function () {
+        Route::get('/serve/{filename}', [\App\Http\Controllers\ResumeController::class, 'serve'])->name('serve');
+        Route::get('/download/{profileId}', [\App\Http\Controllers\ResumeController::class, 'download'])->name('download');
+        Route::get('/check/{profileId}', [\App\Http\Controllers\ResumeController::class, 'check'])->name('check');
+    });
+    
     // Recommendations
     // Phase 9: Rate limiting to prevent abuse of recommendation engine
     Route::prefix('recommendations')->name('recommendations.')->group(function () {
