@@ -139,7 +139,7 @@
                                             <div class="current-file">
                                                 <i class="fas fa-file-pdf"></i>
                                                 <span>Current Resume:</span>
-                                                <a href="{{ Storage::url($profile->resume_path) }}" target="_blank" class="view-link">
+                                                <a href="{{ $profile->getResumeUrl() }}" target="_blank" class="view-link">
                                                     <i class="fas fa-external-link-alt"></i>
                                                     View Resume
                                                 </a>

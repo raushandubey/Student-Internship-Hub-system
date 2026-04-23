@@ -136,7 +136,7 @@
                                             </div>
                                         </div>
                                         <div class="resume-actions">
-                                            <a href="{{ Storage::url($profile->resume_path) }}" 
+                                            <a href="{{ $profile->getResumeUrl() }}" 
                                                target="_blank" 
                                                class="btn-view-resume">
                                                 <i class="fas fa-external-link-alt"></i>

@@ -71,7 +71,7 @@
                 @if($user->profile->resume_path)
                 <div>
                     <p class="text-gray-600">Resume:</p>
-                    <a href="{{ Storage::url($user->profile->resume_path) }}" target="_blank" 
+                    <a href="{{ $user->profile->getResumeUrl() }}" target="_blank" 
                         class="text-blue-600 hover:underline">View Resume</a>
                 </div>
                 @endif
