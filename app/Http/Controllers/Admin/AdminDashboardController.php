@@ -7,9 +7,17 @@ use App\Models\User;
 use App\Models\Internship;
 use App\Models\Application;
 use App\Enums\ApplicationStatus;
+use App\Services\RecruiterAnalyticsService;
 
 class AdminDashboardController extends Controller
 {
+    protected RecruiterAnalyticsService $recruiterAnalyticsService;
+
+    public function __construct(RecruiterAnalyticsService $recruiterAnalyticsService)
+    {
+        $this->recruiterAnalyticsService = $recruiterAnalyticsService;
+    }
+
     /**
      * Display admin dashboard
      */
@@ -23,6 +31,8 @@ class AdminDashboardController extends Controller
             'pending_applications' => Application::where('status', ApplicationStatus::PENDING)->count(),
         ];
 
-        return view('admin.dashboard', compact('stats'));
+        $recruiterStats = $this->recruiterAnalyticsService->getSystemWideRecruiterStats();
+
+        return view('admin.dashboard', array_merge(compact('stats'), $recruiterStats));
     }
 }

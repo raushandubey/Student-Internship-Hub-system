@@ -22,6 +22,14 @@
                 </div>
             </div>
 
+            <!-- Status / Info Message (e.g. pending approval after registration) -->
+            @if (session('status'))
+                <div class="status-message" role="alert">
+                    <i class="fas fa-info-circle"></i>
+                    {{ session('status') }}
+                </div>
+            @endif
+
             <!-- Login Form -->
             <form method="POST" action="{{ route('login') }}" class="login-form">
                 @csrf
@@ -103,6 +111,8 @@
                 <p class="register-text">
                     Don't have an account? 
                     <a href="{{ route('register') }}">Create one</a>
+                    &nbsp;·&nbsp;
+                    <a href="{{ route('recruiter.register') }}">Recruiter ? Sign up here</a>
                 </p>
             </form>
         </div>
@@ -588,6 +598,26 @@
     .welcome-text h2 {
         font-size: 1.5rem;
     }
+}
+
+/* Status / Info Message */
+.status-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    color: #1e40af;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+}
+
+.status-message i {
+    flex-shrink: 0;
+    margin-top: 0.1rem;
 }
 
 /* Loading State */

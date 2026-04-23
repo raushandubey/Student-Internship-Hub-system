@@ -63,9 +63,9 @@ class ProfileController extends Controller
 
         if ($request->hasFile('resume')) {
             if ($profile->resume_path) {
-                Storage::delete($profile->resume_path);
+                Storage::disk('public')->delete($profile->resume_path);
             }
-            $profile->resume_path = $request->file('resume')->store('resumes');
+            $profile->resume_path = $request->file('resume')->store('resumes', 'public');
         }
 
         $profile->save();

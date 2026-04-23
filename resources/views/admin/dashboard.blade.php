@@ -130,6 +130,108 @@
         </div>
     </div>
 
+    <!-- Recruiter Statistics -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Recruiter Overview</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Approved Recruiters -->
+            <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg p-5 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-emerald-100 text-sm font-medium">Approved Recruiters</p>
+                        <h4 class="text-3xl font-bold mt-1">{{ $approved_recruiters ?? 0 }}</h4>
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-full p-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <a href="{{ route('admin.recruiters.index', ['status' => 'approved']) }}" class="text-emerald-100 text-xs mt-2 block hover:text-white">View approved →</a>
+            </div>
+
+            <!-- Pending Approvals -->
+            <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg p-5 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-yellow-100 text-sm font-medium">Pending Approvals</p>
+                        <h4 class="text-3xl font-bold mt-1">{{ $pending_recruiters ?? 0 }}</h4>
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-full p-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <a href="{{ route('admin.recruiters.index', ['status' => 'pending']) }}" class="text-yellow-100 text-xs mt-2 block hover:text-white">Review pending →</a>
+            </div>
+
+            <!-- Suspended Recruiters -->
+            <div class="bg-gradient-to-br from-gray-500 to-gray-600 rounded-lg p-5 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-100 text-sm font-medium">Suspended Recruiters</p>
+                        <h4 class="text-3xl font-bold mt-1">{{ $suspended_recruiters ?? 0 }}</h4>
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-full p-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                        </svg>
+                    </div>
+                </div>
+                <a href="{{ route('admin.recruiters.index', ['status' => 'suspended']) }}" class="text-gray-100 text-xs mt-2 block hover:text-white">View suspended →</a>
+            </div>
+
+            <!-- Total Recruiter Internships -->
+            <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-5 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-blue-100 text-sm font-medium">Recruiter Internships</p>
+                        <h4 class="text-3xl font-bold mt-1">{{ $total_recruiter_internships ?? 0 }}</h4>
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-full p-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <p class="text-blue-100 text-xs mt-2">Active: {{ $active_recruiter_internships ?? 0 }}</p>
+            </div>
+
+            <!-- Active Recruiter Internships -->
+            <div class="bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg p-5 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-teal-100 text-sm font-medium">Active Recruiter Internships</p>
+                        <h4 class="text-3xl font-bold mt-1">{{ $active_recruiter_internships ?? 0 }}</h4>
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-full p-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <p class="text-teal-100 text-xs mt-2">Currently live</p>
+            </div>
+
+            <!-- Applications to Recruiter Internships -->
+            <div class="bg-gradient-to-br from-violet-500 to-violet-600 rounded-lg p-5 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-violet-100 text-sm font-medium">Recruiter Applications</p>
+                        <h4 class="text-3xl font-bold mt-1">{{ $applications_to_recruiter_internships ?? 0 }}</h4>
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-full p-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <p class="text-violet-100 text-xs mt-2">To recruiter-posted internships</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Recent Activity Summary -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- System Status -->

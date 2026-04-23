@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Welcome Message Test - Task 1.1</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="public/css/chatbot.css">
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .test-info {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .test-info h1 {
+            margin: 0 0 10px 0;
+            color: #ff7a00;
+        }
+        .test-info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .test-info li {
+            margin: 5px 0;
+        }
+        .success {
+            color: #10b981;
+            font-weight: bold;
+        }
+        .info {
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-info">
+        <h1>🕉️ Task 1.1 Test: Welcome Message on First Open</h1>
+        <p><strong>Testing:</strong> Modified <code>open()</code> method to show welcome message on first open</p>
+        
+        <h3>Expected Behavior:</h3>
+        <ul>
+            <li class="info">✓ Welcome message should appear <strong>200ms</strong> after opening chatbot</li>
+            <li class="info">✓ Welcome message should only appear on <strong>first open</strong></li>
+            <li class="info">✓ Closing and reopening should <strong>NOT</strong> show welcome message again</li>
+            <li class="info">✓ Previous message history should be preserved</li>
+        </ul>
+        
+        <h3>Test Steps:</h3>
+        <ol>
+            <li>Click the floating Om button (🕉️) in the bottom-right corner</li>
+            <li>Observe: Welcome message should appear after ~200ms</li>
+            <li>Close the chatbot (X button)</li>
+            <li>Open the chatbot again</li>
+            <li>Verify: Welcome message should NOT appear again</li>
+            <li>Verify: Previous messages are still visible</li>
+        </ol>
+        
+        <h3>Changes Made:</h3>
+        <ul>
+            <li class="success">✓ Removed <code>messages.length === 0</code> check from conditional</li>
+            <li class="success">✓ Added 200ms delay before calling <code>showWelcomeMessage()</code></li>
+            <li class="success">✓ Welcome message only shows when <code>sessionStarted</code> is false</li>
+        </ul>
+    </div>
+
+    <!-- Chatbot Component -->
+    <div id="shreeram-chatbot" class="fixed bottom-6 right-6 z-50">
+        <button 
+            id="chatbot-toggle-btn"
+            type="button"
+            class="shreeram-float-btn group relative flex items-center justify-center rounded-full transition-all duration-500 focus:outline-none"
+            aria-label="Open ShreeRam AI"
+            aria-expanded="false"
+        >
+            <span class="absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-40 animate-ping"></span>
+            <span class="absolute inline-flex h-[110%] w-[110%] rounded-full bg-gradient-to-r from-orange-500 to-amber-500 opacity-30 animate-pulse"></span>
+            <span class="relative z-10 text-4xl om-symbol">🕉️</span>
+        </button>
+
+        <div 
+            id="chatbot-window"
+            role="dialog"
+            aria-label="ShreeRam AI Assistant"
+            class="shreeram-chat-window hidden absolute bottom-24 right-0 w-[420px] h-[680px] rounded-3xl flex flex-col overflow-hidden transition-all duration-500"
+        >
+            <div class="shreeram-particles"></div>
+            
+            <div class="shreeram-header relative z-10 px-6 py-5 flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="shreeram-avatar">
+                        <span class="text-2xl">🕉️</span>
+                    </div>
+                    <div>
+                        <h3 class="text-white font-bold text-xl tracking-wide flex items-center">
+                            ShreeRam AI
+                            <span class="ml-2 px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs font-normal">Beta</span>
+                        </h3>
+                        <p class="text-orange-100 text-sm flex items-center mt-1">
+                            <span class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse shadow-lg shadow-green-400"></span>
+                            Guiding Your Career Path
+                        </p>
+                    </div>
+                </div>
+                <button 
+                    id="chatbot-close-btn"
+                    type="button"
+                    class="shreeram-close-btn"
+                    aria-label="Close chat"
+                >
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <div 
+                id="chatbot-messages"
+                role="log"
+                aria-live="polite"
+                aria-atomic="false"
+                class="flex-1 overflow-y-auto p-6 space-y-5 shreeram-messages-container"
+            >
+            </div>
+
+            <div id="chatbot-typing" class="hidden px-6 py-4 shreeram-typing-container">
+                <div class="flex items-center space-x-3">
+                    <div class="shreeram-typing-avatar">
+                        <span class="text-lg">🕉️</span>
+                    </div>
+                    <div class="shreeram-typing-bubble">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2.5 h-2.5 bg-orange-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                            <div class="w-2.5 h-2.5 bg-orange-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                            <div class="w-2.5 h-2.5 bg-orange-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="shreeram-input-container p-5">
+                <div class="flex items-end space-x-3">
+                    <div class="flex-1 relative">
+                        <input 
+                            id="chatbot-input"
+                            type="text"
+                            placeholder="Ask ShreeRam AI anything..."
+                            maxlength="500"
+                            class="shreeram-input"
+                            aria-label="Message input"
+                        />
+                        <div id="chatbot-char-count" class="hidden absolute right-4 top-1/2 transform -translate-y-1/2">
+                            <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-orange-500 bg-opacity-20 text-orange-300 border border-orange-500 border-opacity-30">
+                                <span id="chatbot-char-current">0</span>/500
+                            </span>
+                        </div>
+                    </div>
+                    <button 
+                        id="chatbot-send-btn"
+                        type="button"
+                        class="shreeram-send-btn"
+                        aria-label="Send message"
+                        disabled
+                    >
+                        <i class="fas fa-paper-plane text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="public/js/chatbot.js"></script>
+</body>
+</html>

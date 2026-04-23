@@ -39,6 +39,11 @@ class DashboardController extends Controller
         if ($user->role === 'admin') {
             return redirect()->route('admin.dashboard');
         }
+
+        // Redirect recruiter to recruiter dashboard
+        if ($user->role === 'recruiter') {
+            return redirect()->route('recruiter.dashboard');
+        }
         
         // Student dashboard logic
         $profile = $user->profile;

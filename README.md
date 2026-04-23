@@ -101,12 +101,20 @@ DB_USERNAME=root
 DB_PASSWORD=your_password
 ```
 
-### 5. Run Migrations
+### 5. Configure OpenAI API (Optional - for AI Candidate Summaries)
+Add your OpenAI API key to `.env`:
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+**Note:** The Admin Profile Viewer feature includes AI-powered candidate summaries. If the API key is not configured, the feature will gracefully degrade and show profiles without AI summaries.
+
+### 6. Run Migrations
 ```bash
 php artisan migrate
 ```
 
-### 6. Seed Database
+### 7. Seed Database
 ```bash
 # Seed admin user
 php artisan db:seed --class=AdminSeeder
@@ -118,13 +126,13 @@ php artisan db:seed --class=InternshipSeeder
 php artisan db:seed --class=DemoDataSeeder
 ```
 
-### 7. Start Queue Worker (Required for emails)
+### 8. Start Queue Worker (Required for emails)
 ```bash
 # In a separate terminal
 php artisan queue:work
 ```
 
-### 8. Start Development Server
+### 9. Start Development Server
 ```bash
 php artisan serve
 ```

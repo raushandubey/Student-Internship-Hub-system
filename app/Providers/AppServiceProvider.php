@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Models\Application;
 use App\Models\Internship;
+use App\Models\User;
 use App\Policies\ApplicationPolicy;
 use App\Policies\InternshipPolicy;
+use App\Policies\RecruiterManagementPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -27,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
         // Register policies (Phase 9: Authorization)
         Gate::policy(Application::class, ApplicationPolicy::class);
         Gate::policy(Internship::class, InternshipPolicy::class);
+        Gate::policy(User::class, RecruiterManagementPolicy::class);
 
         // Define gates for admin actions
         Gate::define('admin-access', function ($user) {

@@ -2,16 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * ApplicationStatusLog Model
- * 
- * Stores audit trail of all application status changes.
- * Every status transition is logged with timestamp and actor.
- */
 class ApplicationStatusLog extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'application_id',
         'from_status',
@@ -21,8 +18,13 @@ class ApplicationStatusLog extends Model
         'notes',
     ];
 
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
     /**
-     * Get the application this log belongs to
+     * Get the application that this log belongs to
      */
     public function application()
     {
@@ -30,7 +32,7 @@ class ApplicationStatusLog extends Model
     }
 
     /**
-     * Get the user who made the change
+     * Get the user who made the status change
      */
     public function changedBy()
     {

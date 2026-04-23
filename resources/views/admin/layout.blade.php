@@ -35,6 +35,26 @@
                            class="px-4 py-2 rounded-lg hover:bg-white hover:bg-opacity-20 transition {{ request()->routeIs('admin.analytics') ? 'bg-white bg-opacity-20' : '' }}">
                             Analytics
                         </a>
+                        <a href="{{ route('admin.recruiters.index') }}" 
+                           class="px-4 py-2 rounded-lg hover:bg-white hover:bg-opacity-20 transition {{ request()->routeIs('admin.recruiters.*') ? 'bg-white bg-opacity-20' : '' }} relative inline-flex items-center gap-1">
+                            Recruiters
+                            @php
+                                $pendingRecruiterCount = \App\Models\RecruiterProfile::where('approval_status', 'pending')->count();
+                            @endphp
+                            @if($pendingRecruiterCount > 0)
+                                <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-red-500 text-white rounded-full">
+                                    {{ $pendingRecruiterCount > 99 ? '99+' : $pendingRecruiterCount }}
+                                </span>
+                            @endif
+                        </a>
+                        <a href="{{ route('admin.recruiter-analytics.index') }}" 
+                           class="px-4 py-2 rounded-lg hover:bg-white hover:bg-opacity-20 transition {{ request()->routeIs('admin.recruiter-analytics.*') ? 'bg-white bg-opacity-20' : '' }}">
+                            Recruiter Analytics
+                        </a>
+                        <a href="{{ route('admin.audit-logs.index') }}" 
+                           class="px-4 py-2 rounded-lg hover:bg-white hover:bg-opacity-20 transition {{ request()->routeIs('admin.audit-logs.*') ? 'bg-white bg-opacity-20' : '' }}">
+                            Audit Logs
+                        </a>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">

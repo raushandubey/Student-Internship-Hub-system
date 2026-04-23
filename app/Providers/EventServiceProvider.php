@@ -4,8 +4,20 @@ namespace App\Providers;
 
 use App\Events\ApplicationSubmitted;
 use App\Events\ApplicationStatusChanged;
+use App\Events\RecruiterApproved;
+use App\Events\RecruiterRejected;
+use App\Events\RecruiterSuspended;
+use App\Events\RecruiterActivated;
+use App\Events\RecruiterInternshipDeactivated;
+use App\Events\RecruiterProfileModified;
 use App\Listeners\SendApplicationConfirmation;
 use App\Listeners\SendStatusUpdateNotification;
+use App\Listeners\SendRecruiterApprovalEmail;
+use App\Listeners\SendRecruiterRejectionEmail;
+use App\Listeners\SendRecruiterSuspensionEmail;
+use App\Listeners\SendRecruiterActivationEmail;
+use App\Listeners\SendInternshipDeactivationEmail;
+use App\Listeners\SendProfileModificationEmail;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 
 /**
@@ -30,6 +42,24 @@ class EventServiceProvider extends ServiceProvider
         ],
         ApplicationStatusChanged::class => [
             SendStatusUpdateNotification::class,
+        ],
+        RecruiterApproved::class => [
+            SendRecruiterApprovalEmail::class,
+        ],
+        RecruiterRejected::class => [
+            SendRecruiterRejectionEmail::class,
+        ],
+        RecruiterSuspended::class => [
+            SendRecruiterSuspensionEmail::class,
+        ],
+        RecruiterActivated::class => [
+            SendRecruiterActivationEmail::class,
+        ],
+        RecruiterInternshipDeactivated::class => [
+            SendInternshipDeactivationEmail::class,
+        ],
+        RecruiterProfileModified::class => [
+            SendProfileModificationEmail::class,
         ],
     ];
 

@@ -17,11 +17,16 @@ class Internship extends Model
         'location',
         'description',
         'is_active',
+        'recruiter_id',
+        'deactivation_reason',
+        'deactivated_by',
+        'deactivated_at',
     ];
 
     protected $casts = [
         'required_skills' => 'array',
         'is_active' => 'boolean',
+        'deactivated_at' => 'datetime',
     ];
 
     /**
@@ -33,11 +38,43 @@ class Internship extends Model
     }
 
     /**
+     * Get the recruiter who posted this internship
+     */
+    public function recruiter()
+    {
+        return $this->belongsTo(User::class, 'recruiter_id');
+    }
+
+    /**
+     * Get the admin who deactivated this internship
+     */
+    public function deactivatedBy()
+    {
+        return $this->belongsTo(User::class, 'deactivated_by');
+    }
+
+    /**
+     * Check if the internship is deactivated
+     */
+    public function isDeactivated()
+    {
+        return !$this->is_active && $this->deactivated_at !== null;
+    }
+
+    /**
      * Scope: Active internships only
      */
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope: Filter internships for a specific recruiter
+     */
+    public function scopeForRecruiter($query, $recruiterId)
+    {
+        return $query->where('recruiter_id', $recruiterId);
     }
 
     /**

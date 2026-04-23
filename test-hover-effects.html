@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Bubble Hover Effects Test</title>
+    <link rel="stylesheet" href="public/css/chatbot.css">
+    <style>
+        body {
+            background: #0f0f0f;
+            padding: 40px;
+            font-family: 'Inter', sans-serif;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 40px;
+        }
+        .test-title {
+            color: #ffb347;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .test-description {
+            color: #e5e5e5;
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .message-wrapper {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .message-wrapper.bot {
+            justify-content: flex-start;
+        }
+        .message-wrapper.user {
+            justify-content: flex-end;
+        }
+        .requirements {
+            background: rgba(255, 122, 0, 0.1);
+            border: 1px solid rgba(255, 122, 0, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+        }
+        .requirements h3 {
+            color: #ff7a00;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        .requirements ul {
+            color: #e5e5e5;
+            font-size: 14px;
+            line-height: 1.8;
+            padding-left: 20px;
+        }
+        .requirements li {
+            margin-bottom: 8px;
+        }
+        .checkmark {
+            color: #22c55e;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 style="color: #ff7a00; text-align: center; margin-bottom: 40px;">
+            Task 6.4: Message Bubble Hover Effects Test
+        </h1>
+
+        <div class="test-section">
+            <div class="test-title">Bot Message Bubble</div>
+            <div class="test-description">
+                Hover over the bot message below to see the hover effects:
+                <ul style="margin-top: 10px; padding-left: 20px;">
+                    <li>Lift effect: translateY(-1px)</li>
+                    <li>Enhanced shadow with saffron glow</li>
+                    <li>Smooth 200ms transition</li>
+                    <li>Border color enhancement</li>
+                </ul>
+            </div>
+            <div class="message-wrapper bot">
+                <div class="shreeram-bot-bubble">
+                    Hello! I'm ShreeRam AI, your career guide. How can I help you today with your internship search or career planning?
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">User Message Bubble</div>
+            <div class="test-description">
+                Hover over the user message below to see the hover effects:
+                <ul style="margin-top: 10px; padding-left: 20px;">
+                    <li>Lift effect: translateY(-1px)</li>
+                    <li>Enhanced shadow with stronger saffron glow</li>
+                    <li>Smooth 200ms transition</li>
+                </ul>
+            </div>
+            <div class="message-wrapper user">
+                <div class="shreeram-user-bubble">
+                    I'm looking for software engineering internships. Can you help me find opportunities?
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">Multiple Messages Test</div>
+            <div class="test-description">
+                Test hover effects on multiple messages in a conversation:
+            </div>
+            <div class="message-wrapper bot">
+                <div class="shreeram-bot-bubble">
+                    Great! I can help you find software engineering internships. What's your area of interest?
+                </div>
+            </div>
+            <div class="message-wrapper user">
+                <div class="shreeram-user-bubble">
+                    I'm interested in web development and AI/ML.
+                </div>
+            </div>
+            <div class="message-wrapper bot">
+                <div class="shreeram-bot-bubble">
+                    Excellent choices! Let me show you some internship opportunities in web development and AI/ML.
+                </div>
+            </div>
+        </div>
+
+        <div class="requirements">
+            <h3>✅ Task 6.4 Requirements Verification</h3>
+            <ul>
+                <li><span class="checkmark">✓</span> Lift effect: translateY(-1px) - Implemented</li>
+                <li><span class="checkmark">✓</span> Enhanced shadow on hover - Implemented</li>
+                <li><span class="checkmark">✓</span> Smooth transition (200ms) - Implemented as "transition: all 0.2s ease"</li>
+                <li><span class="checkmark">✓</span> Requirements 9.1 (Micro-interactions) - Satisfied</li>
+                <li><span class="checkmark">✓</span> Requirements 4.9 (Message spacing) - Satisfied</li>
+                <li><span class="checkmark">✓</span> Requirements 4.10 (Message consistency) - Satisfied</li>
+            </ul>
+        </div>
+
+        <div class="requirements" style="margin-top: 20px; background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.3);">
+            <h3 style="color: #22c55e;">Implementation Details</h3>
+            <ul>
+                <li><strong>Bot Bubble Hover:</strong>
+                    <ul style="margin-top: 8px;">
+                        <li>Shadow: 0 4px 12px rgba(0, 0, 0, 0.12) + glow layers</li>
+                        <li>Transform: translateY(-1px)</li>
+                        <li>Border color: rgba(255, 122, 0, 0.2)</li>
+                        <li>Transition: all 0.2s ease</li>
+                    </ul>
+                </li>
+                <li style="margin-top: 12px;"><strong>User Bubble Hover:</strong>
+                    <ul style="margin-top: 8px;">
+                        <li>Shadow: 0 4px 12px rgba(255, 122, 0, 0.35) + depth layer</li>
+                        <li>Transform: translateY(-1px)</li>
+                        <li>Transition: all 0.2s ease</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

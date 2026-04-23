@@ -94,4 +94,18 @@ class Application extends Model
     {
         return $this->status->colorClass();
     }
+
+    /**
+     * Record a status change in the log
+     */
+    public function recordStatusChange(ApplicationStatus $oldStatus, ApplicationStatus $newStatus, $changedBy = null, $actorType = 'admin', $notes = null)
+    {
+        return $this->statusLogs()->create([
+            'from_status' => $oldStatus->value,
+            'to_status' => $newStatus->value,
+            'changed_by' => $changedBy,
+            'actor_type' => $actorType,
+            'notes' => $notes,
+        ]);
+    }
 }

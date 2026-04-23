@@ -73,6 +73,12 @@ Route::middleware('guest')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])
         ->middleware('throttle:3,1') // 3 registrations per minute
         ->name('register.submit');
+
+    // Recruiter registration
+    Route::get('/recruiter/register', [AuthController::class, 'showRecruiterRegister'])->name('recruiter.register');
+    Route::post('/recruiter/register', [AuthController::class, 'registerRecruiter'])
+        ->middleware('throttle:3,1')
+        ->name('recruiter.register.submit');
     Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])
         ->middleware('throttle:3,1') // 3 reset requests per minute

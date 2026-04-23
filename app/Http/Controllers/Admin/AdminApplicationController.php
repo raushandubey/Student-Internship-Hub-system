@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Enums\ApplicationStatus;
 use App\Services\ApplicationService;
+use App\Services\ProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -20,22 +21,59 @@ use Illuminate\Support\Facades\Auth;
 class AdminApplicationController extends Controller
 {
     protected ApplicationService $applicationService;
+    protected ProfileService $profileService;
 
-    public function __construct(ApplicationService $applicationService)
-    {
+    public function __construct(
+        ApplicationService $applicationService,
+        ProfileService $profileService
+    ) {
         $this->applicationService = $applicationService;
+        $this->profileService = $profileService;
     }
 
     /**
-     * Display all applications
+     * Display all applications with optional internship source filtering
+     * Requirements: 7.1, 7.2, 7.3
      */
-    public function index()
+    public function index(Request $request)
     {
-        $applications = Application::with(['user', 'internship'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $query = Application::with(['user', 'internship', 'internship.recruiter'])
+            ->orderBy('created_at', 'desc');
 
-        return view('admin.applications.index', compact('applications'));
+        $source = $request->input('source', 'all');
+
+        if ($source === 'recruiter-posted') {
+            $query->whereHas('internship', function ($q) {
+                $q->whereNotNull('recruiter_id');
+            });
+        } elseif ($source === 'admin-posted') {
+            $query->whereHas('internship', function ($q) {
+                $q->whereNull('recruiter_id');
+            });
+        }
+
+        $applications = $query->paginate(20)->withQueryString();
+
+        return view('admin.applications.index', compact('applications', 'source'));
+    }
+
+    /**
+     * Show application detail with recruiter context
+     * Requirements: 7.4, 7.5
+     */
+    public function show(Application $application)
+    {
+        $application->load([
+            'user',
+            'internship',
+            'internship.recruiter',
+            'internship.recruiter.recruiterProfile',
+            'statusLogs',
+        ]);
+
+        $recruiter = $application->internship?->recruiter;
+
+        return view('admin.applications.show', compact('application', 'recruiter'));
     }
 
     /**
@@ -107,5 +145,40 @@ class AdminApplicationController extends Controller
             ->paginate(20);
 
         return view('admin.email-logs', compact('emails'));
+    }
+
+    /**
+     * Get candidate profile data for modal display
+     * 
+     * Retrieves complete profile information for a candidate
+     * associated with an application. Used by the admin profile
+     * viewer modal to display candidate details.
+     * 
+     * @param Application $application
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getProfile(Application $application)
+    {
+        try {
+            $profileData = $this->profileService->getProfileForAdmin(
+                $application->user_id
+            );
+            
+            return response()->json([
+                'success' => true,
+                'data' => $profileData
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Profile fetch failed', [
+                'application_id' => $application->id,
+                'user_id' => $application->user_id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to load profile data'
+            ], 500);
+        }
     }
 }

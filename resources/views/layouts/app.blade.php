@@ -478,6 +478,12 @@
                                 <i class="fas fa-cogs me-2"></i>Manage Internships
                             </a>
                         @endif
+
+                        @if(auth()->user()->isRecruiter())
+                            <a href="{{ route('recruiter.dashboard') }}" class="nav-link {{ request()->routeIs('recruiter.*') ? 'active' : '' }}">
+                                <i class="fas fa-user-tie me-2"></i>Recruiter Panel
+                            </a>
+                        @endif
                         
                         <form method="POST" action="{{ route('logout') }}" class="inline">
                             @csrf

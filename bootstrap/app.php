@@ -14,12 +14,15 @@ return Application::configure(basePath: dirname(__DIR__))
         then: function () {
             Route::middleware('web')
                 ->group(base_path('routes/admin.php'));
+            Route::middleware('web')
+                ->group(base_path('routes/recruiter.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'recruiter' => \App\Http\Middleware\RecruiterMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

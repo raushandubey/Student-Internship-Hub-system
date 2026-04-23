@@ -20,6 +20,28 @@
         </div>
     </div>
 
+    <!-- Internship Source Filter -->
+    <div class="bg-white rounded-lg shadow p-4">
+        <form method="GET" action="{{ route('admin.applications.index') }}" class="flex flex-wrap gap-3 items-end">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Internship Source</label>
+                <select name="internship_source" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">All</option>
+                    <option value="admin" {{ request('internship_source') === 'admin' ? 'selected' : '' }}>Admin-Posted</option>
+                    <option value="recruiter" {{ request('internship_source') === 'recruiter' ? 'selected' : '' }}>Recruiter-Posted</option>
+                </select>
+            </div>
+            <div>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">Filter</button>
+            </div>
+            @if(request('internship_source'))
+            <div>
+                <a href="{{ route('admin.applications.index') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">Clear</a>
+            </div>
+            @endif
+        </form>
+    </div>
+
     <!-- Pipeline Stats -->
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         @php
@@ -67,6 +89,7 @@
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applicant</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Internship</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Stage</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -95,6 +118,17 @@
                         <td class="px-6 py-4">
                             <div class="text-sm font-medium text-gray-900">{{ $application->internship->title }}</div>
                             <div class="text-sm text-gray-500">{{ $application->internship->organization }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @if($application->internship->recruiter_id)
+                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800 border border-purple-300">
+                                    Recruiter-Posted
+                                </span>
+                            @else
+                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+                                    Admin-Posted
+                                </span>
+                            @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $application->created_at->format('M d, Y') }}
