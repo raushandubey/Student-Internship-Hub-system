@@ -33,7 +33,6 @@ class ResumeController extends Controller
         try {
             // Sanitize filename to prevent directory traversal
             $filename = basename($filename);
-            $path = 'resumes/' . $filename;
             
             // Authorization check: Find the profile that owns this resume
             $profile = Profile::where('resume_path', 'LIKE', '%' . $filename)->first();
@@ -52,17 +51,47 @@ class ResumeController extends Controller
                     abort(403, 'Unauthorized access to resume');
                 }
                 
-                // Admins and recruiters can access any resume (no additional check needed)
+                // If we found the profile, use its getResumeUrl() method which handles S3 properly
+                $resumeUrl = $profile->getResumeUrl();
+                
+                if ($resumeUrl) {
+                    Log::info('Redirecting to profile resume URL', [
+                        'filename' => $filename,
+                        'profile_id' => $profile->id
+                    ]);
+                    
+                    return redirect($resumeUrl);
+                }
             }
             
+            // Fallback: Try to serve the file directly
+            $path = 'resumes/' . $filename;
             $disk = config('filesystems.default');
+            
+            // Log the attempt for debugging
+            Log::info('Resume serve attempt (fallback)', [
+                'filename' => $filename,
+                'path' => $path,
+                'disk' => $disk,
+                'profile_found' => $profile ? true : false
+            ]);
             
             // Handle S3 storage (production)
             if ($disk === 's3') {
-                if (!Storage::disk('s3')->exists($path)) {
+                // Check if file exists on S3
+                $exists = Storage::disk('s3')->exists($path);
+                
+                Log::info('S3 file check', [
+                    'path' => $path,
+                    'exists' => $exists,
+                    's3_configured' => config('filesystems.disks.s3.key') ? true : false
+                ]);
+                
+                if (!$exists) {
                     Log::warning('Resume file not found on S3', [
                         'filename' => $filename,
-                        'path' => $path
+                        'path' => $path,
+                        'profile_resume_path' => $profile ? $profile->resume_path : null
                     ]);
                     
                     return $this->resumeNotFoundResponse();
