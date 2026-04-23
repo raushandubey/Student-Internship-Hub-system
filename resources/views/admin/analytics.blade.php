@@ -79,7 +79,7 @@
                             <span class="status-name">{{ ucfirst(str_replace('_', ' ', $status)) }}</span>
                             <span class="status-count">{{ $count }}</span>
                             <div class="status-bar">
-                                <div class="status-fill" style="width: {{ $overallStats['total_applications'] > 0 ? ($count / $overallStats['total_applications']) * 100 : 0 }}%"></div>
+                                <div class="status-fill" style="width: {{ ($overallStats['total_applications'] ?? 0) > 0 ? ($count / $overallStats['total_applications']) * 100 : 0 }}%"></div>
                             </div>
                         </div>
                     @endforeach
@@ -125,7 +125,7 @@
             </div>
             <div class="card-body">
                 <div class="trends-chart">
-                    @php $maxTrend = max($recentTrends) ?: 1; @endphp
+                    @php $maxTrend = !empty($recentTrends) ? max($recentTrends) : 1; @endphp
                     @foreach($recentTrends as $date => $count)
                         <div class="trend-bar-container">
                             <div class="trend-bar" style="height: {{ ($count / $maxTrend) * 100 }}%">

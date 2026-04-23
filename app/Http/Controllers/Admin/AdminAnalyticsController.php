@@ -22,14 +22,33 @@ class AdminAnalyticsController extends Controller
 
     public function index()
     {
-        return view('admin.analytics', [
-            'overallStats' => $this->analyticsService->getOverallStats(),
-            'statusBreakdown' => $this->analyticsService->getStatusBreakdown(),
-            'approvalRatio' => $this->analyticsService->getApprovalRatio(),
-            'topInternships' => $this->analyticsService->getApplicationsPerInternship(10),
-            'matchDistribution' => $this->analyticsService->getMatchScoreDistribution(),
-            'recentTrends' => $this->analyticsService->getRecentTrends(),
-            'topPerforming' => $this->analyticsService->getTopPerformingInternships(5),
-        ]);
+        try {
+            $overallStats = $this->analyticsService->getOverallStats();
+            $statusBreakdown = $this->analyticsService->getStatusBreakdown();
+            $approvalRatio = $this->analyticsService->getApprovalRatio();
+            $topInternships = $this->analyticsService->getApplicationsPerInternship(10);
+            $matchDistribution = $this->analyticsService->getMatchScoreDistribution();
+            $recentTrends = $this->analyticsService->getRecentTrends();
+            $topPerforming = $this->analyticsService->getTopPerformingInternships(5);
+
+            return view('admin.analytics', compact(
+                'overallStats',
+                'statusBreakdown',
+                'approvalRatio',
+                'topInternships',
+                'matchDistribution',
+                'recentTrends',
+                'topPerforming'
+            ));
+            
+        } catch (\Exception $e) {
+            \Log::error('Admin analytics page error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->route('admin.dashboard')
+                ->with('error', 'Unable to load analytics. Please try again or contact support.');
+        }
     }
 }
