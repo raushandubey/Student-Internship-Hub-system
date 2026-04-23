@@ -30,7 +30,7 @@ class Profile extends Model
 
     /**
      * Get the public URL for the resume file
-     * PRODUCTION-SAFE: Multiple fallback strategies
+     * PRODUCTION-SAFE: Handles both S3 and local storage with multiple fallback strategies
      */
     public function getResumeUrl(): ?string
     {
@@ -39,21 +39,29 @@ class Profile extends Model
         }
 
         try {
-            // Normalize path (remove leading slash if present)
+            $disk = config('filesystems.default');
+            
+            // Strategy 1: S3 Storage (Production)
+            if ($disk === 's3') {
+                if (\Illuminate\Support\Facades\Storage::disk('s3')->exists($this->resume_path)) {
+                    return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->resume_path);
+                }
+            }
+            
+            // Strategy 2: Public disk (Local/Development)
             $normalizedPath = ltrim($this->resume_path, '/');
             
-            // Strategy 1: Check public disk (primary storage)
             if (\Illuminate\Support\Facades\Storage::disk('public')->exists($normalizedPath)) {
                 return \Illuminate\Support\Facades\Storage::disk('public')->url($normalizedPath);
             }
             
-            // Strategy 2: Check if file exists in storage/app/public directly
+            // Strategy 3: Direct filesystem check
             $fullPath = storage_path('app/public/' . $normalizedPath);
             if (file_exists($fullPath)) {
                 return asset('storage/' . $normalizedPath);
             }
             
-            // Strategy 3: Use route-based serving (fallback for missing symlink)
+            // Strategy 4: Route-based serving (fallback for missing symlink)
             return route('resume.serve', ['filename' => basename($normalizedPath)]);
             
         } catch (\Exception $e) {
@@ -63,13 +71,13 @@ class Profile extends Model
                 'error' => $e->getMessage()
             ]);
             
-            // Final fallback: return null (will show "No resume" in UI)
             return null;
         }
     }
     
     /**
      * Check if resume file actually exists on disk
+     * Handles both S3 and local storage
      */
     public function hasResumeFile(): bool
     {
@@ -77,15 +85,32 @@ class Profile extends Model
             return false;
         }
         
-        $normalizedPath = ltrim($this->resume_path, '/');
-        
-        // Check public disk
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($normalizedPath)) {
-            return true;
+        try {
+            $disk = config('filesystems.default');
+            
+            // Check S3 first if configured
+            if ($disk === 's3') {
+                return \Illuminate\Support\Facades\Storage::disk('s3')->exists($this->resume_path);
+            }
+            
+            // Check public disk
+            $normalizedPath = ltrim($this->resume_path, '/');
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($normalizedPath)) {
+                return true;
+            }
+            
+            // Check direct file system
+            $fullPath = storage_path('app/public/' . $normalizedPath);
+            return file_exists($fullPath);
+            
+        } catch (\Exception $e) {
+            \Log::warning('Resume file check failed', [
+                'profile_id' => $this->id,
+                'resume_path' => $this->resume_path,
+                'error' => $e->getMessage()
+            ]);
+            
+            return false;
         }
-        
-        // Check direct file system
-        $fullPath = storage_path('app/public/' . $normalizedPath);
-        return file_exists($fullPath);
     }
 }

@@ -6,6 +6,7 @@ use App\Models\Profile;
 use App\Models\Internship;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -15,6 +16,9 @@ beforeEach(function () {
         'email' => 'admin@example.com',
         'role' => 'admin',
     ]);
+    
+    // Fake storage for file operations
+    Storage::fake('public');
 });
 
 test('admin can retrieve candidate profile via getProfile endpoint', function () {
@@ -25,12 +29,15 @@ test('admin can retrieve candidate profile via getProfile endpoint', function ()
         'role' => 'student',
     ]);
     
+    // Create the resume file in fake storage
+    Storage::disk('public')->put('resumes/john_resume.pdf', 'fake resume content');
+    
     $profile = Profile::factory()->create([
         'user_id' => $student->id,
         'academic_background' => 'B.Tech Computer Science',
         'skills' => ['PHP', 'Laravel', 'JavaScript'],
         'career_interests' => 'Full-stack development',
-        'resume_path' => '/resumes/john_resume.pdf',
+        'resume_path' => 'resumes/john_resume.pdf',
     ]);
     
     $internship = Internship::create([
@@ -383,12 +390,15 @@ test('admin can view candidate profile from applications page', function () {
         'role' => 'student',
     ]);
     
+    // Create the resume file in fake storage
+    Storage::disk('public')->put('resumes/sarah_resume.pdf', 'fake resume content');
+    
     $profile = Profile::factory()->create([
         'user_id' => $student->id,
         'academic_background' => 'M.Sc. Data Science, MIT',
         'skills' => ['Python', 'Machine Learning', 'TensorFlow', 'SQL'],
         'career_interests' => 'AI research and development',
-        'resume_path' => '/resumes/sarah_resume.pdf',
+        'resume_path' => 'resumes/sarah_resume.pdf',
     ]);
     
     $internship = Internship::create([
@@ -439,12 +449,15 @@ test('profile modal displays all required information', function () {
         'role' => 'student',
     ]);
     
+    // Create the resume file in fake storage
+    Storage::disk('public')->put('resumes/michael_resume.pdf', 'fake resume content');
+    
     $profile = Profile::factory()->create([
         'user_id' => $student->id,
         'academic_background' => 'B.Eng. Software Engineering',
         'skills' => ['Java', 'Spring Boot', 'Docker', 'Kubernetes'],
         'career_interests' => 'Backend development and cloud architecture',
-        'resume_path' => '/resumes/michael_resume.pdf',
+        'resume_path' => 'resumes/michael_resume.pdf',
     ]);
     
     $internship = Internship::create([
@@ -624,9 +637,12 @@ test('resume PDF is served correctly', function () {
     // Arrange
     $student = User::factory()->create(['role' => 'student']);
     
+    // Create the resume file in fake storage
+    Storage::disk('public')->put('resumes/test_resume.pdf', 'fake resume content');
+    
     $profile = Profile::factory()->create([
         'user_id' => $student->id,
-        'resume_path' => '/resumes/test_resume.pdf',
+        'resume_path' => 'resumes/test_resume.pdf',
     ]);
     
     $internship = Internship::create([
@@ -653,7 +669,7 @@ test('resume PDF is served correctly', function () {
     $response->assertStatus(200);
     
     $data = $response->json('data.profile');
-    expect($data['resume_path'])->toContain('/storage/resumes/test_resume.pdf')
+    expect($data['resume_path'])->toContain('resumes/test_resume.pdf')
         ->and($data['resume_path'])->toContain('.pdf')
         ->and($data['has_resume'])->toBeTrue();
 });
@@ -665,9 +681,12 @@ test('resume download has correct filename', function () {
         'role' => 'student',
     ]);
     
+    // Create the resume file in fake storage
+    Storage::disk('public')->put('resumes/john_doe_resume.pdf', 'fake resume content');
+    
     $profile = Profile::factory()->create([
         'user_id' => $student->id,
-        'resume_path' => '/resumes/john_doe_resume.pdf',
+        'resume_path' => 'resumes/john_doe_resume.pdf',
     ]);
     
     $internship = Internship::create([
@@ -694,7 +713,7 @@ test('resume download has correct filename', function () {
     $response->assertStatus(200);
     
     $resumePath = $response->json('data.profile.resume_path');
-    expect($resumePath)->toContain('/storage/resumes/john_doe_resume.pdf')
+    expect($resumePath)->toContain('resumes/john_doe_resume.pdf')
         ->and(basename($resumePath))->toBe('john_doe_resume.pdf');
 });
 

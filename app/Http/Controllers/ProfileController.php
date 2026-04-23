@@ -64,22 +64,34 @@ class ProfileController extends Controller
 
             // Handle resume upload with proper error handling
             if ($request->hasFile('resume')) {
+                // Get configured disk (s3 in production, public in development)
+                $disk = config('filesystems.default');
+                
                 // Delete old resume if exists
-                if ($profile->resume_path && Storage::disk('public')->exists($profile->resume_path)) {
-                    Storage::disk('public')->delete($profile->resume_path);
+                if ($profile->resume_path) {
+                    try {
+                        Storage::disk($disk)->delete($profile->resume_path);
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to delete old resume', [
+                            'path' => $profile->resume_path,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
                 }
                 
                 // Store new resume with sanitized filename
                 $file = $request->file('resume');
                 $filename = time() . '_' . preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $file->getClientOriginalName());
-                $path = $file->storeAs('resumes', $filename, 'public');
+                $path = $file->storeAs('resumes', $filename, $disk);
                 
                 if ($path) {
                     $profile->resume_path = $path;
                     \Log::info('Resume uploaded successfully', [
                         'user_id' => $user->id,
                         'path' => $path,
-                        'filename' => $filename
+                        'disk' => $disk,
+                        'filename' => $filename,
+                        'size' => $file->getSize()
                     ]);
                 } else {
                     throw new \Exception('Failed to store resume file');
@@ -93,6 +105,8 @@ class ProfileController extends Controller
         } catch (\Exception $e) {
             \Log::error('Profile update failed', [
                 'user_id' => Auth::id(),
+                'operation' => 'upload',
+                'disk' => config('filesystems.default'),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);

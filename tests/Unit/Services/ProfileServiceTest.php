@@ -7,6 +7,7 @@ use App\Services\ProfileService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -14,6 +15,9 @@ beforeEach(function () {
     // Mock CandidateSummaryService
     $this->summaryService = Mockery::mock(CandidateSummaryService::class);
     $this->service = new ProfileService($this->summaryService);
+    
+    // Fake storage for file operations
+    Storage::fake('public');
 });
 
 test('retrieves profile data for valid user', function () {
@@ -23,12 +27,15 @@ test('retrieves profile data for valid user', function () {
         'email' => 'john@example.com',
     ]);
     
+    // Create the resume file in fake storage
+    Storage::disk('public')->put('resumes/john_resume.pdf', 'fake resume content');
+    
     $profile = Profile::factory()->create([
         'user_id' => $user->id,
         'academic_background' => 'B.Tech Computer Science',
         'skills' => ['PHP', 'Laravel', 'JavaScript'],
         'career_interests' => 'Full-stack development',
-        'resume_path' => '/resumes/john_resume.pdf',
+        'resume_path' => 'resumes/john_resume.pdf',
     ]);
 
     // Mock AI summary generation
@@ -53,7 +60,7 @@ test('retrieves profile data for valid user', function () {
         ->and($result['profile']['academic_background'])->toBe('B.Tech Computer Science')
         ->and($result['profile']['skills'])->toBe(['PHP', 'Laravel', 'JavaScript'])
         ->and($result['profile']['career_interests'])->toBe('Full-stack development')
-        ->and($result['profile']['resume_path'])->toBe('/resumes/john_resume.pdf')
+        ->and($result['profile']['resume_path'])->toContain('resumes/john_resume.pdf')
         ->and($result['profile']['has_resume'])->toBeTrue()
         ->and($result['ai_summary'])->toHaveKeys(['strengths', 'weaknesses', 'overall_assessment']);
 });

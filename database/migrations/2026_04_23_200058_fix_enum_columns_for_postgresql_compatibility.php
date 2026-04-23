@@ -45,47 +45,86 @@ return new class extends Migration
 
     /**
      * Convert a column to string type without using ->change() or Doctrine DBAL.
-     * PostgreSQL-safe approach: create temp column, copy data, drop old, rename temp.
+     * Database-agnostic approach: create temp column, copy data, drop old, rename temp.
      */
     private function convertColumnToString(string $table, string $column, int $length, string $default): void
     {
         $tempColumn = $column . '_temp';
+        $driver = DB::getDriverName();
         
         // Step 1: Create new temporary string column
         Schema::table($table, function (Blueprint $table) use ($tempColumn, $length, $default) {
             $table->string($tempColumn, $length)->default($default)->nullable();
         });
 
-        // Step 2: Copy data from old column to new column
-        DB::statement("UPDATE {$table} SET {$tempColumn} = {$column}::text");
+        // Step 2: Copy data from old column to new column (database-agnostic)
+        if ($driver === 'pgsql') {
+            DB::statement("UPDATE {$table} SET {$tempColumn} = {$column}::text");
+        } else {
+            // SQLite, MySQL, etc.
+            DB::statement("UPDATE {$table} SET {$tempColumn} = {$column}");
+        }
 
-        // Step 3: Drop old column
+        // Step 3: Drop all indexes on the column (SQLite requires this before dropping column)
+        if ($driver === 'sqlite') {
+            // Drop all possible index names
+            $possibleIndexNames = [
+                "{$table}_{$column}_index",
+                "idx_{$table}_{$column}",
+            ];
+            
+            foreach ($possibleIndexNames as $indexName) {
+                try {
+                    DB::statement("DROP INDEX IF EXISTS {$indexName}");
+                } catch (\Exception $e) {
+                    // Index might not exist, continue
+                }
+            }
+        }
+
+        // Step 4: Drop old column
         Schema::table($table, function (Blueprint $table) use ($column) {
             $table->dropColumn($column);
         });
 
-        // Step 4: Rename temporary column to original name
+        // Step 5: Rename temporary column to original name
         Schema::table($table, function (Blueprint $table) use ($tempColumn, $column) {
             $table->renameColumn($tempColumn, $column);
         });
 
-        // Step 5: Set NOT NULL constraint and default value using raw SQL
-        DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET NOT NULL");
-        DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET DEFAULT '{$default}'");
+        // Step 6: Set NOT NULL constraint and default value using raw SQL (PostgreSQL only)
+        if ($driver === 'pgsql') {
+            DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET NOT NULL");
+            DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET DEFAULT '{$default}'");
+        }
     }
 
     /**
-     * Add index if it doesn't exist (PostgreSQL-safe).
+     * Add index if it doesn't exist (database-agnostic).
      */
     private function addIndexIfNotExists(string $table, string $column): void
     {
         $indexName = "{$table}_{$column}_index";
+        $driver = DB::getDriverName();
         
-        // Check if index exists using PostgreSQL system catalog
-        $exists = DB::select(
-            "SELECT 1 FROM pg_indexes WHERE tablename = ? AND indexname = ?",
-            [$table, $indexName]
-        );
+        // Check if index exists based on database driver
+        if ($driver === 'pgsql') {
+            $exists = DB::select(
+                "SELECT 1 FROM pg_indexes WHERE tablename = ? AND indexname = ?",
+                [$table, $indexName]
+            );
+        } elseif ($driver === 'sqlite') {
+            $exists = DB::select(
+                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?",
+                [$indexName]
+            );
+        } else {
+            // MySQL
+            $exists = DB::select(
+                "SHOW INDEX FROM {$table} WHERE Key_name = ?",
+                [$indexName]
+            );
+        }
 
         if (empty($exists)) {
             Schema::table($table, function (Blueprint $table) use ($column) {

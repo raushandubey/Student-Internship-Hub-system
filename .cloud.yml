@@ -7,6 +7,10 @@ octane: false
 # PHP version
 php: 8.2
 
+# Storage configuration (use S3)
+storage:
+  disk: s3
+
 # Build configuration
 build:
   - composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
@@ -24,3 +28,4 @@ environment:
   APP_ENV: production
   APP_DEBUG: false
   LOG_LEVEL: error
+  FILESYSTEM_DISK: s3
