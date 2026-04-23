@@ -1,0 +1,26 @@
+# Laravel Cloud Configuration
+# This file configures your Laravel Cloud deployment
+
+# Disable Octane (use traditional PHP-FPM)
+octane: false
+
+# PHP version
+php: 8.2
+
+# Build configuration
+build:
+  - composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+# Deployment commands
+deploy:
+  - php artisan migrate --force
+  - php artisan config:cache
+  - php artisan route:cache
+  - php artisan view:cache
+  - php artisan storage:link
+
+# Environment
+environment:
+  APP_ENV: production
+  APP_DEBUG: false
+  LOG_LEVEL: error

@@ -1,0 +1,28 @@
+# Laravel Cloud Configuration (YAML format)
+# Alternative configuration file format
+
+# Disable Octane
+octane:
+  enabled: false
+
+# PHP Configuration
+php:
+  version: "8.2"
+
+# Build steps
+build:
+  commands:
+    - composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+# Deploy steps
+deploy:
+  commands:
+    - php artisan migrate --force
+    - php artisan config:cache
+    - php artisan route:cache
+    - php artisan view:cache
+    - php artisan storage:link
+
+# Web server configuration
+web:
+  server: fpm  # Use PHP-FPM instead of Octane
