@@ -21,9 +21,10 @@ class ResumeController extends Controller
      * 
      * This route serves as a fallback when the storage symlink is missing
      * or when files are stored in a non-standard location.
+     * Handles both S3 and local storage.
      * 
      * @param string $filename
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
      */
     public function serve(string $filename)
     {
@@ -32,9 +33,37 @@ class ResumeController extends Controller
             $filename = basename($filename);
             $path = 'resumes/' . $filename;
             
-            // Check if file exists on public disk
+            $disk = config('filesystems.default');
+            
+            // Handle S3 storage (production)
+            if ($disk === 's3') {
+                if (!Storage::disk('s3')->exists($path)) {
+                    Log::warning('Resume file not found on S3', [
+                        'filename' => $filename,
+                        'path' => $path
+                    ]);
+                    
+                    return $this->resumeNotFoundResponse();
+                }
+                
+                // Redirect to temporary signed URL for S3
+                try {
+                    $url = Storage::disk('s3')->temporaryUrl($path, now()->addHour());
+                    return redirect($url);
+                } catch (\Exception $e) {
+                    // Fallback to regular URL if signed URL fails
+                    Log::debug('Falling back to regular S3 URL in serve method', [
+                        'filename' => $filename,
+                        'error' => $e->getMessage()
+                    ]);
+                    $url = Storage::disk('s3')->url($path);
+                    return redirect($url);
+                }
+            }
+            
+            // Handle local/public storage (development)
             if (!Storage::disk('public')->exists($path)) {
-                Log::warning('Resume file not found', [
+                Log::warning('Resume file not found on public disk', [
                     'filename' => $filename,
                     'path' => $path
                 ]);
@@ -68,9 +97,10 @@ class ResumeController extends Controller
      * Download resume file
      * 
      * Forces download instead of inline display
+     * Handles both S3 and local storage
      * 
      * @param int $profileId
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
      */
     public function download(int $profileId)
     {
@@ -82,9 +112,48 @@ class ResumeController extends Controller
             }
             
             $normalizedPath = ltrim($profile->resume_path, '/');
+            $disk = config('filesystems.default');
             
+            // Handle S3 storage (production)
+            if ($disk === 's3') {
+                if (!Storage::disk('s3')->exists($normalizedPath)) {
+                    Log::warning('Resume file not found on S3 for download', [
+                        'profile_id' => $profileId,
+                        'path' => $normalizedPath
+                    ]);
+                    
+                    return $this->resumeNotFoundResponse();
+                }
+                
+                // Generate download filename
+                $filename = $profile->user->name . '_Resume.pdf';
+                $filename = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $filename);
+                
+                // Generate temporary signed URL with content-disposition header for download
+                try {
+                    $url = Storage::disk('s3')->temporaryUrl(
+                        $normalizedPath,
+                        now()->addHour(),
+                        [
+                            'ResponseContentDisposition' => 'attachment; filename="' . $filename . '"',
+                            'ResponseContentType' => 'application/pdf'
+                        ]
+                    );
+                    return redirect($url);
+                } catch (\Exception $e) {
+                    // Fallback to regular URL
+                    Log::debug('Falling back to regular S3 URL for download', [
+                        'profile_id' => $profileId,
+                        'error' => $e->getMessage()
+                    ]);
+                    $url = Storage::disk('s3')->url($normalizedPath);
+                    return redirect($url);
+                }
+            }
+            
+            // Handle local/public storage (development)
             if (!Storage::disk('public')->exists($normalizedPath)) {
-                Log::warning('Resume file not found for download', [
+                Log::warning('Resume file not found on public disk for download', [
                     'profile_id' => $profileId,
                     'path' => $normalizedPath
                 ]);
