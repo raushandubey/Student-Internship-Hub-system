@@ -6,8 +6,10 @@ export default defineConfig({
     plugins: [
         laravel({
             input: [
-                'resources/css/app.css', 
+                'resources/css/app.css',
+                'resources/css/mobile-components.css',
                 'resources/js/app.js',
+                'resources/js/form-wizard.js',
                 'public/css/chatbot.css',
                 'public/js/chatbot.js'
             ],

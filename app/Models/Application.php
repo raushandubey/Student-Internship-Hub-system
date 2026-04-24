@@ -108,4 +108,38 @@ class Application extends Model
             'notes' => $notes,
         ]);
     }
+
+    /**
+     * Get progress percentage based on status
+     */
+    public function getProgressPercentage(): int
+    {
+        $progressMap = [
+            'pending' => 25,
+            'under_review' => 50,
+            'shortlisted' => 65,
+            'interview_scheduled' => 80,
+            'approved' => 100,
+            'rejected' => 100,
+        ];
+
+        return $progressMap[$this->status->value] ?? 0;
+    }
+
+    /**
+     * Get next steps message based on current status
+     */
+    public function getNextSteps(): ?string
+    {
+        $nextStepsMap = [
+            'pending' => 'Your application is being reviewed by the recruiter.',
+            'under_review' => 'The recruiter is evaluating your profile. You may be contacted soon.',
+            'shortlisted' => 'Congratulations! Prepare for a potential interview.',
+            'interview_scheduled' => 'Check your email for interview details and prepare accordingly.',
+            'approved' => 'Congratulations! Check your email for next steps.',
+            'rejected' => null,
+        ];
+
+        return $nextStepsMap[$this->status->value] ?? null;
+    }
 }

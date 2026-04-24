@@ -100,6 +100,9 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middl
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    // Mobile-first dashboard (optional separate route)
+    Route::get('/dashboard-mobile', [DashboardController::class, 'indexMobile'])->name('dashboard.mobile');
 });
 
 /*
@@ -121,6 +124,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::prefix('profile')->name('profile.')->group(function () {
         Route::get('/', [ProfileController::class, 'show'])->name('show');
         Route::get('/edit', [ProfileController::class, 'edit'])->name('edit');
+        Route::get('/edit-mobile', [ProfileController::class, 'editMobile'])->name('edit.mobile');
         Route::put('/update', [ProfileController::class, 'update'])->name('update');
         Route::post('/avatar', [ProfileController::class, 'updateAvatar'])->name('avatar.update');
         Route::delete('/avatar', [ProfileController::class, 'deleteAvatar'])->name('avatar.delete');
@@ -150,6 +154,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     
     // Alias route for application tracker
     Route::get('/my-applications', [ApplicationController::class, 'myApplications'])->name('my-applications');
+    Route::get('/my-applications-mobile', [ApplicationController::class, 'myApplicationsMobile'])->name('my-applications.mobile');
     
     // Saved/Bookmarked Internships
     Route::prefix('bookmarks')->name('bookmarks.')->group(function () {

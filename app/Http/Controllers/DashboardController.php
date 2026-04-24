@@ -92,6 +92,67 @@ class DashboardController extends Controller
     }
     
     /**
+     * Mobile-first dashboard view
+     */
+    public function indexMobile()
+    {
+        $user = Auth::user();
+        $profile = $user->profile;
+        
+        // Calculate profile completion
+        $profileCompletion = $profile ? $this->calculateProfileCompletion($profile) : 0;
+        
+        // Get stats
+        $stats = $this->applicationService->getUserStats(Auth::id());
+        $appliedJobs = $stats['total'];
+        $interviews = $stats['interview_scheduled'] + $stats['approved'];
+        $profileViews = 0; // Implement view tracking if needed
+        
+        // Get recommendations count
+        $recommendations = 0;
+        if ($profile && !empty($profile->skills)) {
+            $recommendations = count($this->matchingService->getRecommendations($user));
+        }
+        
+        // Get recent activities (last 5)
+        $recentActivities = $this->getRecentActivities($user);
+        
+        return view('student.dashboard-mobile', compact(
+            'profileCompletion',
+            'appliedJobs',
+            'interviews',
+            'profileViews',
+            'recommendations',
+            'recentActivities'
+        ));
+    }
+    
+    /**
+     * Get recent user activities
+     */
+    private function getRecentActivities($user): array
+    {
+        $activities = [];
+        
+        // Get recent applications
+        $recentApps = $user->applications()
+            ->with('internship')
+            ->latest()
+            ->take(3)
+            ->get();
+        
+        foreach ($recentApps as $app) {
+            $activities[] = [
+                'icon' => 'paper-plane',
+                'title' => 'Applied to ' . $app->internship->title,
+                'time' => $app->created_at->diffForHumans(),
+            ];
+        }
+        
+        return $activities;
+    }
+    
+    /**
      * Calculate profile completion percentage
      */
     private function calculateProfileCompletion($profile): int

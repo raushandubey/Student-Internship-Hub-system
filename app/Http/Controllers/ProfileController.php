@@ -22,6 +22,14 @@ class ProfileController extends Controller
             ]);
         }
         
+        // Detect mobile and use mobile view
+        $isMobile = request()->header('User-Agent') && 
+                    preg_match('/Mobile|Android|iPhone/i', request()->header('User-Agent'));
+        
+        if ($isMobile) {
+            return view('student.profile-show-mobile', compact('profile'));
+        }
+        
         return view('profile.show', compact('profile'));
     }
 
@@ -39,6 +47,22 @@ class ProfileController extends Controller
         }
         
         return view('profile.edit', compact('profile'));
+    }
+
+    public function editMobile()
+    {
+        $user = Auth::user();
+        $profile = $user->profile;
+        
+        // Create profile if it doesn't exist
+        if (!$profile) {
+            $profile = Profile::create([
+                'user_id' => $user->id,
+                'name' => $user->name,
+            ]);
+        }
+        
+        return view('student.profile-edit-mobile', compact('profile'));
     }
 
     public function update(Request $request)

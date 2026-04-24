@@ -107,6 +107,39 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Mobile-first applications view
+     */
+    public function myApplicationsMobile()
+    {
+        try {
+            $applications = $this->applicationService->getUserApplications(Auth::id());
+            
+            // Filter out applications with null internships
+            $validApplications = $applications->filter(function ($app) {
+                return $app->internship !== null;
+            });
+            
+            // Get stats
+            $stats = $this->applicationService->getUserStats(Auth::id());
+            
+            return view('student.applications-mobile', [
+                'applications' => $validApplications,
+                'stats' => $stats,
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('My Applications Mobile page error', [
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->route('dashboard')
+                ->with('error', 'Unable to load applications. Please try again or contact support.');
+        }
+    }
+
+    /**
      * Cancel application
      * 
      * Phase 9: Exception handling delegated to global handler
