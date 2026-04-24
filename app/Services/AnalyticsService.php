@@ -165,38 +165,27 @@ class AnalyticsService
      * Get top performing internships by approval count
      * 
      * PRODUCTION FIX: PostgreSQL-compatible query
-     * - Uses CAST for enum comparison
-     * - Handles null values safely
-     * - Adds comprehensive error handling
+     * - Status is stored as VARCHAR/STRING (not enum)
+     * - Direct string comparison works on both MySQL and PostgreSQL
+     * - Uses COALESCE for null safety
+     * - Explicit type casting for aggregates
      */
     public function getTopPerformingInternships(int $limit = 5): array
     {
         try {
-            // Detect database driver for cross-database compatibility
-            $driver = config('database.default');
-            $connection = config("database.connections.{$driver}.driver");
-            
-            // Use appropriate CAST syntax based on database
-            if ($connection === 'pgsql') {
-                // PostgreSQL: CAST to TEXT
-                $statusCast = "CAST(applications.status AS TEXT)";
-            } else {
-                // MySQL/MariaDB: CAST to CHAR or direct comparison
-                $statusCast = "applications.status";
-            }
-            
             $results = Internship::select([
                     'internships.id',
                     'internships.title',
                     'internships.organization'
                 ])
                 ->selectRaw('COUNT(applications.id) as total_apps')
-                // FIXED: Cross-database compatible enum comparison
-                ->selectRaw("SUM(CASE WHEN {$statusCast} = 'approved' THEN 1 ELSE 0 END) as approved_count")
-                ->selectRaw('AVG(applications.match_score) as avg_score')
+                // FIXED: Direct string comparison (status is VARCHAR, not enum)
+                ->selectRaw("SUM(CASE WHEN applications.status = ? THEN 1 ELSE 0 END) as approved_count", ['approved'])
+                // FIXED: COALESCE for null safety in AVG
+                ->selectRaw('COALESCE(AVG(applications.match_score), 0) as avg_score')
                 ->leftJoin('applications', 'internships.id', '=', 'applications.internship_id')
                 ->groupBy('internships.id', 'internships.title', 'internships.organization')
-                ->havingRaw('COUNT(applications.id) >= 1')
+                ->havingRaw('COUNT(applications.id) >= ?', [1])
                 ->orderByDesc('approved_count')
                 ->limit($limit)
                 ->get();
@@ -214,7 +203,8 @@ class AnalyticsService
         } catch (\Exception $e) {
             \Log::error('Top performing internships query failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'database' => config('database.default')
             ]);
             
             // Return empty array on failure
