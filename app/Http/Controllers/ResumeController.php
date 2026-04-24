@@ -82,8 +82,8 @@ class ResumeController extends Controller
     /**
      * Download resume file
      * 
-     * PRODUCTION: Redirects to direct S3 public URL
-     * NO file proxying, NO authentication on S3 files
+     * LARAVEL CLOUD: Redirect to direct R2 public URL (manual construction)
+     * NO file proxying, NO Storage::url(), NO authentication on R2 files
      * 
      * @param int $profileId
      * @return \Illuminate\Http\RedirectResponse
@@ -113,14 +113,22 @@ class ResumeController extends Controller
             $normalizedPath = ltrim($profile->resume_path, '/');
             $disk = config('filesystems.default');
             
-            // S3 Storage - Redirect to direct public URL
+            // R2 Storage - Redirect to direct public URL (manual construction)
             if ($disk === 's3') {
-                // CRITICAL: Use direct public URL for download
-                $url = Storage::disk('s3')->url($normalizedPath);
+                // CRITICAL: Manually construct R2 URL (bypass Storage::url())
+                $r2PublicUrl = config('filesystems.disks.s3.r2_public_url');
                 
-                Log::info('Resume download redirect to S3', [
+                if (empty($r2PublicUrl)) {
+                    Log::error('R2_PUBLIC_URL not configured for download');
+                    abort(500, 'Storage configuration error');
+                }
+                
+                $url = rtrim($r2PublicUrl, '/') . '/' . $normalizedPath;
+                
+                Log::info('Resume download redirect to R2 (manual URL)', [
                     'profile_id' => $profileId,
-                    'url' => $url
+                    'url' => $url,
+                    'method' => 'manual_construction'
                 ]);
                 
                 return redirect($url);

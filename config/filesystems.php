@@ -53,16 +53,21 @@ return [
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
             'region' => env('AWS_DEFAULT_REGION'),
             'bucket' => env('AWS_BUCKET'),
-            'url' => env('AWS_URL'),
+            'url' => env('AWS_URL'), // Laravel Cloud sets this - DO NOT USE for URL generation
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
             'report' => false,
-            'visibility' => 'public', // CRITICAL: All uploads are public by default
+            'visibility' => 'public',
             'options' => [
                 'CacheControl' => 'max-age=31536000, public',
-                'ACL' => 'public-read', // CRITICAL: Files are publicly readable
+                'ACL' => 'public-read',
             ],
+            
+            // CRITICAL: R2 Public Bucket URL for direct access
+            // This bypasses Laravel Cloud's AWS_URL restriction
+            // Get from: Cloudflare R2 Dashboard → Bucket → Settings → Public access
+            'r2_public_url' => env('R2_PUBLIC_URL'),
         ],
 
     ],

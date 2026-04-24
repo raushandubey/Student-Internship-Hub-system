@@ -31,13 +31,13 @@ class Profile extends Model
     /**
      * Get the direct PUBLIC URL for the resume file
      * 
-     * PRODUCTION ARCHITECTURE: Direct S3 public URLs - NO signed URLs, NO Laravel routing
-     * - S3: Returns direct public URL from storage (only if file exists)
-     * - Local: Returns public storage URL (only if file exists)
-     * - Returns null if file doesn't exist
+     * LARAVEL CLOUD ARCHITECTURE: Manual R2 URL construction
+     * - CRITICAL: Cannot use Storage::url() on Laravel Cloud (causes redirect loop)
+     * - Laravel Cloud sets AWS_URL to Laravel domain (platform restriction)
+     * - Solution: Manually construct R2 public bucket URL
+     * - Format: https://pub-{hash}.r2.dev/{path}
      * 
-     * CRITICAL: Uses Storage::disk('s3')->url() for direct public access
-     * NO temporaryUrl(), NO authentication, NO redirects
+     * NO Storage::url(), NO temporaryUrl(), NO Laravel routing
      */
     public function getResumeUrl(): ?string
     {
@@ -49,25 +49,37 @@ class Profile extends Model
             $disk = config('filesystems.default');
             $normalizedPath = ltrim($this->resume_path, '/');
             
-            // S3 Storage (Production) - Direct public URL
+            // R2 Storage (Production on Laravel Cloud)
             if ($disk === 's3') {
-                // Check if file exists on S3 first
+                // Check if file exists on R2 first
                 if (!\Illuminate\Support\Facades\Storage::disk('s3')->exists($normalizedPath)) {
-                    \Log::warning('Resume file not found on S3', [
+                    \Log::warning('Resume file not found on R2', [
                         'profile_id' => $this->id,
                         'resume_path' => $normalizedPath
                     ]);
                     return null;
                 }
                 
-                // CRITICAL: Use direct public URL - NO signed URLs, NO authentication
-                // This returns: https://bucket-name.s3.region.amazonaws.com/resumes/filename.pdf
-                $url = \Illuminate\Support\Facades\Storage::disk('s3')->url($normalizedPath);
+                // CRITICAL: Manually construct R2 public URL
+                // DO NOT use Storage::url() - it returns Laravel Cloud domain
+                $r2PublicUrl = config('filesystems.disks.s3.r2_public_url');
                 
-                \Log::debug('S3 resume URL generated', [
+                if (empty($r2PublicUrl)) {
+                    \Log::error('R2_PUBLIC_URL not configured', [
+                        'profile_id' => $this->id,
+                        'resume_path' => $normalizedPath
+                    ]);
+                    return null;
+                }
+                
+                // Construct direct R2 URL: https://pub-{hash}.r2.dev/resumes/filename.pdf
+                $url = rtrim($r2PublicUrl, '/') . '/' . $normalizedPath;
+                
+                \Log::debug('R2 resume URL generated (manual construction)', [
                     'profile_id' => $this->id,
                     'path' => $normalizedPath,
-                    'url' => $url
+                    'url' => $url,
+                    'method' => 'manual_construction'
                 ]);
                 
                 return $url;
