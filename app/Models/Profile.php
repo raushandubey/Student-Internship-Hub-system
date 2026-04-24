@@ -29,12 +29,15 @@ class Profile extends Model
     }
 
     /**
-     * Get the direct URL for the resume file
+     * Get the direct PUBLIC URL for the resume file
      * 
-     * ARCHITECTURE: Direct S3 URLs - NO Laravel routing for file serving
-     * - S3: Returns signed URL directly from storage (only if file exists)
+     * PRODUCTION ARCHITECTURE: Direct S3 public URLs - NO signed URLs, NO Laravel routing
+     * - S3: Returns direct public URL from storage (only if file exists)
      * - Local: Returns public storage URL (only if file exists)
      * - Returns null if file doesn't exist
+     * 
+     * CRITICAL: Uses Storage::disk('s3')->url() for direct public access
+     * NO temporaryUrl(), NO authentication, NO redirects
      */
     public function getResumeUrl(): ?string
     {
@@ -46,7 +49,7 @@ class Profile extends Model
             $disk = config('filesystems.default');
             $normalizedPath = ltrim($this->resume_path, '/');
             
-            // S3 Storage (Production) - Check existence then generate URL
+            // S3 Storage (Production) - Direct public URL
             if ($disk === 's3') {
                 // Check if file exists on S3 first
                 if (!\Illuminate\Support\Facades\Storage::disk('s3')->exists($normalizedPath)) {
@@ -57,18 +60,17 @@ class Profile extends Model
                     return null;
                 }
                 
-                try {
-                    // Generate temporary signed URL (1 hour expiration) for private buckets
-                    return \Illuminate\Support\Facades\Storage::disk('s3')
-                        ->temporaryUrl($normalizedPath, now()->addHour());
-                } catch (\Exception $e) {
-                    // Fallback to regular URL for public buckets
-                    \Log::debug('Using regular S3 URL', [
-                        'profile_id' => $this->id,
-                        'error' => $e->getMessage()
-                    ]);
-                    return \Illuminate\Support\Facades\Storage::disk('s3')->url($normalizedPath);
-                }
+                // CRITICAL: Use direct public URL - NO signed URLs, NO authentication
+                // This returns: https://bucket-name.s3.region.amazonaws.com/resumes/filename.pdf
+                $url = \Illuminate\Support\Facades\Storage::disk('s3')->url($normalizedPath);
+                
+                \Log::debug('S3 resume URL generated', [
+                    'profile_id' => $this->id,
+                    'path' => $normalizedPath,
+                    'url' => $url
+                ]);
+                
+                return $url;
             }
             
             // Local/Public Storage (Development) - Check existence then generate URL

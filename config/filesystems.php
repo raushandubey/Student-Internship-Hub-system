@@ -58,6 +58,11 @@ return [
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
             'report' => false,
+            'visibility' => 'public', // CRITICAL: All uploads are public by default
+            'options' => [
+                'CacheControl' => 'max-age=31536000, public',
+                'ACL' => 'public-read', // CRITICAL: Files are publicly readable
+            ],
         ],
 
     ],

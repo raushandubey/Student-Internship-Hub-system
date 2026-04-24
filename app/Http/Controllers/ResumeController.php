@@ -82,7 +82,8 @@ class ResumeController extends Controller
     /**
      * Download resume file
      * 
-     * Redirects to S3 signed URL with download headers
+     * PRODUCTION: Redirects to direct S3 public URL
+     * NO file proxying, NO authentication on S3 files
      * 
      * @param int $profileId
      * @return \Illuminate\Http\RedirectResponse
@@ -112,37 +113,23 @@ class ResumeController extends Controller
             $normalizedPath = ltrim($profile->resume_path, '/');
             $disk = config('filesystems.default');
             
-            // Generate download filename
-            $filename = $profile->user->name . '_Resume.pdf';
-            $filename = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $filename);
-            
-            // S3 Storage - Generate signed URL with download disposition
+            // S3 Storage - Redirect to direct public URL
             if ($disk === 's3') {
-                try {
-                    $url = Storage::disk('s3')->temporaryUrl(
-                        $normalizedPath,
-                        now()->addHour(),
-                        [
-                            'ResponseContentDisposition' => 'attachment; filename="' . $filename . '"',
-                            'ResponseContentType' => 'application/pdf'
-                        ]
-                    );
-                    
-                    return redirect($url);
-                } catch (\Exception $e) {
-                    Log::error('S3 download URL generation failed', [
-                        'profile_id' => $profileId,
-                        'error' => $e->getMessage()
-                    ]);
-                    
-                    // Fallback to regular URL
-                    $url = Storage::disk('s3')->url($normalizedPath);
-                    return redirect($url);
-                }
+                // CRITICAL: Use direct public URL for download
+                $url = Storage::disk('s3')->url($normalizedPath);
+                
+                Log::info('Resume download redirect to S3', [
+                    'profile_id' => $profileId,
+                    'url' => $url
+                ]);
+                
+                return redirect($url);
             }
             
             // Local Storage - Direct download
             if (Storage::disk('public')->exists($normalizedPath)) {
+                $filename = $profile->user->name . '_Resume.pdf';
+                $filename = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $filename);
                 return Storage::disk('public')->download($normalizedPath, $filename);
             }
             
