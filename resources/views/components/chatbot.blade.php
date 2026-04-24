@@ -122,13 +122,6 @@
     </div>
 </div>
 
-{{-- Load Premium Chatbot Styles --}}
-@if(app()->environment('production'))
-    <link rel="stylesheet" href="{{ asset('build/css/chatbot.min.css') }}">
-@else
-    <link rel="stylesheet" href="{{ asset('css/chatbot.css') }}">
-@endif
-
 {{-- Inject User Profile Data for Personalized AI Responses --}}
 @auth
 @php
@@ -179,9 +172,5 @@
 </script>
 @endauth
 
-{{-- Load Chatbot JavaScript --}}
-@if(app()->environment('production'))
-    <script src="{{ asset('build/js/chatbot.min.js') }}" defer></script>
-@else
-    <script src="{{ asset('js/chatbot.js') }}" defer></script>
-@endif
+{{-- Load Chatbot Assets using Vite (automatically resolves correct paths from manifest) --}}
+@vite(['public/css/chatbot.css', 'public/js/chatbot.js'])
