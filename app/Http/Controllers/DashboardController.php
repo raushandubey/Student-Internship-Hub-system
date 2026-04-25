@@ -89,22 +89,24 @@ class DashboardController extends Controller
                 'profileViews'      => 0,
                 'recommendations'   => $recommendations,
                 'recentActivities'  => $recentActivities,
+                'profile'           => $profile,  // needed for avatar photo
             ]);
         }
 
         return view('student.dashboard', [
             'profileCompletion' => $profileCompletion,
-            'recommendations' => $recommendations,
-            'appliedJobs' => $stats['total'],
-            'interviews' => $stats['interview_scheduled'] + $stats['approved'],
-            'profileViews' => 0,
-            'applicationRate' => $applicationRate,
-            'responseRate' => $responseRate,
+            'recommendations'   => $recommendations,
+            'appliedJobs'       => $stats['total'],
+            'interviews'        => $stats['interview_scheduled'] + $stats['approved'],
+            'profileViews'      => 0,
+            'applicationRate'   => $applicationRate,
+            'responseRate'      => $responseRate,
+            'profile'           => $profile,  // needed for avatar photo
             // Phase 8: Career Intelligence
-            'careerReadiness' => $analytics['readiness'],
-            'skillStrengths' => $analytics['strengths'],
-            'skillGaps' => $analytics['gaps'],
-            'outcomes' => $analytics['outcomes'],
+            'careerReadiness'   => $analytics['readiness'],
+            'skillStrengths'    => $analytics['strengths'],
+            'skillGaps'         => $analytics['gaps'],
+            'outcomes'          => $analytics['outcomes'],
         ]);
     }
     

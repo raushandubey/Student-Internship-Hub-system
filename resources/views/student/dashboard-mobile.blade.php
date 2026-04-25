@@ -6,11 +6,20 @@
     {{-- Welcome Header --}}
     <div class="card">
         <div class="flex items-center gap-3">
-            {{-- Avatar --}}
-            <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-700 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
-                <span class="text-white font-bold text-lg leading-none">
-                    {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-                </span>
+            {{-- Avatar: show photo if uploaded, else initials --}}
+            @php $photoUrl = $profile?->getPhotoUrl(); @endphp
+            <div class="w-12 h-12 rounded-full flex-shrink-0 shadow-md overflow-hidden"
+                 style="background: linear-gradient(135deg, #667eea, #4c51bf);">
+                @if($photoUrl)
+                    <img src="{{ $photoUrl }}" alt="{{ auth()->user()->name }}"
+                         style="width:100%;height:100%;object-fit:cover;display:block;">
+                @else
+                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+                        <span class="text-white font-bold text-lg leading-none">
+                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                        </span>
+                    </div>
+                @endif
             </div>
             {{-- Greeting --}}
             <div class="flex-1 min-w-0">

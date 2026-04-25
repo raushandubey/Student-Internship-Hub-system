@@ -48,7 +48,10 @@
         </a>
 
         {{-- Profile --}}
-        @php $isProfile = request()->routeIs('profile.*'); @endphp
+        @php
+            $isProfile = request()->routeIs('profile.*');
+            $navPhoto = auth()->user()->profile?->getPhotoUrl();
+        @endphp
         <a href="{{ route('profile.show') }}"
            id="nav-profile"
            class="flex flex-col items-center justify-center flex-1 gap-0.5 min-h-[44px] transition-all duration-200 relative touch-action-manipulation
@@ -57,7 +60,13 @@
             @if($isProfile)
                 <span class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary-600 rounded-b-full"></span>
             @endif
-            <i class="fas fa-user-circle text-lg transition-transform duration-200"></i>
+            @if($navPhoto)
+                <div style="width:24px;height:24px;border-radius:50%;overflow:hidden;border:2px solid {{ $isProfile ? 'var(--primary-600)' : '#d1d5db' }};">
+                    <img src="{{ $navPhoto }}" alt="Profile" style="width:100%;height:100%;object-fit:cover;display:block;">
+                </div>
+            @else
+                <i class="fas fa-user-circle text-lg transition-transform duration-200"></i>
+            @endif
             <span class="text-[10px] font-medium leading-none">Profile</span>
         </a>
 
