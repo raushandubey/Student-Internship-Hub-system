@@ -88,13 +88,10 @@
                         Applied
                     </button>
                 @else
-                    <form action="{{ route('applications.apply', $internship) }}" method="POST" class="flex-1">
-                        @csrf
-                        <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm transition-colors active:scale-95">
-                            <i class="fas fa-paper-plane mr-2"></i>
-                            Apply Now
-                        </button>
-                    </form>
+                    <a href="{{ route('applications.apply.form', $internship) }}" class="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm text-center transition-colors active:scale-95 inline-block">
+                        <i class="fas fa-paper-plane mr-2"></i>
+                        Apply Now
+                    </a>
                 @endif
             @endif
         @else
