@@ -201,6 +201,70 @@
         </div>
     @endif
 
+    {{-- Account Section --}}
+    <div class="card" style="margin-top: 0.25rem;">
+        <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-cog text-gray-600 text-sm"></i>
+            </div>
+            <h2 class="text-base font-bold text-gray-900">Account</h2>
+        </div>
+
+        <div class="space-y-1">
+            {{-- Account info row --}}
+            <div class="flex items-center gap-3 py-2.5 px-1">
+                <div class="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-envelope text-indigo-500 text-xs"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs text-gray-400 leading-none mb-0.5">Email</p>
+                    <p class="text-sm font-medium text-gray-800 truncate">{{ auth()->user()->email }}</p>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-100"></div>
+
+            {{-- Member since --}}
+            <div class="flex items-center gap-3 py-2.5 px-1">
+                <div class="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-calendar-alt text-green-500 text-xs"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs text-gray-400 leading-none mb-0.5">Member since</p>
+                    <p class="text-sm font-medium text-gray-800">{{ auth()->user()->created_at->format('M Y') }}</p>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-100"></div>
+
+            {{-- Change Password --}}
+            <a href="{{ route('profile.edit.mobile') }}"
+               class="flex items-center gap-3 py-2.5 px-1 hover:bg-gray-50 rounded-lg transition-colors">
+                <div class="w-8 h-8 bg-yellow-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-key text-yellow-500 text-xs"></i>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-800">Edit Profile</p>
+                </div>
+                <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+            </a>
+        </div>
+    </div>
+
+    {{-- Logout Button --}}
+    <form method="POST" action="{{ route('logout') }}" class="mt-1">
+        @csrf
+        <button type="submit"
+                class="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl font-semibold text-sm transition-all active:scale-[0.97]"
+                style="background:#fff1f2;color:#dc2626;border:1.5px solid #fecaca;">
+            <i class="fas fa-sign-out-alt text-base"></i>
+            Log Out
+        </button>
+    </form>
+
+    {{-- App Version --}}
+    <p class="text-center text-xs text-gray-300 pb-2">InternshipHub · v1.0</p>
+
 </div>
 
 @push('scripts')
