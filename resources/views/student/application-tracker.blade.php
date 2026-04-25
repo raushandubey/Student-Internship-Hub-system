@@ -584,13 +584,27 @@
 @media (max-width: 768px) {
     .header-content { flex-direction: column; align-items: flex-start; }
     .stats-row { grid-template-columns: repeat(3, 1fr); }
-    .progress-pipeline { justify-content: flex-start; gap: 0; }
+    .progress-pipeline {
+        justify-content: flex-start;
+        gap: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 0.5rem;
+        scrollbar-width: none;
+    }
+    .progress-pipeline::-webkit-scrollbar { display: none; }
     .pipeline-stage { min-width: 60px; }
     .stage-label { font-size: 0.6rem; }
+    .application-card { padding: 1rem; }
+    .app-title { font-size: 1rem; }
+    .tracker-container { padding-bottom: 6rem; /* Room for bottom nav */ }
 }
 
 @media (max-width: 480px) {
     .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .pipeline-stage { min-width: 52px; }
+    .stage-label { display: none; } /* Too cramped at 320px — hide labels */
+    .page-title { font-size: 1.3rem; }
 }
 </style>
 @endsection

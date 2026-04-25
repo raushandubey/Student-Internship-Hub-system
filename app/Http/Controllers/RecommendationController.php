@@ -41,17 +41,22 @@ class RecommendationController extends Controller
         // Transform for view with confidence badges and explanations
         $viewRecommendations = array_map(function ($rec) {
             $percentage = $rec['match']['percentage'];
-            
+
             return [
-                'internship' => $rec['internship'],
-                'score' => $rec['match']['score'],
-                'matching_skills' => $rec['match']['matching_skills'],
-                'missing_skills' => $rec['match']['missing_skills'],
-                'percentage' => $percentage,
+                'internship'         => $rec['internship'],
+                'score'              => $rec['match']['score'],
+                'matching_skills'    => $rec['match']['matching_skills'],
+                'missing_skills'     => $rec['match']['missing_skills'],
+                'percentage'         => $percentage,
+                // Location scoring (Phase 6)
+                'location_match'     => $rec['match']['location_match'] ?? 0,
+                'location_fit_label' => $rec['match']['location_fit_label'] ?? 'Unknown',
+                // Wrap the match array so internship-card can access $rec['match']
+                'match'              => $rec['match'],
                 // Phase 8: Match confidence badge
-                'confidence' => $this->getConfidenceBadge($percentage),
+                'confidence'         => $this->getConfidenceBadge($percentage),
                 // Phase 8: Why recommended explanation
-                'why_recommended' => $this->getWhyRecommended($rec['match']),
+                'why_recommended'    => $this->getWhyRecommended($rec['match']),
             ];
         }, $recommendations);
 
@@ -60,6 +65,27 @@ class RecommendationController extends Controller
             'user_id' => $user->id,
             'count' => count($viewRecommendations)
         ]);
+
+        // Calculate profile completion for empty states
+        $fields = ['name', 'academic_background', 'skills', 'career_interests', 'resume_path', 'aadhaar_number'];
+        $completed = 0;
+        if ($profile) {
+            foreach ($fields as $field) {
+                if (!empty($profile->$field)) $completed++;
+            }
+        }
+        $profileCompletion = $profile ? round(($completed / count($fields)) * 100) : 0;
+
+        // Mobile detection — same regex as ProfileController
+        $isMobile = request()->header('User-Agent') &&
+                    preg_match('/Mobile|Android|iPhone|iPad/i', request()->header('User-Agent'));
+
+        if ($isMobile) {
+            return view('student.recommendations-mobile', [
+                'recommendations' => $viewRecommendations,
+                'profileCompletion' => $profileCompletion,
+            ]);
+        }
 
         return view('recommendations.index', [
             'recommendations' => $viewRecommendations,

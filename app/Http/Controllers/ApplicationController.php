@@ -30,8 +30,57 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Show the application form for a specific internship (GET)
+     *
+     * Redirects back if student has already applied.
+     */
+    public function applyForm(Internship $internship)
+    {
+        // Guard: already applied
+        $hasApplied = \App\Models\Application::where('user_id', Auth::id())
+            ->where('internship_id', $internship->id)
+            ->exists();
+
+        if ($hasApplied) {
+            return redirect()->route('my-applications')
+                ->with('error', 'You have already applied for this internship.');
+        }
+
+        // Mobile detection — same regex as ProfileController
+        $isMobile = request()->header('User-Agent') &&
+                    preg_match('/Mobile|Android|iPhone|iPad/i', request()->header('User-Agent'));
+
+        return view($isMobile ? 'applications.apply-mobile' : 'applications.apply', compact('internship'));
+    }
+
+    /**
+     * Show a student's own application detail (GET)
+     *
+     * Authorization: student may only view their own applications.
+     */
+    public function show(\App\Models\Application $application)
+    {
+        if ($application->user_id !== Auth::id()) {
+            abort(403, 'You do not have permission to view this application.');
+        }
+
+        $application->load('internship');
+
+        // Add timeline if available
+        try {
+            $application->timeline = $this->timelineService->getApplicationTimeline($application);
+        } catch (\Exception $e) {
+            $application->timeline = ['prediction' => null];
+        }
+
+        return view('student.application-tracker', [
+            'applications' => collect([$application]),
+        ]);
+    }
+
+    /**
      * Apply to an internship
-     * 
+     *
      * Phase 9: Exception handling delegated to global handler
      * Controller stays thin - just catches and redirects
      */
@@ -63,24 +112,36 @@ class ApplicationController extends Controller
     /**
      * View student's own applications (Application Tracker)
      * Phase 8: Enhanced with timeline predictions
-     * Production Fix: Filter out applications with deleted internships
+     * Mobile: Detects User-Agent and serves mobile-optimised view
      */
     public function myApplications()
     {
         try {
             $applications = $this->applicationService->getUserApplications(Auth::id());
-            
+
             // CRITICAL FIX: Filter out applications with null internships
             $validApplications = $applications->filter(function ($app) {
                 return $app->internship !== null;
             });
-            
-            // Add timeline data to each application
+
+            // Mobile detection — same regex as ProfileController
+            $isMobile = request()->header('User-Agent') &&
+                        preg_match('/Mobile|Android|iPhone|iPad/i', request()->header('User-Agent'));
+
+            if ($isMobile) {
+                $stats = $this->applicationService->getUserStats(Auth::id());
+
+                return view('student.applications-mobile', [
+                    'applications' => $validApplications,
+                    'stats'        => $stats,
+                ]);
+            }
+
+            // Desktop: Add timeline data to each application
             $applicationsWithTimeline = $validApplications->map(function ($app) {
                 try {
                     $app->timeline = $this->timelineService->getApplicationTimeline($app);
                 } catch (\Exception $e) {
-                    // If timeline fails, set empty timeline
                     \Log::warning('Timeline generation failed', [
                         'application_id' => $app->id,
                         'error' => $e->getMessage()
@@ -93,14 +154,14 @@ class ApplicationController extends Controller
             return view('student.application-tracker', [
                 'applications' => $applicationsWithTimeline,
             ]);
-            
+
         } catch (\Exception $e) {
             \Log::error('My Applications page error', [
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return redirect()->route('dashboard')
                 ->with('error', 'Unable to load applications. Please try again or contact support.');
         }

@@ -1,54 +1,78 @@
 {{-- Mobile Bottom Navigation --}}
-<nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden" style="padding-bottom: env(safe-area-inset-bottom);">
-    <div class="flex justify-around items-center h-16 px-2">
+{{-- Height: 64px + safe area. Chatbot sits above this via bottom: calc(72px + safe-area). --}}
+<nav id="bottom-nav"
+     class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 md:hidden"
+     style="padding-bottom: env(safe-area-inset-bottom, 0px);">
+    <div class="flex items-stretch h-16">
+
         {{-- Home --}}
-        <a href="{{ route('dashboard') }}" 
-           class="flex flex-col items-center justify-center flex-1 py-2 min-w-[60px] min-h-[44px] transition-all {{ request()->routeIs('dashboard') ? 'text-primary-600 font-semibold' : 'text-gray-500 hover:text-primary-600' }}">
-            <i class="fas fa-home text-xl mb-1 {{ request()->routeIs('dashboard') ? 'scale-110' : '' }} transition-transform"></i>
-            <span class="text-xs">Home</span>
+        @php $isHome = request()->routeIs('dashboard') || request()->routeIs('dashboard.mobile'); @endphp
+        <a href="{{ route('dashboard') }}"
+           id="nav-home"
+           class="flex flex-col items-center justify-center flex-1 gap-0.5 min-h-[44px] transition-all duration-200 relative touch-action-manipulation
+                  {{ $isHome ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600' }}"
+           aria-label="Home" aria-current="{{ $isHome ? 'page' : 'false' }}">
+            @if($isHome)
+                <span class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary-600 rounded-b-full"></span>
+            @endif
+            <i class="fas fa-home text-lg {{ $isHome ? '' : '' }} transition-transform duration-200"></i>
+            <span class="text-[10px] font-medium leading-none">Home</span>
+        </a>
+
+        {{-- Jobs --}}
+        @php $isJobs = request()->routeIs('recommendations.*'); @endphp
+        <a href="{{ route('recommendations.index') }}"
+           id="nav-jobs"
+           class="flex flex-col items-center justify-center flex-1 gap-0.5 min-h-[44px] transition-all duration-200 relative touch-action-manipulation
+                  {{ $isJobs ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600' }}"
+           aria-label="Jobs" aria-current="{{ $isJobs ? 'page' : 'false' }}">
+            @if($isJobs)
+                <span class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary-600 rounded-b-full"></span>
+            @endif
+            <i class="fas fa-briefcase text-lg transition-transform duration-200"></i>
+            <span class="text-[10px] font-medium leading-none">Jobs</span>
         </a>
 
         {{-- Applications --}}
-        <a href="{{ route('my-applications') }}" 
-           class="flex flex-col items-center justify-center flex-1 py-2 min-w-[60px] min-h-[44px] transition-all {{ request()->routeIs('my-applications') ? 'text-primary-600 font-semibold' : 'text-gray-500 hover:text-primary-600' }}">
-            <i class="fas fa-clipboard-list text-xl mb-1 {{ request()->routeIs('my-applications') ? 'scale-110' : '' }} transition-transform"></i>
-            <span class="text-xs">Applications</span>
-        </a>
-
-        {{-- Recommendations --}}
-        <a href="{{ route('recommendations.index') }}" 
-           class="flex flex-col items-center justify-center flex-1 py-2 min-w-[60px] min-h-[44px] transition-all {{ request()->routeIs('recommendations.*') ? 'text-primary-600 font-semibold' : 'text-gray-500 hover:text-primary-600' }}">
-            <i class="fas fa-star text-xl mb-1 {{ request()->routeIs('recommendations.*') ? 'scale-110' : '' }} transition-transform"></i>
-            <span class="text-xs">Jobs</span>
+        @php $isApps = request()->routeIs('my-applications') || request()->routeIs('my-applications.*') || request()->routeIs('applications.*'); @endphp
+        <a href="{{ route('my-applications') }}"
+           id="nav-applications"
+           class="flex flex-col items-center justify-center flex-1 gap-0.5 min-h-[44px] transition-all duration-200 relative touch-action-manipulation
+                  {{ $isApps ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600' }}"
+           aria-label="My Applications" aria-current="{{ $isApps ? 'page' : 'false' }}">
+            @if($isApps)
+                <span class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary-600 rounded-b-full"></span>
+            @endif
+            <i class="fas fa-clipboard-list text-lg transition-transform duration-200"></i>
+            <span class="text-[10px] font-medium leading-none">Applied</span>
         </a>
 
         {{-- Profile --}}
-        <a href="{{ route('profile.show') }}" 
-           class="flex flex-col items-center justify-center flex-1 py-2 min-w-[60px] min-h-[44px] transition-all {{ request()->routeIs('profile.*') ? 'text-primary-600 font-semibold' : 'text-gray-500 hover:text-primary-600' }}">
-            <i class="fas fa-user text-xl mb-1 {{ request()->routeIs('profile.*') ? 'scale-110' : '' }} transition-transform"></i>
-            <span class="text-xs">Profile</span>
+        @php $isProfile = request()->routeIs('profile.*'); @endphp
+        <a href="{{ route('profile.show') }}"
+           id="nav-profile"
+           class="flex flex-col items-center justify-center flex-1 gap-0.5 min-h-[44px] transition-all duration-200 relative touch-action-manipulation
+                  {{ $isProfile ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600' }}"
+           aria-label="Profile" aria-current="{{ $isProfile ? 'page' : 'false' }}">
+            @if($isProfile)
+                <span class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary-600 rounded-b-full"></span>
+            @endif
+            <i class="fas fa-user-circle text-lg transition-transform duration-200"></i>
+            <span class="text-[10px] font-medium leading-none">Profile</span>
         </a>
+
     </div>
 </nav>
 
 <style>
-/* Tailwind custom colors */
-.text-primary-600 {
-    color: #5a67d8;
-}
-
-.hover\:text-primary-600:hover {
-    color: #5a67d8;
-}
-
-/* Active state animation */
-@keyframes bounce-subtle {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
+/* Active icon scale */
+#bottom-nav a[aria-current="page"] i {
+    transform: scale(1.15);
 }
 
 /* Touch feedback */
-nav a:active {
-    transform: scale(0.95);
+#bottom-nav a:active {
+    transform: scale(0.93);
+    transition: transform 0.08s ease;
 }
 </style>

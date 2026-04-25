@@ -146,15 +146,23 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     // Phase 9: Rate limiting to prevent spam applications
     Route::prefix('applications')->name('applications.')->group(function () {
         Route::get('/', [ApplicationController::class, 'myApplications'])->name('index');
+        // GET: Show the application form for a specific internship
+        Route::get('/apply/{internship}', [ApplicationController::class, 'applyForm'])->name('apply.form');
+        // POST: Submit the application
         Route::post('/apply/{internship}', [ApplicationController::class, 'apply'])
             ->middleware('throttle:10,1') // 10 applications per minute (reasonable for bulk apply)
             ->name('apply');
+        // GET: Student views their own application detail
+        Route::get('/{application}', [ApplicationController::class, 'show'])->name('show');
         Route::delete('/{application}', [ApplicationController::class, 'cancel'])->name('cancel');
     });
     
     // Alias route for application tracker
     Route::get('/my-applications', [ApplicationController::class, 'myApplications'])->name('my-applications');
     Route::get('/my-applications-mobile', [ApplicationController::class, 'myApplicationsMobile'])->name('my-applications.mobile');
+
+    // Recent Activity — session-auth JSON endpoint (NOT under /api/ which uses Sanctum)
+    Route::get('/dashboard/recent-activity', [DashboardController::class, 'recentActivity'])->name('dashboard.recent-activity');
     
     // Saved/Bookmarked Internships
     Route::prefix('bookmarks')->name('bookmarks.')->group(function () {

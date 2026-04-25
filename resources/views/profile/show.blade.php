@@ -17,12 +17,20 @@
 
                 <!-- Header Section -->
                 <div class="profile-header">
-                    <div class="profile-avatar">
-                        <i class="fas fa-user"></i>
+                    <div class="profile-avatar" style="overflow:hidden;padding:0;">
+                        @if($profile && $profile->getPhotoUrl())
+                            <img src="{{ $profile->getPhotoUrl() }}" alt="Profile Photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        @else
+                            <span style="color:white;font-size:2rem;font-weight:700;">{{ strtoupper(substr($profile->name ?? auth()->user()->name, 0, 1)) }}</span>
+                        @endif
                     </div>
                     <div class="profile-header-content">
                         <h1 class="profile-name">{{ $profile->name ?? auth()->user()->name }}</h1>
-                        <p class="profile-subtitle">Professional Profile</p>
+                        @if($profile && $profile->location)
+                            <p class="profile-subtitle"><i class="fas fa-map-marker-alt" style="margin-right:0.4rem;"></i>{{ $profile->location }}</p>
+                        @else
+                            <p class="profile-subtitle">Professional Profile</p>
+                        @endif
                     </div>
                     <div class="profile-actions">
                         <a href="{{ route('profile.edit') }}" class="btn-edit">
@@ -51,6 +59,16 @@
                                     <div class="info-content">
                                         <label>Academic Background</label>
                                         <value>{{ $profile->academic_background ?? 'Not provided' }}</value>
+                                    </div>
+                                </div>
+
+                                <div class="info-item">
+                                    <div class="info-icon">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                    </div>
+                                    <div class="info-content">
+                                        <label>Location</label>
+                                        <value>{{ $profile->location ?? 'Not provided' }}</value>
                                     </div>
                                 </div>
 
@@ -163,12 +181,14 @@
                             
                             @php
                                 $fields = [
-                                    'name' => $profile->name ?? auth()->user()->name,
+                                    'name'                => $profile->name ?? auth()->user()->name,
                                     'academic_background' => $profile->academic_background ?? null,
-                                    'skills' => $profile->skills ?? null,
-                                    'career_interests' => $profile->career_interests ?? null,
-                                    'aadhaar_number' => $profile->aadhaar_number ?? null,
-                                    'resume_path' => $profile->resume_path ?? null
+                                    'skills'              => $profile->skills ?? null,
+                                    'career_interests'    => $profile->career_interests ?? null,
+                                    'aadhaar_number'      => $profile->aadhaar_number ?? null,
+                                    'resume_path'         => $profile->resume_path ?? null,
+                                    'profile_photo'       => $profile->profile_photo ?? null,
+                                    'location'            => $profile->location ?? null,
                                 ];
                                 $completed = count(array_filter($fields));
                                 $total = count($fields);

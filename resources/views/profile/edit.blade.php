@@ -44,6 +44,50 @@
                                     @enderror
                                 </div>
 
+                                <!-- Profile Photo Upload -->
+                                <div class="form-group full-width">
+                                    <div class="upload-section">
+                                        <label class="upload-label">
+                                            <i class="fas fa-camera"></i>
+                                            Profile Photo <span class="badge" style="background:rgba(102,126,234,0.8);color:#fff;">Optional</span>
+                                        </label>
+                                        <!-- Circular preview -->
+                                        <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1rem;">
+                                            <div id="photoPreviewWrap" style="width:80px;height:80px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.3);flex-shrink:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.1);">
+                                                @if($profile && $profile->getPhotoUrl())
+                                                    <img id="photoPreview" src="{{ $profile->getPhotoUrl() }}" alt="Photo" style="width:100%;height:100%;object-fit:cover;">
+                                                @else
+                                                    <span id="photoInitial" style="color:white;font-size:2rem;font-weight:700;">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
+                                                @endif
+                                            </div>
+                                            <div>
+                                                <label for="profile_photo" style="cursor:pointer;display:inline-flex;align-items:center;gap:0.5rem;padding:0.6rem 1.2rem;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:white;font-size:0.875rem;font-weight:500;transition:all 0.3s;">
+                                                    <i class="fas fa-upload"></i> Upload Photo
+                                                </label>
+                                                <p style="color:rgba(255,255,255,0.5);font-size:0.75rem;margin-top:0.4rem;">JPG, PNG, WEBP · Max 2MB</p>
+                                                <input type="file" name="profile_photo" id="profile_photo" accept="image/jpeg,image/png,image/jpg,image/webp" style="display:none;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @error('profile_photo')<div class="error-text">{{ $message }}</div>@enderror
+                                </div>
+
+                                <!-- Location -->
+                                <div class="form-group">
+                                    <div class="input-wrapper">
+                                        <i class="input-icon fas fa-map-marker-alt"></i>
+                                        <input type="text"
+                                               name="location"
+                                               id="location"
+                                               class="form-input"
+                                               placeholder="e.g., Mumbai, Delhi, Bangalore"
+                                               value="{{ old('location', $profile->location ?? '') }}">
+                                        <label for="location" class="form-label">Your City / Location</label>
+                                        <div class="input-border"></div>
+                                    </div>
+                                    @error('location')<div class="error-text">{{ $message }}</div>@enderror
+                                </div>
+
                                 <!-- Academic Background -->
                                 <div class="form-group">
                                     <div class="input-wrapper">
@@ -677,6 +721,21 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
+    // ── Live profile photo preview ───────────────────────────────────────────
+    const photoInput = document.getElementById('profile_photo');
+    if (photoInput) {
+        photoInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const wrap = document.getElementById('photoPreviewWrap');
+                wrap.innerHTML = '<img id="photoPreview" src="' + e.target.result + '" alt="Preview" style="width:100%;height:100%;object-fit:cover;">';
+            };
+            reader.readAsDataURL(file);
+        });
+    }
 });
 </script>
 @endsection

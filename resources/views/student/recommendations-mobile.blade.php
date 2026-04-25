@@ -1,90 +1,105 @@
 @extends('layouts.app-mobile')
 
 @section('content')
-<div class="max-w-7xl mx-auto px-4 py-6">
-    
+<div class="px-4 py-5 max-w-lg mx-auto space-y-4" style="padding-bottom: 7rem;">
+
     {{-- Header --}}
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">Job Recommendations</h1>
-        <p class="text-sm text-gray-600">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Job Matches</h1>
+        <p class="text-sm text-gray-500 mt-0.5">
             <i class="fas fa-brain mr-1"></i>
-            Personalized matches based on your skills
+            Personalized to your skills &amp; interests
         </p>
     </div>
 
-    {{-- Search & Filter --}}
-    <div class="mb-4 space-y-3">
+    {{-- Search + Filter --}}
+    <div class="space-y-3">
         {{-- Search Bar --}}
         <div class="relative">
-            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-            <input type="text" 
+            <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+            <input type="text"
                    id="searchInput"
-                   placeholder="Search internships..." 
-                   class="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                   placeholder="Search internships..."
+                   class="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm
+                          focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                   style="--tw-ring-color: #5a67d8;">
         </div>
 
         {{-- Filter Chips --}}
-        <div class="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            <button class="filter-chip active" data-filter="all">
-                <i class="fas fa-th-large text-xs"></i>
-                All
+        <div class="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+            <button class="filter-chip active flex-shrink-0" data-filter="all">
+                <i class="fas fa-th-large text-xs"></i> All
             </button>
-            <button class="filter-chip" data-filter="high-match">
-                <i class="fas fa-star text-xs"></i>
-                High Match
+            <button class="filter-chip flex-shrink-0" data-filter="high-match">
+                <i class="fas fa-star text-xs"></i> High Match
             </button>
-            <button class="filter-chip" data-filter="recent">
-                <i class="fas fa-clock text-xs"></i>
-                Recent
+            <button class="filter-chip flex-shrink-0" data-filter="recent">
+                <i class="fas fa-clock text-xs"></i> Recent
             </button>
-            <button class="filter-chip" data-filter="remote">
-                <i class="fas fa-home text-xs"></i>
-                Remote
+            <button class="filter-chip flex-shrink-0" data-filter="remote">
+                <i class="fas fa-home text-xs"></i> Remote
             </button>
         </div>
     </div>
 
     @if(count($recommendations) > 0)
         {{-- Stats Summary --}}
-        <div class="grid grid-cols-3 gap-3 mb-6">
-            <div class="bg-white rounded-xl p-3 border border-gray-200 text-center">
-                <div class="text-2xl font-bold text-gray-900">{{ count($recommendations) }}</div>
-                <div class="text-xs text-gray-600">Total Matches</div>
+        <div class="grid grid-cols-3 gap-3">
+            <div class="card text-center py-3">
+                <div class="text-xl font-bold text-gray-900">{{ count($recommendations) }}</div>
+                <div class="text-[10px] text-gray-500 font-medium mt-0.5">Total</div>
             </div>
-            <div class="bg-white rounded-xl p-3 border border-gray-200 text-center">
+            <div class="card text-center py-3">
                 @php $avgScore = round(collect($recommendations)->avg(fn($r) => $r['score'] * 100)); @endphp
-                <div class="text-2xl font-bold text-gray-900">{{ $avgScore }}%</div>
-                <div class="text-xs text-gray-600">Avg Match</div>
+                <div class="text-xl font-bold text-gray-900">{{ $avgScore }}%</div>
+                <div class="text-[10px] text-gray-500 font-medium mt-0.5">Avg Match</div>
             </div>
-            <div class="bg-white rounded-xl p-3 border border-gray-200 text-center">
+            <div class="card text-center py-3">
                 @php $highMatches = collect($recommendations)->filter(fn($r) => $r['score'] >= 0.75)->count(); @endphp
-                <div class="text-2xl font-bold text-gray-900">{{ $highMatches }}</div>
-                <div class="text-xs text-gray-600">Premium</div>
+                <div class="text-xl font-bold text-primary-600">{{ $highMatches }}</div>
+                <div class="text-[10px] text-gray-500 font-medium mt-0.5">Premium</div>
             </div>
+        </div>
+
+        {{-- No search results state --}}
+        <div id="noSearchResults" class="hidden card p-8 text-center">
+            <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <i class="fas fa-search text-gray-400 text-xl"></i>
+            </div>
+            <p class="text-sm font-semibold text-gray-700">No internships match your search</p>
+            <button onclick="clearSearch()" class="mt-2 text-sm text-primary-600 font-medium">Clear search</button>
         </div>
 
         {{-- Internship Cards --}}
         <div class="space-y-4" id="internshipList">
             @foreach($recommendations as $rec)
                 @php
-                    $internship = $rec['internship'];
-                    $matchScore = round($rec['score'] * 100);
+                    $internship  = $rec['internship'];
+                    $matchScore  = round($rec['score'] * 100);
+                    $isRemote    = stripos($internship->location ?? '', 'remote') !== false;
+                    $isRecent    = $internship->created_at && $internship->created_at->gt(now()->subDays(7));
                 @endphp
-                
-                <x-internship-card 
-                    :internship="$internship"
-                    :matchScore="$matchScore"
-                    :matchingSkills="$rec['matching_skills'] ?? []"
-                    :missingSkills="$rec['missing_skills'] ?? []"
-                />
+
+                <div data-match="{{ $matchScore }}"
+                     data-remote="{{ $isRemote ? 'true' : 'false' }}"
+                     data-recent="{{ $isRecent ? 'true' : 'false' }}"
+                     class="internship-item">
+                <x-internship-card
+                        :internship="$internship"
+                        :matchScore="$matchScore"
+                        :matchingSkills="$rec['matching_skills'] ?? []"
+                        :missingSkills="$rec['missing_skills'] ?? []"
+                        :locationFitLabel="$rec['location_fit_label'] ?? null"
+                    />
+                </div>
             @endforeach
         </div>
 
-        {{-- Load More --}}
         @if(count($recommendations) >= 10)
-            <div class="mt-6 text-center">
-                <button id="loadMoreBtn" class="bg-white border border-gray-200 text-gray-700 px-6 py-3 rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors">
-                    <i class="fas fa-plus-circle mr-2"></i>
+            <div class="text-center">
+                <button id="loadMoreBtn"
+                        class="btn btn-secondary w-full">
+                    <i class="fas fa-plus-circle mr-2 text-xs"></i>
                     Load More
                 </button>
             </div>
@@ -92,16 +107,16 @@
 
     @else
         {{-- Empty State --}}
-        <div class="bg-white rounded-2xl p-8 text-center border border-gray-200">
+        <div class="card p-8 text-center">
             <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <i class="fas fa-search text-3xl text-gray-400"></i>
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">No Recommendations Yet</h3>
-            <p class="text-sm text-gray-600 mb-6">
-                Complete your profile to get personalized job matches
+            <h3 class="text-base font-bold text-gray-900 mb-2">No Recommendations Yet</h3>
+            <p class="text-sm text-gray-500 mb-5">
+                Complete your profile to unlock personalized job matches
             </p>
-            <a href="{{ route('profile.edit') }}" class="inline-flex items-center bg-primary-600 text-white px-6 py-3 rounded-xl font-medium text-sm hover:bg-primary-700 transition-colors">
-                <i class="fas fa-user-edit mr-2"></i>
+            <a href="{{ route('profile.edit.mobile') }}" class="btn btn-primary inline-flex">
+                <i class="fas fa-user-edit mr-2 text-xs"></i>
                 Complete Profile
             </a>
         </div>
@@ -109,129 +124,96 @@
 
 </div>
 
-<style>
-/* Filter Chips */
-.filter-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.5rem 1rem;
-    background-color: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #6b7280;
-    white-space: nowrap;
-    transition: all 0.2s;
-}
-
-.filter-chip:active {
-    transform: scale(0.95);
-}
-
-.filter-chip.active {
-    background-color: #5a67d8;
-    color: white;
-    border-color: #5a67d8;
-}
-
-/* Hide scrollbar but keep functionality */
-.scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-    display: none;
-}
-
-/* Primary colors */
-.bg-primary-600 {
-    background-color: #5a67d8;
-}
-
-.bg-primary-700 {
-    background-color: #4c51bf;
-}
-
-.text-primary-600 {
-    color: #5a67d8;
-}
-
-.ring-primary-500 {
-    --tw-ring-color: #667eea;
-}
-
-.focus\:ring-primary-500:focus {
-    --tw-ring-color: #667eea;
-}
-</style>
-
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Search functionality
-    const searchInput = document.getElementById('searchInput');
-    const internshipList = document.getElementById('internshipList');
-    const cards = internshipList?.querySelectorAll('.bg-white.rounded-2xl');
+(function() {
+    'use strict';
 
-    searchInput?.addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase();
-        
-        cards?.forEach(card => {
-            const text = card.textContent.toLowerCase();
-            if (text.includes(searchTerm)) {
-                card.style.display = '';
-            } else {
-                card.style.display = 'none';
+    const searchInput   = document.getElementById('searchInput');
+    const internshipList = document.getElementById('internshipList');
+    const noResults     = document.getElementById('noSearchResults');
+    const filterChips   = document.querySelectorAll('.filter-chip');
+    let activeFilter    = 'all';
+    let searchTerm      = '';
+
+    function getItems() {
+        return internshipList ? internshipList.querySelectorAll('.internship-item') : [];
+    }
+
+    function applyFilters() {
+        const items = getItems();
+        let visibleCount = 0;
+
+        items.forEach(item => {
+            const text      = item.textContent.toLowerCase();
+            const matchScore = parseInt(item.dataset.match || '0', 10);
+            const isRemote  = item.dataset.remote === 'true';
+            const isRecent  = item.dataset.recent === 'true';
+
+            // Search filter
+            const matchesSearch = !searchTerm || text.includes(searchTerm);
+
+            // Category filter
+            let matchesFilter = true;
+            if (activeFilter === 'high-match') {
+                matchesFilter = matchScore >= 75;
+            } else if (activeFilter === 'remote') {
+                matchesFilter = isRemote;
+            } else if (activeFilter === 'recent') {
+                matchesFilter = isRecent;
             }
+
+            const show = matchesSearch && matchesFilter;
+            item.style.display = show ? '' : 'none';
+            if (show) visibleCount++;
         });
+
+        // Show no-results state
+        if (noResults) {
+            noResults.classList.toggle('hidden', visibleCount > 0);
+        }
+    }
+
+    // Search
+    let searchDebounce;
+    searchInput?.addEventListener('input', function(e) {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(() => {
+            searchTerm = e.target.value.toLowerCase().trim();
+            applyFilters();
+        }, 200);
     });
 
-    // Filter functionality
-    const filterChips = document.querySelectorAll('.filter-chip');
-    
+    // Filter chips
     filterChips.forEach(chip => {
         chip.addEventListener('click', function() {
-            // Remove active from all
             filterChips.forEach(c => c.classList.remove('active'));
-            
-            // Add active to clicked
             this.classList.add('active');
-            
-            const filter = this.dataset.filter;
-            
-            // Apply filter logic here
-            cards?.forEach(card => {
-                if (filter === 'all') {
-                    card.style.display = '';
-                } else if (filter === 'high-match') {
-                    const matchScore = card.querySelector('[class*="bg-green-100"]');
-                    card.style.display = matchScore ? '' : 'none';
-                } else if (filter === 'recent') {
-                    // Show all for now (implement date filtering if needed)
-                    card.style.display = '';
-                } else if (filter === 'remote') {
-                    const text = card.textContent.toLowerCase();
-                    card.style.display = text.includes('remote') ? '' : 'none';
-                }
-            });
+            activeFilter = this.dataset.filter;
+            applyFilters();
         });
     });
 
-    // Load more functionality
+    // Clear search
+    window.clearSearch = function() {
+        if (searchInput) searchInput.value = '';
+        searchTerm = '';
+        applyFilters();
+    };
+
+    // Load More (placeholder — implement server-side pagination if needed)
     const loadMoreBtn = document.getElementById('loadMoreBtn');
     loadMoreBtn?.addEventListener('click', function() {
-        this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...';
-        
-        // Simulate loading (replace with actual AJAX call)
+        const btn = this;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2 text-xs"></i>Loading...';
+        btn.disabled = true;
+        // Restore after timeout (replace with actual AJAX if pagination is added)
         setTimeout(() => {
-            this.innerHTML = '<i class="fas fa-plus-circle mr-2"></i>Load More';
-            // Add more cards here
+            btn.innerHTML = '<i class="fas fa-plus-circle mr-2 text-xs"></i>Load More';
+            btn.disabled = false;
         }, 1000);
     });
-});
+})();
 </script>
 @endpush
 @endsection

@@ -130,8 +130,4 @@ function withdrawApplication(applicationId) {
 }
 </script>
 
-<style>
-.bg-primary-600 {
-    background-color: #5a67d8;
-}
-</style>
+{{-- Primary color tokens are defined globally in layouts/app-mobile.blade.php --}}

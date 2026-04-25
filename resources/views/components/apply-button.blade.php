@@ -17,10 +17,13 @@
                 Already Applied
             </button>
         @else
-            <a href="{{ route('applications.apply.form', $internship) }}" 
-               class="block w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold text-center transition duration-200 shadow-lg hover:shadow-xl">
-                Apply Now
-            </a>
+            <form method="POST" action="{{ route('applications.apply', $internship) }}" class="w-full">
+                @csrf
+                <button type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition duration-200 shadow-lg hover:shadow-xl">
+                    Apply Now
+                </button>
+            </form>
         @endif
     @else
         <button disabled 

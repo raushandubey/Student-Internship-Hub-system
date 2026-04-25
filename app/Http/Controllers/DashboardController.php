@@ -75,6 +75,23 @@ class DashboardController extends Controller
             ? round((($stats['approved'] + $stats['rejected']) / $stats['total']) * 100) . '%'
             : '0%';
         
+        // Mobile detection — same regex as ProfileController
+        $isMobile = request()->header('User-Agent') &&
+                    preg_match('/Mobile|Android|iPhone|iPad/i', request()->header('User-Agent'));
+
+        if ($isMobile) {
+            $recentActivities = $this->getRecentActivities($user);
+
+            return view('student.dashboard-mobile', [
+                'profileCompletion' => $profileCompletion,
+                'appliedJobs'       => $stats['total'],
+                'interviews'        => $stats['interview_scheduled'] + $stats['approved'],
+                'profileViews'      => 0,
+                'recommendations'   => $recommendations,
+                'recentActivities'  => $recentActivities,
+            ]);
+        }
+
         return view('student.dashboard', [
             'profileCompletion' => $profileCompletion,
             'recommendations' => $recommendations,
@@ -91,6 +108,62 @@ class DashboardController extends Controller
         ]);
     }
     
+    /**
+     * JSON endpoint: recent activity for polling (session-auth)
+     * GET /api/recent-activity
+     */
+    public function recentActivity(): \Illuminate\Http\JsonResponse
+    {
+        $user = Auth::user();
+        $activities = [];
+
+        try {
+            $apps = \App\Models\Application::where('user_id', $user->id)
+                ->with('internship')
+                ->latest()
+                ->take(5)
+                ->get();
+
+            foreach ($apps as $app) {
+                if (!$app->internship) continue;
+
+                // Map status → icon/color/subtitle
+                // $app->status is an ApplicationStatus enum — use ->value for string key lookup
+                $statusValue = $app->status instanceof \BackedEnum
+                    ? $app->status->value
+                    : (string) $app->status;
+
+                $statusMap = [
+                    'approved'             => ['icon' => 'check-circle',   'color' => '#10b981', 'subtitle' => 'Congratulations! Application approved'],
+                    'rejected'             => ['icon' => 'times-circle',   'color' => '#ef4444', 'subtitle' => 'Application was not selected'],
+                    'interview_scheduled'  => ['icon' => 'calendar-check', 'color' => '#3b82f6', 'subtitle' => 'Interview has been scheduled'],
+                    'shortlisted'          => ['icon' => 'star',           'color' => '#8b5cf6', 'subtitle' => 'You have been shortlisted!'],
+                    'under_review'         => ['icon' => 'search',         'color' => '#f59e0b', 'subtitle' => 'Application is under review'],
+                    'pending'              => ['icon' => 'paper-plane',    'color' => '#6366f1', 'subtitle' => 'Application submitted successfully'],
+                ];
+
+                $meta = $statusMap[$statusValue] ?? $statusMap['pending'];
+
+                $activities[] = [
+                    'icon'      => $meta['icon'],
+                    'color'     => $meta['color'],
+                    'title'     => 'Applied to ' . $app->internship->title,
+                    'subtitle'  => $meta['subtitle'],
+                    'time'      => $app->created_at->diffForHumans(),
+                    'status'    => $statusValue,
+                ];
+            }
+        } catch (\Exception $e) {
+            \Log::warning('recentActivity endpoint failed', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json([
+            'activities'   => $activities,
+            'last_updated' => now()->toIso8601String(),
+            'count'        => count($activities),
+        ]);
+    }
+
     /**
      * Mobile-first dashboard view
      */
@@ -129,26 +202,32 @@ class DashboardController extends Controller
     
     /**
      * Get recent user activities
+     * Uses Application model directly — User model has no applications() relation.
      */
     private function getRecentActivities($user): array
     {
         $activities = [];
-        
-        // Get recent applications
-        $recentApps = $user->applications()
-            ->with('internship')
-            ->latest()
-            ->take(3)
-            ->get();
-        
-        foreach ($recentApps as $app) {
-            $activities[] = [
-                'icon' => 'paper-plane',
-                'title' => 'Applied to ' . $app->internship->title,
-                'time' => $app->created_at->diffForHumans(),
-            ];
+
+        try {
+            $recentApps = \App\Models\Application::where('user_id', $user->id)
+                ->with('internship')
+                ->latest()
+                ->take(3)
+                ->get();
+
+            foreach ($recentApps as $app) {
+                if ($app->internship) {
+                    $activities[] = [
+                        'icon'  => 'paper-plane',
+                        'title' => 'Applied to ' . $app->internship->title,
+                        'time'  => $app->created_at->diffForHumans(),
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::warning('getRecentActivities failed', ['error' => $e->getMessage()]);
         }
-        
+
         return $activities;
     }
     

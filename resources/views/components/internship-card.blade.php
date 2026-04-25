@@ -1,5 +1,5 @@
 {{-- Mobile-First Internship Card Component --}}
-@props(['internship', 'matchScore' => null, 'matchingSkills' => [], 'missingSkills' => []])
+@props(['internship', 'matchScore' => null, 'matchingSkills' => [], 'missingSkills' => [], 'locationFitLabel' => null])
 
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-all group">
     {{-- Header: Company Logo + Title + Match Score --}}
@@ -72,6 +72,26 @@
         </div>
     @endif
 
+    {{-- Location Fit badge (shown in recommendation context) --}}
+    @if($locationFitLabel)
+        @php
+            $fitColors = [
+                'Perfect Fit' => ['bg' => '#dcfce7', 'text' => '#16a34a'],
+                'Good Fit'    => ['bg' => '#dbeafe', 'text' => '#1d4ed8'],
+                'Remote'      => ['bg' => '#f0fdf4', 'text' => '#15803d'],
+                'Low Fit'     => ['bg' => '#f1f5f9', 'text' => '#64748b'],
+                'Unknown'     => ['bg' => '#f1f5f9', 'text' => '#9ca3af'],
+            ];
+            $fitStyle = $fitColors[$locationFitLabel] ?? $fitColors['Unknown'];
+        @endphp
+        <div class="mb-3">
+            <span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;border-radius:9999px;font-size:0.7rem;font-weight:600;background:{{ $fitStyle['bg'] }};color:{{ $fitStyle['text'] }};">
+                <i class="fas fa-map-marker-alt" style="font-size:0.65rem;"></i>
+                {{ $locationFitLabel }}
+            </span>
+        </div>
+    @endif
+
     {{-- Action Button --}}
     <div class="flex gap-2">
         @auth
@@ -88,10 +108,14 @@
                         Applied
                     </button>
                 @else
-                    <a href="{{ route('applications.apply.form', $internship) }}" class="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm text-center transition-colors active:scale-95 inline-block">
-                        <i class="fas fa-paper-plane mr-2"></i>
-                        Apply Now
-                    </a>
+                    <form method="POST" action="{{ route('applications.apply', $internship) }}" style="flex:1;">
+                        @csrf
+                        <button type="submit"
+                                class="w-full bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm text-center transition-colors active:scale-95">
+                            <i class="fas fa-paper-plane mr-2"></i>
+                            Apply Now
+                        </button>
+                    </form>
                 @endif
             @endif
         @else
@@ -126,16 +150,5 @@ function toggleSave(button) {
 }
 </script>
 
-<style>
-.bg-primary-600 {
-    background-color: #5a67d8;
-}
+{{-- Primary color tokens are defined globally in layouts/app-mobile.blade.php --}}
 
-.bg-primary-700 {
-    background-color: #4c51bf;
-}
-
-.hover\:bg-primary-700:hover {
-    background-color: #4c51bf;
-}
-</style>

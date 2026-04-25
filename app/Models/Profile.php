@@ -12,6 +12,8 @@ class Profile extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'profile_photo',
+        'location',
         'academic_background',
         'skills',
         'career_interests',
@@ -26,6 +28,39 @@ class Profile extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the public URL for the profile photo.
+     * Returns null if no photo set (views should show initials fallback).
+     */
+    public function getPhotoUrl(): ?string
+    {
+        if (!$this->profile_photo) {
+            return null;
+        }
+
+        $normalized = ltrim($this->profile_photo, '/');
+        $disk = config('filesystems.default');
+
+        if ($disk === 's3') {
+            $r2PublicUrl = config('filesystems.disks.s3.r2_public_url');
+            return $r2PublicUrl ? rtrim($r2PublicUrl, '/') . '/' . $normalized : null;
+        }
+
+        // Local public disk
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($normalized)) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($normalized);
+        }
+
+        $fullPath = storage_path('app/public/' . $normalized);
+        return file_exists($fullPath) ? asset('storage/' . $normalized) : null;
+    }
+
+    /** True if a profile photo has been uploaded */
+    public function hasPhoto(): bool
+    {
+        return !empty($this->profile_photo);
     }
 
     /**

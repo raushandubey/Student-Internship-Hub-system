@@ -1,126 +1,161 @@
-{{-- ShreeRam AI - Premium Spiritual + Modern Tech Fusion Chatbot --}}
-{{-- Saffron/Bhagwa Theme with Glassmorphism Design --}}
+{{-- ShreeRam AI — Premium Spiritual + Modern Tech Fusion Chatbot --}}
+{{-- Mobile-safe: z-50 (above bottom-nav z-40), bottom offset accounts for nav height --}}
 
-<div id="shreeram-chatbot" class="fixed bottom-6 right-6 z-50">
-    {{-- Floating Button with Saffron Glow --}}
-    <button 
+<div id="shreeram-chatbot" class="fixed z-50" style="bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 1rem;">
+
+    {{-- Floating Toggle Button --}}
+    <button
         id="chatbot-toggle-btn"
         type="button"
-        class="shreeram-float-btn group relative flex items-center justify-center rounded-full transition-all duration-500 focus:outline-none"
+        class="shreeram-float-btn group relative flex items-center justify-center rounded-full transition-all duration-500 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2"
         aria-label="Open ShreeRam AI"
         aria-expanded="false"
+        aria-controls="chatbot-window"
     >
-        {{-- Animated Glow Rings --}}
-        <span class="absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-40 animate-ping"></span>
-        <span class="absolute inline-flex h-[110%] w-[110%] rounded-full bg-gradient-to-r from-orange-500 to-amber-500 opacity-30 animate-pulse"></span>
-        
-        {{-- Om Symbol --}}
-        <span id="chatbot-icon" class="relative z-10 text-4xl om-symbol">🕉️</span>
-        
-        {{-- Tooltip --}}
-        <span class="absolute bottom-full right-0 mb-3 px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white text-sm rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap pointer-events-none shadow-xl backdrop-blur-sm">
-            <span class="font-semibold">ShreeRam AI</span>
-            <span class="block text-xs opacity-90">Guiding Your Career Path</span>
+        {{-- Animated ping ring --}}
+        <span class="absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-30 animate-ping pointer-events-none"></span>
+        <span class="absolute inline-flex h-[115%] w-[115%] rounded-full bg-gradient-to-r from-orange-500 to-amber-500 opacity-20 animate-pulse pointer-events-none"></span>
+
+        {{-- Om icon --}}
+        <span id="chatbot-icon" class="relative z-10 text-3xl om-symbol leading-none">🕉️</span>
+
+        {{-- Tooltip (desktop only) --}}
+        <span class="hidden md:block absolute bottom-full right-0 mb-3 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 text-white text-xs rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap pointer-events-none shadow-xl">
+            <span class="font-semibold block">ShreeRam AI</span>
+            <span class="opacity-90">Guiding Your Career Path</span>
         </span>
     </button>
 
-    {{-- Chat Window with Glassmorphism --}}
-    <div 
+    {{-- Chat Window --}}
+    <div
         id="chatbot-window"
         role="dialog"
         aria-label="ShreeRam AI Assistant"
-        class="shreeram-chat-window hidden absolute bottom-24 right-0 w-[420px] h-[450px] rounded-3xl flex flex-col overflow-hidden transition-all duration-500"
+        aria-modal="true"
+        class="shreeram-chat-window hidden flex-col overflow-hidden transition-all duration-400 rounded-3xl"
+        style="
+            position: fixed;
+            bottom: calc(144px + env(safe-area-inset-bottom, 0px));
+            right: 1rem;
+            left: 1rem;
+            max-width: 420px;
+            width: calc(100vw - 2rem);
+            height: min(500px, calc(100vh - 200px));
+            z-index: 50;
+        "
     >
-        {{-- Animated Background Particles --}}
-        <div class="shreeram-particles"></div>
-        
-        {{-- Header with Saffron Gradient --}}
-        <div class="shreeram-header relative z-10 px-6 py-5 flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                {{-- Om Avatar with Glow --}}
-                <div class="shreeram-avatar">
-                    <span class="text-2xl">🕉️</span>
+        {{-- Animated Background --}}
+        <div class="shreeram-particles pointer-events-none"></div>
+
+        {{-- Header --}}
+        <div class="shreeram-header relative z-10 px-4 py-4 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center space-x-3">
+                <div class="shreeram-avatar flex-shrink-0">
+                    <span class="text-xl">🕉️</span>
                 </div>
                 <div>
-                    <h3 class="text-white font-bold text-xl tracking-wide flex items-center">
+                    <h3 class="text-white font-bold text-base tracking-wide flex items-center gap-2">
                         ShreeRam AI
-                        <span class="ml-2 px-2 py-0.5 bg-black bg-opacity-20 rounded-full text-xs font-normal">Beta</span>
+                        <span class="px-1.5 py-0.5 bg-black bg-opacity-20 rounded-full text-[10px] font-normal">Beta</span>
                     </h3>
-                    <p class="text-orange-100 text-sm flex items-center mt-1">
-                        <span class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse shadow-lg shadow-green-400"></span>
+                    <p class="text-orange-100 text-xs flex items-center mt-0.5">
+                        <span class="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5 animate-pulse shadow-sm shadow-green-400 flex-shrink-0"></span>
                         Guiding Your Career Path
                     </p>
                 </div>
             </div>
-            <button 
+            <button
                 id="chatbot-close-btn"
                 type="button"
-                class="shreeram-close-btn"
+                class="shreeram-close-btn flex-shrink-0 ml-2"
                 aria-label="Close chat"
             >
-                <i class="fas fa-times text-xl"></i>
+                <i class="fas fa-times text-lg"></i>
             </button>
         </div>
 
-        {{-- Message List with Dark Glassmorphism --}}
-        <div 
+        {{-- Message List --}}
+        <div
             id="chatbot-messages"
             role="log"
             aria-live="polite"
             aria-atomic="false"
-            class="overflow-y-auto p-6 space-y-5 shreeram-messages-container"
+            class="flex-1 overflow-y-auto px-4 py-3 space-y-4 shreeram-messages-container overscroll-contain"
+            style="-webkit-overflow-scrolling: touch;"
         >
-            {{-- Messages will be dynamically inserted here --}}
+            {{-- Messages injected by chatbot.js --}}
         </div>
 
         {{-- Typing Indicator --}}
-        <div id="chatbot-typing" class="hidden px-6 py-4 shreeram-typing-container">
-            <div class="flex items-center space-x-3">
+        <div id="chatbot-typing" class="hidden px-4 py-3 shreeram-typing-container flex-shrink-0">
+            <div class="flex items-center space-x-2">
                 <div class="shreeram-typing-avatar">
-                    <span class="text-lg">🕉️</span>
+                    <span class="text-base">🕉️</span>
                 </div>
                 <div class="shreeram-typing-bubble">
-                    <div class="flex items-center space-x-2">
-                        <div class="w-2.5 h-2.5 rounded-full animate-bounce" style="background-color: #ff7a00; animation-delay: 0ms"></div>
-                        <div class="w-2.5 h-2.5 rounded-full animate-bounce" style="background-color: #ff7a00; animation-delay: 200ms"></div>
-                        <div class="w-2.5 h-2.5 rounded-full animate-bounce" style="background-color: #ff7a00; animation-delay: 400ms"></div>
+                    <div class="flex items-center space-x-1.5">
+                        <div class="w-2 h-2 rounded-full animate-bounce" style="background-color: #ff7a00; animation-delay: 0ms"></div>
+                        <div class="w-2 h-2 rounded-full animate-bounce" style="background-color: #ff7a00; animation-delay: 200ms"></div>
+                        <div class="w-2 h-2 rounded-full animate-bounce" style="background-color: #ff7a00; animation-delay: 400ms"></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        {{-- Input Area with Dark Theme --}}
-        <div class="shreeram-input-container p-5">
-            <div class="flex items-end space-x-3">
-                <div class="flex-1 relative">
-                    <input 
+        {{-- Input Area --}}
+        <div class="shreeram-input-container px-3 py-3 flex-shrink-0">
+            <div class="flex items-end gap-2">
+                <div class="flex-1 relative min-w-0">
+                    <input
                         id="chatbot-input"
                         type="text"
                         placeholder="Ask ShreeRam AI anything..."
                         maxlength="500"
-                        class="shreeram-input"
+                        class="shreeram-input w-full"
                         aria-label="Message input"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="sentences"
                     />
-                    {{-- Character Count --}}
-                    <div id="chatbot-char-count" class="hidden absolute right-4 top-1/2 transform -translate-y-1/2">
-                        <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-orange-500 bg-opacity-20 text-orange-300 border border-orange-500 border-opacity-30">
+                    {{-- Character count --}}
+                    <div id="chatbot-char-count" class="hidden absolute right-3 top-1/2 -translate-y-1/2">
+                        <span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-orange-500 bg-opacity-20 text-orange-300 border border-orange-500 border-opacity-30">
                             <span id="chatbot-char-current">0</span>/500
                         </span>
                     </div>
                 </div>
-                <button 
+                <button
                     id="chatbot-send-btn"
                     type="button"
-                    class="shreeram-send-btn"
+                    class="shreeram-send-btn flex-shrink-0"
                     aria-label="Send message"
                     disabled
                 >
-                    <i class="fas fa-paper-plane text-lg"></i>
+                    <i class="fas fa-paper-plane text-base"></i>
                 </button>
             </div>
         </div>
     </div>
 </div>
+
+{{-- On desktop (md+), reset to original corner positioning --}}
+<style>
+@media (min-width: 768px) {
+    #shreeram-chatbot {
+        bottom: 1.5rem !important;
+    }
+
+    #chatbot-window {
+        position: absolute !important;
+        bottom: 5rem !important;
+        right: 0 !important;
+        left: auto !important;
+        width: 420px !important;
+        max-width: 420px !important;
+        height: 480px !important;
+    }
+}
+</style>
 
 {{-- Inject User Profile Data for Personalized AI Responses --}}
 @auth
@@ -129,7 +164,6 @@
     $profile = $user->profile;
     $skills = $profile ? (is_array($profile->skills) ? $profile->skills : []) : [];
 
-    // Calculate profile completion
     $fields = ['name', 'academic_background', 'skills', 'career_interests', 'resume_path', 'aadhaar_number'];
     $completed = 0;
     if ($profile) {
@@ -138,11 +172,7 @@
         }
     }
     $profileCompletion = $profile ? round(($completed / count($fields)) * 100) : 0;
-
-    // Applied jobs count
     $appliedCount = \App\Models\Application::where('user_id', $user->id)->count();
-
-    // Missing skills (career_interests vs skills gap)
     $careerInterests = $profile ? ($profile->career_interests ?? '') : '';
     $missingSkills = [];
     $commonTechSkills = ['python', 'javascript', 'react', 'node.js', 'sql', 'java', 'machine learning', 'data analysis', 'git', 'docker', 'aws', 'communication', 'teamwork'];
@@ -154,8 +184,6 @@
         if (!$hasSkill) $missingSkills[] = $techSkill;
     }
     $missingSkills = array_slice($missingSkills, 0, 5);
-
-    // Projects from academic background
     $projects = $profile ? ($profile->academic_background ?? '') : '';
 @endphp
 <script>
@@ -172,5 +200,5 @@
 </script>
 @endauth
 
-{{-- Load Chatbot Assets using Vite (automatically resolves correct paths from manifest) --}}
+{{-- Load Chatbot Assets --}}
 @vite(['public/css/chatbot.css', 'public/js/chatbot.js'])

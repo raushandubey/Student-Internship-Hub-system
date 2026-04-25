@@ -461,52 +461,31 @@
             </div>
         </div>
 
-        <!-- Recent Activity Section -->
+        <!-- Recent Activity Section — Real-time polled -->
         <div class="recent-activity-section" data-aos="fade-up" data-aos-delay="800">
             <div class="section-header">
                 <h2 class="section-title">
                     <i class="fas fa-history"></i>
                     Recent Activity
+                    <span id="activity-live-dot" title="Live" style="display:inline-block;width:8px;height:8px;background:#10b981;border-radius:50%;margin-left:6px;animation:activityPulse 2s infinite;"></span>
                 </h2>
-                <a href="#" class="view-all-link">
+                <a href="{{ route('my-applications') }}" class="view-all-link">
                     <span>View All</span>
                     <i class="fas fa-arrow-right"></i>
                 </a>
             </div>
-            
-            <div class="activity-timeline">
-                <div class="activity-item">
-                    <div class="activity-icon application">
-                        <i class="fas fa-paper-plane"></i>
-                    </div>
+
+            <div class="activity-timeline" id="desktop-activity-timeline">
+                {{-- Skeleton loader --}}
+                @for($i = 0; $i < 3; $i++)
+                <div class="activity-item activity-skeleton" style="opacity:0.5;">
+                    <div class="activity-icon application" style="background:rgba(255,255,255,0.15);"></div>
                     <div class="activity-content">
-                        <h4>Applied to Software Engineer at TechCorp</h4>
-                        <p>Your application has been submitted successfully</p>
-                        <span class="activity-time">2 hours ago</span>
+                        <div style="height:14px;background:rgba(255,255,255,0.15);border-radius:4px;width:60%;margin-bottom:6px;"></div>
+                        <div style="height:11px;background:rgba(255,255,255,0.1);border-radius:4px;width:40%;"></div>
                     </div>
                 </div>
-                
-                <div class="activity-item">
-                    <div class="activity-icon profile">
-                        <i class="fas fa-user"></i>
-                    </div>
-                    <div class="activity-content">
-                        <h4>Profile viewed by HR Manager</h4>
-                        <p>Microsoft Recruiter viewed your profile</p>
-                        <span class="activity-time">5 hours ago</span>
-                    </div>
-                </div>
-                
-                <div class="activity-item">
-                    <div class="activity-icon recommendation">
-                        <i class="fas fa-star"></i>
-                    </div>
-                    <div class="activity-content">
-                        <h4>New job recommendations available</h4>
-                        <p>3 new jobs match your preferences</p>
-                        <span class="activity-time">1 day ago</span>
-                    </div>
-                </div>
+                @endfor
             </div>
         </div>
     </div>
@@ -1773,5 +1752,114 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// ================================================================
+// REAL-TIME ACTIVITY POLLING — Desktop Dashboard
+// ================================================================
+(function() {
+    'use strict';
+
+    const POLL_INTERVAL = 30000; // 30s
+    const ENDPOINT = '{{ route("dashboard.recent-activity") }}';
+    const container = document.getElementById('desktop-activity-timeline');
+
+    let lastUpdated = null;
+    let pollTimer = null;
+
+    function buildItemHTML(act) {
+        const iconStyle = `background:${act.color}22; color:${act.color};`;
+        return `
+            <div class="activity-item" style="animation:activitySlideIn 0.4s ease both;">
+                <div class="activity-icon" style="${iconStyle}">
+                    <i class="fas fa-${act.icon}"></i>
+                </div>
+                <div class="activity-content">
+                    <h4>${escHtml(act.title)}</h4>
+                    <p>${escHtml(act.subtitle)}</p>
+                    <span class="activity-time">${escHtml(act.time)}</span>
+                </div>
+            </div>`;
+    }
+
+    function buildEmptyHTML() {
+        return `
+            <div class="activity-item" style="opacity:0.6;">
+                <div class="activity-icon recommendation">
+                    <i class="fas fa-rocket"></i>
+                </div>
+                <div class="activity-content">
+                    <h4>No activity yet</h4>
+                    <p>Apply to internships to see your activity here</p>
+                    <span class="activity-time">Right now</span>
+                </div>
+            </div>`;
+    }
+
+    function escHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    async function fetchAndRender() {
+        try {
+            const res = await fetch(ENDPOINT, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            if (!res.ok) return;
+
+            const data = await res.json();
+
+            // Skip re-render if nothing changed
+            if (lastUpdated === data.last_updated && container.querySelector('.activity-item:not(.activity-skeleton)')) {
+                return;
+            }
+            lastUpdated = data.last_updated;
+
+            if (data.count === 0) {
+                container.innerHTML = buildEmptyHTML();
+                return;
+            }
+
+            container.innerHTML = data.activities
+                .slice(0, 5)
+                .map(buildItemHTML)
+                .join('');
+
+        } catch (e) {
+            // Silently fail — stale data is better than a broken UI
+        }
+    }
+
+    // Initial load
+    fetchAndRender();
+
+    // Poll every 30s
+    pollTimer = setInterval(fetchAndRender, POLL_INTERVAL);
+
+    // Stop polling when tab is hidden, resume when visible
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            clearInterval(pollTimer);
+        } else {
+            fetchAndRender();
+            pollTimer = setInterval(fetchAndRender, POLL_INTERVAL);
+        }
+    });
+})();
 </script>
+
+<style>
+@verbatim
+@keyframes activityPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(1.4); }
+}
+@keyframes activitySlideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@endverbatim
+</style>
 @endsection
