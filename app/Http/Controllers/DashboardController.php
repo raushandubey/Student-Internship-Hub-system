@@ -120,48 +120,62 @@ class DashboardController extends Controller
         $activities = [];
 
         try {
+            // Sort by updated_at so recent STATUS CHANGES bubble to the top
             $apps = \App\Models\Application::where('user_id', $user->id)
                 ->with('internship')
-                ->latest()
+                ->orderBy('updated_at', 'desc')
                 ->take(5)
                 ->get();
 
             foreach ($apps as $app) {
                 if (!$app->internship) continue;
 
-                // Map status → icon/color/subtitle
                 // $app->status is an ApplicationStatus enum — use ->value for string key lookup
                 $statusValue = $app->status instanceof \BackedEnum
                     ? $app->status->value
                     : (string) $app->status;
 
-                $statusMap = [
-                    'approved'             => ['icon' => 'check-circle',   'color' => '#10b981', 'subtitle' => 'Congratulations! Application approved'],
-                    'rejected'             => ['icon' => 'times-circle',   'color' => '#ef4444', 'subtitle' => 'Application was not selected'],
-                    'interview_scheduled'  => ['icon' => 'calendar-check', 'color' => '#3b82f6', 'subtitle' => 'Interview has been scheduled'],
-                    'shortlisted'          => ['icon' => 'star',           'color' => '#8b5cf6', 'subtitle' => 'You have been shortlisted!'],
-                    'under_review'         => ['icon' => 'search',         'color' => '#f59e0b', 'subtitle' => 'Application is under review'],
-                    'pending'              => ['icon' => 'paper-plane',    'color' => '#6366f1', 'subtitle' => 'Application submitted successfully'],
+                // Title reflects current status — not always "Applied to"
+                $titleMap = [
+                    'approved'            => '✅ Approved: ',
+                    'rejected'            => '❌ Not Selected: ',
+                    'interview_scheduled' => '📅 Interview Scheduled: ',
+                    'shortlisted'         => '⭐ Shortlisted: ',
+                    'under_review'        => '🔍 Under Review: ',
+                    'pending'             => 'Applied to ',
                 ];
 
-                $meta = $statusMap[$statusValue] ?? $statusMap['pending'];
+                $statusMap = [
+                    'approved'            => ['icon' => 'check-circle',   'color' => '#10b981', 'subtitle' => 'Congratulations! Your application was approved'],
+                    'rejected'            => ['icon' => 'times-circle',   'color' => '#ef4444', 'subtitle' => 'Application was not selected this time'],
+                    'interview_scheduled' => ['icon' => 'calendar-check', 'color' => '#3b82f6', 'subtitle' => 'Interview has been scheduled — check your email'],
+                    'shortlisted'         => ['icon' => 'star',           'color' => '#8b5cf6', 'subtitle' => 'You have been shortlisted!'],
+                    'under_review'        => ['icon' => 'search',         'color' => '#f59e0b', 'subtitle' => 'Your application is under review'],
+                    'pending'             => ['icon' => 'paper-plane',    'color' => '#6366f1', 'subtitle' => 'Application submitted successfully'],
+                ];
+
+                $meta    = $statusMap[$statusValue] ?? $statusMap['pending'];
+                $prefix  = $titleMap[$statusValue]  ?? 'Applied to ';
 
                 $activities[] = [
-                    'icon'      => $meta['icon'],
-                    'color'     => $meta['color'],
-                    'title'     => 'Applied to ' . $app->internship->title,
-                    'subtitle'  => $meta['subtitle'],
-                    'time'      => $app->created_at->diffForHumans(),
-                    'status'    => $statusValue,
+                    'icon'     => $meta['icon'],
+                    'color'    => $meta['color'],
+                    'title'    => $prefix . $app->internship->title,
+                    'subtitle' => $meta['subtitle'],
+                    'time'     => $app->updated_at->diffForHumans(),
+                    'status'   => $statusValue,
                 ];
             }
         } catch (\Exception $e) {
             \Log::warning('recentActivity endpoint failed', ['error' => $e->getMessage()]);
         }
 
+        // Use a content hash so the frontend can skip re-renders when nothing changed
+        $hash = md5(json_encode($activities));
+
         return response()->json([
             'activities'   => $activities,
-            'last_updated' => now()->toIso8601String(),
+            'last_updated' => $hash,
             'count'        => count($activities),
         ]);
     }
