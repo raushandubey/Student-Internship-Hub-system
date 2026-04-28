@@ -2,6 +2,26 @@
 
 A production-grade internship management platform with intelligent matching, career analytics, and automated workflow management. Built with Laravel 12 as an advanced final year project.
 
+---
+
+## ⚠️ IMPORTANT LEGAL NOTICE
+
+**🔒 This is PROPRIETARY software. ALL RIGHTS RESERVED.**
+
+This repository is publicly visible for **PORTFOLIO and RECRUITMENT purposes ONLY**.
+
+**You are NOT permitted to:**
+- ❌ Copy, fork, or clone this code for your own use
+- ❌ Use this code in any project (personal, commercial, or educational)
+- ❌ Modify or create derivative works
+- ❌ Redistribute or share this code
+
+**See [LICENSE](LICENSE) for complete terms.**
+
+**For recruiters:** You may review this code to evaluate technical skills. See [COPYRIGHT.md](COPYRIGHT.md) for details.
+
+---
+
 ## 🎯 Project Overview
 
 Student Internship Hub is a comprehensive platform that automates the entire internship lifecycle - from intelligent matching to application tracking to admin analytics. The system features advanced Laravel patterns including service layer architecture, state machine, event-driven design, and production-grade security.
@@ -643,3 +663,24 @@ This will:
 **Version:** 10.0  
 **System Type:** Rule-Based Web Application (NOT AI/ML)  
 **Level:** Advanced Final Year Project
+
+---
+
+## 📜 License & Copyright
+
+**© 2026 InternshipHub Project. All Rights Reserved.**
+
+This software is **PROPRIETARY** and protected by copyright law.
+
+- **License:** Proprietary - See [LICENSE](LICENSE)
+- **Copyright:** See [COPYRIGHT.md](COPYRIGHT.md)
+- **Security:** See [SECURITY.md](SECURITY.md)
+- **Contributing:** See [CONTRIBUTING.md](CONTRIBUTING.md)
+
+**Viewing is permitted for evaluation purposes only. All other use is strictly prohibited.**
+
+For licensing inquiries, contact the repository owner through GitHub.
+
+---
+
+**⚖️ Legal Disclaimer:** Unauthorized use, reproduction, or distribution of this software may result in severe civil and criminal penalties, and will be prosecuted to the maximum extent possible under law.

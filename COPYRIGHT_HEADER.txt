@@ -1,0 +1,21 @@
+/**
+ * Copyright (c) 2026 InternshipHub Project
+ * All Rights Reserved.
+ * 
+ * PROPRIETARY AND CONFIDENTIAL
+ * 
+ * This file is part of the InternshipHub project.
+ * 
+ * Unauthorized copying, modification, distribution, or use of this file,
+ * via any medium, is strictly prohibited without explicit written permission.
+ * 
+ * This file is provided "AS IS", WITHOUT WARRANTY OF ANY KIND, express or
+ * implied, including but not limited to the warranties of merchantability,
+ * fitness for a particular purpose and noninfringement.
+ * 
+ * For licensing inquiries, contact the repository owner through GitHub.
+ * 
+ * @copyright 2026 InternshipHub Project
+ * @license   Proprietary - All Rights Reserved
+ * @link      https://github.com/[your-username]/[your-repo]
+ */

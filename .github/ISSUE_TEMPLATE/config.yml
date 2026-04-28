@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: ⚠️ Issues Not Accepted
+    url: https://github.com
+    about: This is a proprietary project. Issues and bug reports are not being accepted. For recruitment inquiries, contact the repository owner directly.
+  - name: 📜 License Information
+    url: https://github.com
+    about: This project is proprietary. See LICENSE file for terms and conditions.
+  - name: 🔒 Copyright Notice
+    url: https://github.com
+    about: All rights reserved. See COPYRIGHT.md for details.

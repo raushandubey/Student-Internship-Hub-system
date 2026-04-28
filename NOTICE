@@ -1,0 +1,166 @@
+NOTICE - InternshipHub Project
+
+Copyright (c) 2026 InternshipHub Project
+All Rights Reserved.
+
+================================================================================
+PROPRIETARY SOFTWARE NOTICE
+================================================================================
+
+This software and associated documentation files (the "Software") are 
+PROPRIETARY and CONFIDENTIAL.
+
+The Software is made publicly visible on GitHub for PORTFOLIO and RECRUITMENT 
+evaluation purposes ONLY.
+
+NO LICENSE IS GRANTED for any use beyond viewing for evaluation purposes.
+
+================================================================================
+THIRD-PARTY COMPONENTS
+================================================================================
+
+This Software incorporates components from third-party open-source projects.
+These components remain under their original licenses:
+
+1. Laravel Framework
+   - License: MIT License
+   - Copyright: Taylor Otwell
+   - URL: https://laravel.com
+
+2. Tailwind CSS
+   - License: MIT License
+   - Copyright: Tailwind Labs, Inc.
+   - URL: https://tailwindcss.com
+
+3. PHP
+   - License: PHP License v3.01
+   - Copyright: The PHP Group
+   - URL: https://www.php.net
+
+4. MySQL
+   - License: GPL v2 (or commercial)
+   - Copyright: Oracle Corporation
+   - URL: https://www.mysql.com
+
+5. Composer Dependencies
+   - Various licenses (see composer.json and composer.lock)
+   - Each package retains its original license
+
+6. NPM Dependencies
+   - Various licenses (see package.json and package-lock.json)
+   - Each package retains its original license
+
+================================================================================
+SCOPE OF PROPRIETARY LICENSE
+================================================================================
+
+The proprietary license applies ONLY to:
+
+✓ Original source code written for this project
+✓ Custom business logic and algorithms
+✓ Project-specific configurations
+✓ Original documentation
+✓ Database schema design
+✓ Custom UI/UX implementations
+✓ Project architecture and design patterns
+
+The proprietary license does NOT apply to:
+
+✗ Third-party open-source libraries (governed by their own licenses)
+✗ Standard Laravel framework code
+✗ Standard PHP language features
+✗ Common programming patterns and algorithms
+
+================================================================================
+USAGE RESTRICTIONS
+================================================================================
+
+You are PROHIBITED from:
+
+❌ Copying any original code from this project
+❌ Using this project as a template or boilerplate
+❌ Incorporating any custom implementation into other projects
+❌ Creating derivative works based on this project
+❌ Distributing or redistributing this software
+❌ Using this software for commercial purposes
+❌ Using this software for personal projects
+❌ Using this software for educational assignments
+❌ Removing or altering copyright notices
+
+================================================================================
+PERMITTED ACTIVITIES
+================================================================================
+
+You are PERMITTED to:
+
+✅ View the source code for evaluation purposes
+✅ Review the code as part of recruitment assessment
+✅ Discuss the implementation in interviews
+✅ Assess the author's technical capabilities
+✅ Use third-party components under their respective licenses
+
+================================================================================
+ATTRIBUTION REQUIREMENTS
+================================================================================
+
+If you are permitted to reference this project (e.g., in a blog post about 
+the author's work), you MUST:
+
+1. Clearly state that the code is proprietary and not for reuse
+2. Link back to the original repository
+3. Credit the original author
+4. Include a copy of this NOTICE
+
+================================================================================
+TRADEMARKS
+================================================================================
+
+"InternshipHub" and "Student Internship Hub (SIH)" are trademarks of the 
+project owner. Unauthorized use of these trademarks is prohibited.
+
+================================================================================
+DISCLAIMER
+================================================================================
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR 
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS 
+IN THE SOFTWARE.
+
+================================================================================
+CONTACT INFORMATION
+================================================================================
+
+For licensing inquiries, permission requests, or other questions:
+- Contact the repository owner through GitHub
+
+For security vulnerabilities:
+- See SECURITY.md for responsible disclosure procedures
+
+================================================================================
+LEGAL JURISDICTION
+================================================================================
+
+This notice and the associated LICENSE shall be governed by and construed in 
+accordance with applicable copyright laws and international treaties including 
+the Berne Convention and WIPO Copyright Treaty.
+
+================================================================================
+UPDATES
+================================================================================
+
+This NOTICE may be updated at any time. Continued viewing of the repository 
+constitutes acceptance of any updates.
+
+Last Updated: January 2026
+Version: 1.0
+
+================================================================================
+
+© 2026 InternshipHub Project. All Rights Reserved.
+
+For complete terms and conditions, see the LICENSE file.

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 InternshipHub Project - All Rights Reserved
+# This repository is PROPRIETARY. See LICENSE for terms.
+
 * text=auto eol=lf
 
 *.blade.php diff=html
@@ -6,6 +9,12 @@
 *.md diff=markdown
 *.php diff=php
 
+# Export ignore (files not included in archives)
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
+
+# Linguist overrides (for GitHub language statistics)
+*.blade.php linguist-language=PHP
+docs/* linguist-documentation
+*.md linguist-documentation
