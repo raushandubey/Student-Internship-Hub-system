@@ -66,6 +66,10 @@ class ResumeOptimizationService
                 $parsedResume = $this->parser->parseFromContent($absolutePath['content']);
             } else {
                 $parsedResume = $this->parser->parse($absolutePath);
+                // Clean up temp file if we created one for S3/R2
+                if (str_contains($absolutePath, 'temp_resume_')) {
+                    @unlink($absolutePath);
+                }
             }
             Log::info('[Pipeline] Stage 1 COMPLETE: Resume Parsed', ['text_length' => strlen($parsedResume['raw_text'] ?? '')]);
 
@@ -170,7 +174,17 @@ class ResumeOptimizationService
                 $parsedResume = $this->parser->parseFromContent($absolutePath['content']);
             } else {
                 $parsedResume = $this->parser->parse($absolutePath);
+                // Clean up temp file if we created one for S3/R2
+                if (str_contains($absolutePath, 'temp_resume_')) {
+                    @unlink($absolutePath);
+                }
             }
+
+            if (!empty($parsedResume['parse_error']) && empty(trim($parsedResume['raw_text']))) {
+                Log::error('[Pipeline] Stage 1 FAIL: Parser error during rewrite', ['error' => $parsedResume['parse_error']]);
+                return ['success' => false, 'error' => 'Unable to read your resume PDF. Please ensure it is a valid, non-encrypted PDF.'];
+            }
+
             $jdAnalysis     = $this->jdAnalyzer->analyze($internship);
             $qualityReport  = $this->qualityDetector->detect($parsedResume);
             $weaknessReport = $this->weaknessEngine->detect($parsedResume, $jdAnalysis);
@@ -326,24 +340,34 @@ class ResumeOptimizationService
         $disk           = config('filesystems.default');
         $normalizedPath = ltrim($profile->resume_path, '/');
 
-        if ($disk === 's3') {
-            if (!Storage::disk('s3')->exists($normalizedPath)) {
-                Log::warning('[Pipeline] S3 file not found', ['path' => $normalizedPath]);
+        if ($disk === 's3' || $disk === 'r2') {
+            if (!Storage::disk($disk)->exists($normalizedPath)) {
+                Log::warning("[Pipeline] {$disk} file not found", ['path' => $normalizedPath]);
                 return null;
             }
 
             try {
-                // Return raw content directly — avoids temp file issues on Laravel Cloud
-                $content = Storage::disk('s3')->get($normalizedPath);
+                // Download from S3/R2 to a temporary local file for stable parsing
+                $content = Storage::disk($disk)->get($normalizedPath);
                 if (empty($content)) {
-                    Log::error('[Pipeline] S3 file downloaded but empty', ['path' => $normalizedPath]);
+                    Log::error("[Pipeline] {$disk} file downloaded but empty", ['path' => $normalizedPath]);
                     return null;
                 }
-                Log::info('[Pipeline] S3 content loaded', ['path' => $normalizedPath, 'size' => strlen($content)]);
-                // Return as array to signal "content mode" to the caller
-                return ['content' => $content, 'mode' => 's3_content'];
+                
+                $tempFilename = 'temp_resume_' . uniqid() . '.pdf';
+                $tempPath = storage_path('app/private/' . $tempFilename);
+                
+                // Ensure directory exists
+                if (!file_exists(storage_path('app/private'))) {
+                    mkdir(storage_path('app/private'), 0755, true);
+                }
+                
+                file_put_contents($tempPath, $content);
+                Log::info("[Pipeline] {$disk} content saved to temp file", ['path' => $tempPath, 'size' => strlen($content)]);
+                
+                return $tempPath;
             } catch (\Exception $e) {
-                Log::error('[Pipeline] S3 download failed', ['path' => $normalizedPath, 'error' => $e->getMessage()]);
+                Log::error("[Pipeline] {$disk} download failed", ['path' => $normalizedPath, 'error' => $e->getMessage()]);
                 return null;
             }
         }
