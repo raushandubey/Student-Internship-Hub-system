@@ -49,11 +49,60 @@ class ResumeParserEngine
             return $this->emptyParsed('Could not extract text from PDF.');
         }
 
-        $cleanText = $this->normalizeText($rawText);
-        $lines     = array_map('trim', explode("\n", $cleanText));
-        $meta      = $this->extractMetadata($lines);
-        $sections  = $this->detectSectionBoundaries($lines);
-        $parsed    = $this->extractSections($lines, $sections);
+        return $this->buildParsedResult($rawText);
+    }
+
+    /**
+     * Parse a resume from raw binary content (S3/cloud — no temp file).
+     */
+    public function parseFromContent(string $pdfContent): array
+    {
+        // Try smalot/pdfparser first (best quality)
+        $rawText = $this->extractWithPdfParserContent($pdfContent);
+        Log::info('ResumeParser: PdfParser (content) result', ['length' => strlen(trim($rawText))]);
+
+        // BT/ET fallback
+        if (strlen(trim($rawText)) < 200) {
+            $btEtText = $this->extractWithBtEt($pdfContent);
+            Log::info('ResumeParser: BT/ET result', ['length' => strlen(trim($btEtText))]);
+            if (strlen(trim($btEtText)) > strlen(trim($rawText))) {
+                $rawText = $btEtText;
+            }
+        }
+
+        // Raw binary fallback
+        if (strlen(trim($rawText)) < 100) {
+            $binaryText = preg_replace('/[^\x20-\x7E\n\r\t]/', ' ', $pdfContent);
+            $binaryText = preg_replace('/\s{3,}/', "\n", $binaryText);
+            $binaryText = preg_replace('/\b(BT|ET|Td|TD|Tm|Tf|Tj|TJ|cm|q|Q|re|f|S|n|W|w|j|J|d|gs|cs|sc|Do)\b/', '', $binaryText);
+            Log::info('ResumeParser: Binary fallback result', ['length' => strlen(trim($binaryText))]);
+            if (strlen(trim($binaryText)) > strlen(trim($rawText))) {
+                $rawText = $binaryText;
+            }
+        }
+
+        Log::info('ResumeParser: Final text length (content mode)', ['length' => strlen(trim($rawText))]);
+
+        if (strlen(trim($rawText)) < 50) {
+            Log::error('ResumeParser: Content extraction produced insufficient text', [
+                'text_length' => strlen(trim($rawText)),
+            ]);
+            return $this->emptyParsed('Could not extract text from PDF.');
+        }
+
+        return $this->buildParsedResult($rawText);
+    }
+
+    /**
+     * Build the full parsed result array from raw extracted text.
+     */
+    private function buildParsedResult(string $rawText): array
+    {
+        $cleanText   = $this->normalizeText($rawText);
+        $lines       = array_map('trim', explode("\n", $cleanText));
+        $meta        = $this->extractMetadata($lines);
+        $sections    = $this->detectSectionBoundaries($lines);
+        $parsed      = $this->extractSections($lines, $sections);
         $weakBullets = $this->detectWeakBullets($parsed);
 
         return array_merge($meta, $parsed, [
@@ -108,6 +157,21 @@ class ResumeParserEngine
             return $pdf->getText();
         } catch (\Exception $e) {
             Log::warning('ResumeParser: PdfParser failed', ['error' => $e->getMessage()]);
+            return '';
+        }
+    }
+
+    /**
+     * Parse PDF from raw binary content (no temp file needed — used for S3/cloud).
+     */
+    private function extractWithPdfParserContent(string $content): string
+    {
+        try {
+            $parser = new \Smalot\PdfParser\Parser();
+            $pdf    = $parser->parseContent($content);
+            return $pdf->getText();
+        } catch (\Exception $e) {
+            Log::warning('ResumeParser: PdfParser (content) failed', ['error' => $e->getMessage()]);
             return '';
         }
     }

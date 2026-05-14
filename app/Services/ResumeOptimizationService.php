@@ -62,7 +62,11 @@ class ResumeOptimizationService
             }
 
             // ── Stage 1: Parsing ──────────────────────────────────────────
-            $parsedResume = $this->parser->parse($absolutePath);
+            if (is_array($absolutePath) && ($absolutePath['mode'] ?? '') === 's3_content') {
+                $parsedResume = $this->parser->parseFromContent($absolutePath['content']);
+            } else {
+                $parsedResume = $this->parser->parse($absolutePath);
+            }
             Log::info('[Pipeline] Stage 1 COMPLETE: Resume Parsed', ['text_length' => strlen($parsedResume['raw_text'] ?? '')]);
 
             if (!empty($parsedResume['parse_error']) && empty(trim($parsedResume['raw_text']))) {
@@ -162,7 +166,11 @@ class ResumeOptimizationService
             }
 
             // ── Stage 1: Pre-Analysis ────────────────────────────────────
-            $parsedResume   = $this->parser->parse($absolutePath);
+            if (is_array($absolutePath) && ($absolutePath['mode'] ?? '') === 's3_content') {
+                $parsedResume = $this->parser->parseFromContent($absolutePath['content']);
+            } else {
+                $parsedResume = $this->parser->parse($absolutePath);
+            }
             $jdAnalysis     = $this->jdAnalyzer->analyze($internship);
             $qualityReport  = $this->qualityDetector->detect($parsedResume);
             $weaknessReport = $this->weaknessEngine->detect($parsedResume, $jdAnalysis);
@@ -313,7 +321,7 @@ class ResumeOptimizationService
             ->first();
     }
 
-    private function resolveResumePath(Profile $profile): ?string
+    private function resolveResumePath(Profile $profile): ?string|array
     {
         $disk           = config('filesystems.default');
         $normalizedPath = ltrim($profile->resume_path, '/');
@@ -324,34 +332,20 @@ class ResumeOptimizationService
                 return null;
             }
 
-            // Try multiple temp directories in order of preference
-            $tmpDirs = array_filter([
-                sys_get_temp_dir(),
-                storage_path('app/tmp'),
-                '/tmp',
-            ]);
-
-            $tmpFile = null;
-            foreach ($tmpDirs as $dir) {
-                $candidate = rtrim($dir, '/') . '/resume_' . $profile->id . '_' . time() . '.pdf';
-                try {
-                    $content = Storage::disk('s3')->get($normalizedPath);
-                    if (file_put_contents($candidate, $content) !== false) {
-                        $tmpFile = $candidate;
-                        break;
-                    }
-                } catch (\Exception $e) {
-                    Log::warning('[Pipeline] Temp write failed', ['dir' => $dir, 'error' => $e->getMessage()]);
+            try {
+                // Return raw content directly — avoids temp file issues on Laravel Cloud
+                $content = Storage::disk('s3')->get($normalizedPath);
+                if (empty($content)) {
+                    Log::error('[Pipeline] S3 file downloaded but empty', ['path' => $normalizedPath]);
+                    return null;
                 }
-            }
-
-            if (!$tmpFile) {
-                Log::error('[Pipeline] Could not write resume to any temp directory');
+                Log::info('[Pipeline] S3 content loaded', ['path' => $normalizedPath, 'size' => strlen($content)]);
+                // Return as array to signal "content mode" to the caller
+                return ['content' => $content, 'mode' => 's3_content'];
+            } catch (\Exception $e) {
+                Log::error('[Pipeline] S3 download failed', ['path' => $normalizedPath, 'error' => $e->getMessage()]);
                 return null;
             }
-
-            Log::info('[Pipeline] Resume downloaded to temp', ['path' => $tmpFile, 'size' => filesize($tmpFile)]);
-            return $tmpFile;
         }
 
         $path1 = storage_path('app/public/' . $normalizedPath);
