@@ -164,6 +164,19 @@ class AdminApplicationController extends Controller
                 $application->user_id
             );
             
+            $resumeUrl = $profileData['profile']['resume_path'] ?? null;
+
+            $aiVersion = \App\Models\ResumeVersion::where('user_id', $application->user_id)
+                ->where('internship_id', $application->internship_id)
+                ->where('type', 'ai_rewrite')
+                ->latest()
+                ->first();
+
+            if ($aiVersion) {
+                $resumeUrl = route('admin.applications.resume', $application->id);
+                $profileData['profile']['resume_path'] = $resumeUrl;
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $profileData
@@ -180,5 +193,21 @@ class AdminApplicationController extends Controller
                 'message' => 'Unable to load profile data'
             ], 500);
         }
+    }
+
+    public function downloadResume(Application $application)
+    {
+        $aiVersion = \App\Models\ResumeVersion::where('user_id', $application->user_id)
+            ->where('internship_id', $application->internship_id)
+            ->where('type', 'ai_rewrite')
+            ->latest()
+            ->first();
+
+        if ($aiVersion) {
+            $pdfService = app(\App\Services\ResumePdfService::class);
+            return $pdfService->downloadPdf($application->user, $application->internship, $aiVersion->id);
+        }
+
+        abort(404, 'AI Resume not found for this application.');
     }
 }

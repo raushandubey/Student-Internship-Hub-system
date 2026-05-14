@@ -1,17 +1,18 @@
 {{--
-    PREMIUM ATS Resume PDF Template
+    PROFESSIONAL ATS Resume PDF Template — v2
     ─────────────────────────────────────────────────────
     Engine  : DomPDF (barryvdh/laravel-dompdf)
     Paper   : A4 portrait  |  DPI: 150
-    Font    : DejaVu Sans (bundled — guaranteed in Dompdf)
+    Font    : DejaVu Sans (guaranteed bundled in Dompdf)
 
-    Dompdf CSS rules strictly followed:
-      ✓ float:right  — for date/location columns
-      ✓ overflow:hidden — clearfix on row containers
-      ✓ page-break-inside: avoid — keeps entries together
-      ✓ word-wrap: break-word — prevents bullet overflow
-      ✗ NO flexbox / grid / position:absolute in content rows
-      ✗ NO external fonts / CDN / remote assets
+    ATS Design Rules:
+      ✅ Single-column layout
+      ✅ No tables, no columns, no icons, no gradients
+      ✅ No external fonts / CDN / remote assets
+      ✅ float:right for date/location (Dompdf-safe)
+      ✅ page-break-inside: avoid on entries
+      ✅ word-wrap: break-word on all text
+      ❌ NO flexbox / grid / position:absolute in content rows
 --}}
 <!DOCTYPE html>
 <html lang="en">
@@ -19,133 +20,111 @@
 <meta charset="UTF-8">
 <style>
 
-/* ═══════════════════════════════════════════════
-   RESET
-═══════════════════════════════════════════════ */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* ═══════════════════════════════════════════════
-   PAGE — A4 with generous but tight margins
-   Printable area: 210 − 14 − 14 = 182mm wide
-                   297 − 14 − 12 = 271mm tall
-═══════════════════════════════════════════════ */
 @page {
     size: A4 portrait;
-    margin: 14mm 14mm 12mm 14mm;
+    margin: 13mm 14mm 11mm 14mm;
 }
 
-/* ═══════════════════════════════════════════════
-   BASE
-═══════════════════════════════════════════════ */
 body {
-    font-family: 'Inter', Arial, Helvetica, sans-serif;
+    font-family: 'DejaVu Sans', Arial, Helvetica, sans-serif;
     font-size: 8pt;
-    color: #1c1c1c;
-    line-height: 1.4;
+    color: #1a1a1a;
+    line-height: 1.38;
     background: #ffffff;
     width: 100%;
 }
 
-/* ═══════════════════════════════════════════════
-   HEADER — Name + Contact bar
-═══════════════════════════════════════════════ */
+/* ── HEADER ─────────────────────────────────────── */
 .hdr {
     text-align: center;
     padding-bottom: 7pt;
-    margin-bottom: 10.5pt;
-    border-bottom: 1.5pt solid #111111;
+    margin-bottom: 9pt;
+    border-bottom: 1.8pt solid #111;
 }
 .hdr-name {
-    font-size: 18pt;
+    font-size: 19pt;
     font-weight: bold;
     color: #111111;
-    letter-spacing: 0.5pt;
+    letter-spacing: 1pt;
     text-transform: uppercase;
-    line-height: 1.2;
+    line-height: 1.15;
     margin-bottom: 3pt;
 }
 .hdr-contact {
     font-size: 8pt;
     color: #333333;
-    line-height: 1.4;
+    line-height: 1.5;
+}
+.hdr-separator {
+    color: #777777;
+    font-size: 9pt;
+    padding: 0 3pt;
 }
 .hdr-role {
-    font-size: 8pt;
+    font-size: 7.5pt;
     color: #555555;
     font-style: italic;
     margin-top: 2pt;
 }
 
-/* ═══════════════════════════════════════════════
-   SECTION WRAPPER
-═══════════════════════════════════════════════ */
+/* ── SECTION WRAPPER ─────────────────────────────── */
 .sec {
-    margin-bottom: 10.5pt;
+    margin-bottom: 7pt;
     page-break-inside: avoid;
 }
+.sec:empty { display: none; }
 
-/* ═══════════════════════════════════════════════
-   SECTION TITLE — with left accent bar
-═══════════════════════════════════════════════ */
+/* ── SECTION TITLE ───────────────────────────────── */
 .sec-title {
-    font-size: 9pt;
+    font-size: 8.5pt;
     font-weight: bold;
     text-transform: uppercase;
-    letter-spacing: 0.75pt;
+    letter-spacing: 0.9pt;
     color: #111111;
-    border-bottom: 1pt solid #111111;
+    border-bottom: 1pt solid #222222;
     padding-bottom: 1.5pt;
     margin-bottom: 5pt;
     page-break-after: avoid;
 }
 
-/* ═══════════════════════════════════════════════
-   PROFESSIONAL SUMMARY
-═══════════════════════════════════════════════ */
+/* ── SUMMARY ─────────────────────────────────────── */
 .summary {
     font-size: 8pt;
-    color: #1c1c1c;
-    line-height: 1.4;
+    color: #1a1a1a;
+    line-height: 1.45;
     text-align: justify;
     word-wrap: break-word;
 }
 
-/* ═══════════════════════════════════════════════
-   TECHNICAL SKILLS
-═══════════════════════════════════════════════ */
+/* ── SKILLS ──────────────────────────────────────── */
 .skills-wrap {
     font-size: 8pt;
-    color: #1c1c1c;
-    line-height: 1.4;
+    color: #1a1a1a;
+    line-height: 1.5;
     word-wrap: break-word;
 }
-.skill-row {
-    margin-bottom: 2pt;
-}
+.skill-row { margin-bottom: 2pt; }
 .skill-cat {
     font-weight: bold;
     color: #111111;
 }
 
-/* ═══════════════════════════════════════════════
-   ENTRY — Experience & Projects
-   Two-row header:
-     Row 1: [Company/Project]        [Date  ▸ float:right]
-     Row 2: [Role/Tech]              [Location ▸ float:right]
-═══════════════════════════════════════════════ */
+/* ── ENTRY (Experience & Projects) ───────────────── */
 .entry {
-    margin-bottom: 7pt;
+    margin-bottom: 5pt;
     page-break-inside: avoid;
 }
 
-/* clearfix + date row */
+/* Row 1: Company + Date (float:right) */
 .e-row1 {
     overflow: hidden;
     margin-bottom: 0.5pt;
 }
 .e-date {
     float: right;
-    font-size: 8pt;
+    font-size: 7.5pt;
     color: #555555;
     white-space: nowrap;
     margin-left: 8pt;
@@ -167,14 +146,14 @@ body {
     word-wrap: break-word;
 }
 
-/* role + location row */
+/* Row 2: Role + Location (float:right) */
 .e-row2 {
     overflow: hidden;
-    margin-bottom: 3pt;
+    margin-bottom: 2.5pt;
 }
 .e-location {
     float: right;
-    font-size: 8pt;
+    font-size: 7.5pt;
     color: #777777;
     white-space: nowrap;
     margin-left: 8pt;
@@ -188,49 +167,44 @@ body {
     word-wrap: break-word;
 }
 .e-tech {
-    font-size: 8pt;
+    font-size: 7.5pt;
     color: #555555;
     font-style: italic;
     display: block;
     overflow: hidden;
     word-wrap: break-word;
-    margin-bottom: 2pt;
+    margin-bottom: 1.5pt;
 }
 
-/* bullets */
+/* Bullets */
 .bullets {
-    margin-top: 2pt;
-    padding-left: 12pt;
+    margin-top: 1pt;
+    padding-left: 10pt;
 }
 .bullets li {
-    font-size: 8pt;
-    color: #1c1c1c;
-    line-height: 1.4;
-    margin-bottom: 3pt;
+    font-size: 7.5pt;
+    color: #1a1a1a;
+    line-height: 1.42;
+    margin-bottom: 2pt;
     word-wrap: break-word;
     text-align: left;
 }
 
-/* ═══════════════════════════════════════════════
-   EDUCATION
-═══════════════════════════════════════════════ */
+/* ── EDUCATION ───────────────────────────────────── */
 .edu-entry {
     margin-bottom: 5pt;
     page-break-inside: avoid;
 }
-.edu-row1 {
-    overflow: hidden;
-    margin-bottom: 0.5pt;
-}
+.edu-row1 { overflow: hidden; margin-bottom: 0.5pt; }
 .edu-year {
     float: right;
-    font-size: 8pt;
+    font-size: 7.5pt;
     color: #555555;
     white-space: nowrap;
     margin-left: 8pt;
 }
 .edu-school {
-    font-size: 9pt;
+    font-size: 8.5pt;
     font-weight: bold;
     color: #111111;
     display: block;
@@ -238,28 +212,24 @@ body {
     word-wrap: break-word;
 }
 .edu-degree {
-    font-size: 8pt;
+    font-size: 7.5pt;
     color: #333333;
     margin-top: 1pt;
     word-wrap: break-word;
 }
 .edu-meta {
-    font-size: 8pt;
+    font-size: 7.5pt;
     color: #555555;
-    margin-top: 1pt;
+    margin-top: 0.5pt;
 }
 
-/* ═══════════════════════════════════════════════
-   CERTIFICATIONS
-═══════════════════════════════════════════════ */
-.cert-list {
-    padding-left: 12pt;
-}
+/* ── CERTIFICATIONS ──────────────────────────────── */
+.cert-list { padding-left: 11pt; }
 .cert-list li {
-    font-size: 8pt;
-    color: #1c1c1c;
-    line-height: 1.4;
-    margin-bottom: 3pt;
+    font-size: 7.5pt;
+    color: #1a1a1a;
+    line-height: 1.45;
+    margin-bottom: 2.5pt;
     word-wrap: break-word;
 }
 
@@ -277,7 +247,15 @@ body {
             if (!empty($email))    $cp[] = $email;
             if (!empty($location)) $cp[] = $location;
         @endphp
-        @if(!empty($cp)){{ implode('  ·  ', $cp) }}@endif
+        @if(!empty($cp))
+            {{ implode('  ·  ', $cp) }}
+        @endif
+        @if(!empty($links))
+            <br>
+            @foreach(array_slice($links, 0, 2) as $link)
+                {{ preg_replace('/https?:\/\//', '', $link) }}@if(!$loop->last)  ·  @endif
+            @endforeach
+        @endif
     </div>
     @if(!empty($targetRole))
     <div class="hdr-role">Optimised for: {{ $targetRole }}</div>
@@ -300,10 +278,7 @@ body {
         @php
             $skillArr  = is_array($sections['skills']) ? $sections['skills'] : [$sections['skills']];
             $skillStr  = implode(' | ', $skillArr);
-            $isGrouped = preg_match(
-                '/\b(Languages|Frameworks|Tools|Databases|Cloud|DevOps|Libraries|Platforms)\s*:/i',
-                $skillStr
-            );
+            $isGrouped = preg_match('/\b(Languages|Frameworks|Tools|Databases|Cloud|DevOps|Libraries)\s*:/i', $skillStr);
         @endphp
 
         @if($isGrouped)
@@ -311,15 +286,15 @@ body {
             @foreach($groups as $grp)
                 @php $grp = trim($grp, ' ,•'); @endphp
                 @if(strlen($grp) > 3)
-                    <div class="skill-row">
-                        @php
-                            if (preg_match('/^([^:]+):\s*(.+)$/', $grp, $gm)) {
-                                $lbl = trim($gm[1]);
-                                $val = trim($gm[2]);
-                            } else { $lbl = null; $val = $grp; }
-                        @endphp
-                        @if($lbl)<span class="skill-cat">{{ $lbl }}:</span> @endif{{ $val }}
-                    </div>
+                <div class="skill-row">
+                    @php
+                        if (preg_match('/^([^:]+):\s*(.+)$/', $grp, $gm)) {
+                            $lbl = trim($gm[1]);
+                            $val = trim($gm[2]);
+                        } else { $lbl = null; $val = $grp; }
+                    @endphp
+                    @if($lbl)<span class="skill-cat">{{ $lbl }}:</span> @endif{{ $val }}
+                </div>
                 @endif
             @endforeach
         @else
@@ -339,13 +314,13 @@ body {
     @foreach($sections['experience'] as $exp)
     <div class="entry">
 
-        {{-- Row 1: Company (left) ·· Date (right) --}}
+        {{-- Row 1: Company · Date --}}
         <div class="e-row1">
             @if(!empty($exp['date']))<span class="e-date">{{ $exp['date'] }}</span>@endif
             <span class="e-company">{{ $exp['org'] ?: ($exp['title'] ?? '') }}</span>
         </div>
 
-        {{-- Row 2: Role (left) ·· Location (right) --}}
+        {{-- Row 2: Role · Location --}}
         @php
             $roleText = (!empty($exp['org']) && !empty($exp['title'])) ? $exp['title'] : '';
             $hasRow2  = !empty($roleText) || !empty($exp['location']);
@@ -357,10 +332,10 @@ body {
         </div>
         @endif
 
-        {{-- Bullets (max 4) --}}
+        {{-- Bullets --}}
         @if(!empty($exp['bullets']))
         <ul class="bullets">
-            @foreach(array_slice($exp['bullets'], 0, 4) as $b)
+            @foreach(array_slice($exp['bullets'], 0, 5) as $b)
                 <li>{{ $b }}</li>
             @endforeach
         </ul>
@@ -375,24 +350,21 @@ body {
 @if(!empty($sections['projects']))
 <div class="sec">
     <div class="sec-title">Projects</div>
-    @foreach(array_slice($sections['projects'], 0, 3) as $proj)
+    @foreach(array_slice($sections['projects'], 0, 4) as $proj)
     <div class="entry">
 
-        {{-- Row 1: Project title (left) ·· Date (right) --}}
         <div class="e-row1">
             @if(!empty($proj['date']))<span class="e-date">{{ $proj['date'] }}</span>@endif
             <span class="e-proj-title">{{ $proj['title'] }}</span>
         </div>
 
-        {{-- Tech stack (below title if present) --}}
         @if(!empty($proj['tech']))
         <div class="e-tech">{{ $proj['tech'] }}</div>
         @endif
 
-        {{-- Bullets (max 3) --}}
         @if(!empty($proj['bullets']))
         <ul class="bullets">
-            @foreach(array_slice($proj['bullets'], 0, 3) as $b)
+            @foreach(array_slice($proj['bullets'], 0, 4) as $b)
                 <li>{{ $b }}</li>
             @endforeach
         </ul>
@@ -410,14 +382,15 @@ body {
     @foreach($sections['education'] as $edu)
     <div class="edu-entry">
 
-        {{-- Row 1: Institution (left) ·· Year (right) --}}
         <div class="edu-row1">
-            @if(!empty($edu['meta']))<span class="edu-year">{{ $edu['meta'] }}</span>@endif
-            <span class="edu-school">{{ $edu['school'] ?: $edu['degree'] }}</span>
+            @if(!empty($edu['meta']) || !empty($edu['year']))
+                <span class="edu-year">{{ $edu['meta'] ?: $edu['year'] }}</span>
+            @endif
+            <span class="edu-school">{{ $edu['school'] ?: ($edu['degree'] ?? '') }}</span>
         </div>
 
         @if(!empty($edu['school']) && !empty($edu['degree']))
-            <div class="edu-degree">{{ $edu['degree'] }}</div>
+        <div class="edu-degree">{{ $edu['degree'] }}</div>
         @endif
 
     </div>

@@ -205,10 +205,12 @@
                        class="rom-btn-download w-full text-center">
                         <i class="fas fa-file-pdf mr-2"></i>⬇ Download Optimised PDF
                     </a>
-                    <form method="POST" action="{{ route('applications.apply', $internship) }}">
+                    <form method="POST" action="{{ route('applications.apply', $internship) }}" id="rom-apply-optimized-form-{{ $internship->id }}">
                         @csrf
+                        {{-- JS populates this with the AI version ID after rewrite completes --}}
+                        <input type="hidden" name="resume_version_id" id="rom-version-id-{{ $internship->id }}" value="">
                         <button type="submit" class="rom-btn-apply-green w-full">
-                            <i class="fas fa-rocket mr-2"></i>Apply with Improved Resume
+                            <i class="fas fa-rocket mr-2"></i>Apply with Optimised Resume
                         </button>
                     </form>
                     <button onclick="ResumeOptimizer.backToScore({{ $internship->id }})"

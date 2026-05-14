@@ -48,7 +48,7 @@ class ApplicationService
      * - If status log fails, application shouldn't exist
      * - Prevents orphaned applications without audit trail
      */
-    public function submitApplication(User $user, Internship $internship): array
+    public function submitApplication(User $user, Internship $internship, ?int $resumeVersionId = null): array
     {
         // Feature flag check: Recommendations (applications are part of recommendation flow)
         if (!config('features.recommendations_enabled', true)) {
@@ -79,13 +79,18 @@ class ApplicationService
              * Ensures application + initial status log are created atomically.
              * If either fails, both rollback to maintain data integrity.
              */
-            $application = DB::transaction(function () use ($user, $internship, $matchScore) {
-                $application = Application::create([
-                    'user_id' => $user->id,
-                    'internship_id' => $internship->id,
-                    'status' => ApplicationStatus::PENDING,
-                    'match_score' => $matchScore,
-                ]);
+            $application = DB::transaction(function () use ($user, $internship, $matchScore, $resumeVersionId) {
+                $appData = [
+                    'user_id'          => $user->id,
+                    'internship_id'    => $internship->id,
+                    'status'           => ApplicationStatus::PENDING,
+                    'match_score'      => $matchScore,
+                ];
+                // Attach AI-optimized resume version if submitted via optimizer
+                if ($resumeVersionId) {
+                    $appData['resume_version_id'] = $resumeVersionId;
+                }
+                $application = Application::create($appData);
 
                 // Log initial status (audit trail starts here)
                 $this->logStatusChange(

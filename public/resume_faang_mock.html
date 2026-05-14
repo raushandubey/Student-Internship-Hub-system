@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+
+/* ═══════════════════════════════════════════════
+   RESET
+═══════════════════════════════════════════════ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ═══════════════════════════════════════════════
+   PAGE — A4 with generous but tight margins
+   Printable area: 210 − 14 − 14 = 182mm wide
+                   297 − 14 − 12 = 271mm tall
+═══════════════════════════════════════════════ */
+@page {
+    size: A4 portrait;
+    margin: 14mm 14mm 12mm 14mm;
+}
+
+/* ═══════════════════════════════════════════════
+   BASE
+═══════════════════════════════════════════════ */
+body {
+    font-family: 'Inter', Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+    color: #1c1c1c;
+    line-height: 1.4;
+    background: #ffffff;
+    width: 100%;
+}
+
+/* ═══════════════════════════════════════════════
+   HEADER — Name + Contact bar
+═══════════════════════════════════════════════ */
+.hdr {
+    text-align: center;
+    padding-bottom: 7pt;
+    margin-bottom: 10.5pt;
+    border-bottom: 1.5pt solid #111111;
+}
+.hdr-name {
+    font-size: 18pt;
+    font-weight: bold;
+    color: #111111;
+    letter-spacing: 0.5pt;
+    text-transform: uppercase;
+    line-height: 1.2;
+    margin-bottom: 3pt;
+}
+.hdr-contact {
+    font-size: 8pt;
+    color: #333333;
+    line-height: 1.4;
+}
+.hdr-role {
+    font-size: 8pt;
+    color: #555555;
+    font-style: italic;
+    margin-top: 2pt;
+}
+
+/* ═══════════════════════════════════════════════
+   SECTION WRAPPER
+═══════════════════════════════════════════════ */
+.sec {
+    margin-bottom: 10.5pt;
+    page-break-inside: avoid;
+}
+
+/* ═══════════════════════════════════════════════
+   SECTION TITLE — with left accent bar
+═══════════════════════════════════════════════ */
+.sec-title {
+    font-size: 9pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.75pt;
+    color: #111111;
+    border-bottom: 1pt solid #111111;
+    padding-bottom: 1.5pt;
+    margin-bottom: 5pt;
+    page-break-after: avoid;
+}
+
+/* ═══════════════════════════════════════════════
+   PROFESSIONAL SUMMARY
+═══════════════════════════════════════════════ */
+.summary {
+    font-size: 8pt;
+    color: #1c1c1c;
+    line-height: 1.4;
+    text-align: justify;
+    word-wrap: break-word;
+}
+
+/* ═══════════════════════════════════════════════
+   TECHNICAL SKILLS
+═══════════════════════════════════════════════ */
+.skills-wrap {
+    font-size: 8pt;
+    color: #1c1c1c;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+.skill-row {
+    margin-bottom: 2pt;
+}
+.skill-cat {
+    font-weight: bold;
+    color: #111111;
+}
+
+/* ═══════════════════════════════════════════════
+   ENTRY — Experience & Projects
+   Two-row header:
+     Row 1: [Company/Project]        [Date  ▸ float:right]
+     Row 2: [Role/Tech]              [Location ▸ float:right]
+═══════════════════════════════════════════════ */
+.entry {
+    margin-bottom: 7pt;
+    page-break-inside: avoid;
+}
+
+/* clearfix + date row */
+.e-row1 {
+    overflow: hidden;
+    margin-bottom: 0.5pt;
+}
+.e-date {
+    float: right;
+    font-size: 8pt;
+    color: #555555;
+    white-space: nowrap;
+    margin-left: 8pt;
+}
+.e-company {
+    font-size: 9pt;
+    font-weight: bold;
+    color: #111111;
+    display: block;
+    overflow: hidden;
+    word-wrap: break-word;
+}
+.e-proj-title {
+    font-size: 9pt;
+    font-weight: bold;
+    color: #111111;
+    display: block;
+    overflow: hidden;
+    word-wrap: break-word;
+}
+
+/* role + location row */
+.e-row2 {
+    overflow: hidden;
+    margin-bottom: 3pt;
+}
+.e-location {
+    float: right;
+    font-size: 8pt;
+    color: #777777;
+    white-space: nowrap;
+    margin-left: 8pt;
+}
+.e-role {
+    font-size: 8pt;
+    font-style: italic;
+    color: #333333;
+    display: block;
+    overflow: hidden;
+    word-wrap: break-word;
+}
+.e-tech {
+    font-size: 8pt;
+    color: #555555;
+    font-style: italic;
+    display: block;
+    overflow: hidden;
+    word-wrap: break-word;
+    margin-bottom: 2pt;
+}
+
+/* bullets */
+.bullets {
+    margin-top: 2pt;
+    padding-left: 12pt;
+}
+.bullets li {
+    font-size: 8pt;
+    color: #1c1c1c;
+    line-height: 1.4;
+    margin-bottom: 3pt;
+    word-wrap: break-word;
+    text-align: left;
+}
+
+/* ═══════════════════════════════════════════════
+   EDUCATION
+═══════════════════════════════════════════════ */
+.edu-entry {
+    margin-bottom: 5pt;
+    page-break-inside: avoid;
+}
+.edu-row1 {
+    overflow: hidden;
+    margin-bottom: 0.5pt;
+}
+.edu-year {
+    float: right;
+    font-size: 8pt;
+    color: #555555;
+    white-space: nowrap;
+    margin-left: 8pt;
+}
+.edu-school {
+    font-size: 9pt;
+    font-weight: bold;
+    color: #111111;
+    display: block;
+    overflow: hidden;
+    word-wrap: break-word;
+}
+.edu-degree {
+    font-size: 8pt;
+    color: #333333;
+    margin-top: 1pt;
+    word-wrap: break-word;
+}
+.edu-meta {
+    font-size: 8pt;
+    color: #555555;
+    margin-top: 1pt;
+}
+
+/* ═══════════════════════════════════════════════
+   CERTIFICATIONS
+═══════════════════════════════════════════════ */
+.cert-list {
+    padding-left: 12pt;
+}
+.cert-list li {
+    font-size: 8pt;
+    color: #1c1c1c;
+    line-height: 1.4;
+    margin-bottom: 3pt;
+    word-wrap: break-word;
+}
+
+</style>
+</head>
+<body>
+
+
+<div class="hdr">
+    <div class="hdr-name">RAUSHAN DUBEY</div>
+    <div class="hdr-contact">
+                +91 7903391118  ·  raushandubey2008@gmail.com  ·  Bangalore    </div>
+        <div class="hdr-role">Optimised for: Full Stack Developer Intern — TechCorp Solutions</div>
+    </div>
+
+
+<div class="sec">
+    <div class="sec-title">Professional Summary</div>
+    <div class="summary">Results-driven Full Stack Developer seeking the Full Stack Developer Intern position at TechCorp Solutions. Proficient in modern web technologies including React, Node.js, and MongoDB.</div>
+</div>
+
+
+<div class="sec">
+    <div class="sec-title">Technical Skills</div>
+    <div class="skills-wrap">
+        
+                                                                                    <div class="skill-row">
+                                                <span class="skill-cat">Tools:</span> Git, GitHub
+                    </div>
+                                                                                <div class="skill-row">
+                                                <span class="skill-cat">Databases:</span> MongoDB, MySQL
+                    </div>
+                                        </div>
+</div>
+
+
+<div class="sec">
+    <div class="sec-title">Professional Experience</div>
+        <div class="entry">
+
+        
+        <div class="e-row1">
+            <span class="e-date">Aug 2025 – Present</span>            <span class="e-company">Vizva Consultancy Services</span>
+        </div>
+
+        
+                        <div class="e-row2">
+            <span class="e-location">Remote</span>            <span class="e-role">Technical Support Engineer</span>        </div>
+        
+        
+                <ul class="bullets">
+                            <li>Diagnosed and resolved complex software and connectivity issues within tight SLAs, utilizing Python scripts to automate root-cause analysis.</li>
+                            <li>Executed L1/L2 technical support workflows for US clients, achieving high resolution rates through rigorous object-oriented log analysis.</li>
+                            <li>Managed support tickets using Git-versioned diagnostic tools, escalating highly technical issues with comprehensive architectural…</li>
+                    </ul>
+        
+    </div>
+    </div>
+
+
+<div class="sec">
+    <div class="sec-title">Projects</div>
+        <div class="entry">
+
+        
+        <div class="e-row1">
+                        <span class="e-proj-title">Student Internship Hub System</span>
+        </div>
+
+        
+                <div class="e-tech">Laravel, PHP 8.2, MySQL, Tailwind CSS</div>
+        
+        
+                <ul class="bullets">
+                            <li>Full-stack hiring platform with AI integration and state-machine workflows.</li>
+                            <li>Engineered a service-layer architecture and state-machine pipeline to optimize the end-to-end recruitment process with secure audit logging.</li>
+                    </ul>
+        
+    </div>
+        <div class="entry">
+
+        
+        <div class="e-row1">
+                        <span class="e-proj-title">Adv Weather App</span>
+        </div>
+
+        
+                <div class="e-tech">Flutter, Dart, C++, Swift</div>
+        
+        
+                <ul class="bullets">
+                            <li>Cross-platform mobile application providing real-time forecasting.</li>
+                            <li>Implemented asynchronous API integrations to deliver real-time global weather data, ensuring robust error handling and zero downtime.</li>
+                    </ul>
+        
+    </div>
+        <div class="entry">
+
+        
+        <div class="e-row1">
+                        <span class="e-proj-title">HealthCare Scheduler</span>
+        </div>
+
+        
+                <div class="e-tech">MongoDB, MySQL, Git</div>
+        
+        
+                <ul class="bullets">
+                            <li>Dual-database scheduling platform designed for medical staff and patients.</li>
+                            <li>Integrated real-time scheduling and automated notifications leveraging dual database synchronization across MongoDB and MySQL.</li>
+                    </ul>
+        
+    </div>
+    </div>
+
+
+<div class="sec">
+    <div class="sec-title">Education</div>
+        <div class="edu-entry">
+
+        
+        <div class="edu-row1">
+            <span class="edu-year">2022 - Present | Coursework: Data Structures &amp; Algorithms, Object-Oriented Programming, Database Management, Compiler Design</span>            <span class="edu-school">Gopal Narayan Singh University</span>
+        </div>
+
+                    <div class="edu-degree">B.S. Computer Science Engineering</div>
+        
+    </div>
+        <div class="edu-entry">
+
+        
+        <div class="edu-row1">
+            <span class="edu-year">2020 - 2022</span>            <span class="edu-school">Bihar School Examination Board</span>
+        </div>
+
+                    <div class="edu-degree">12th Grade (PCM)</div>
+        
+    </div>
+    </div>
+
+
+
+</body>
+</html>

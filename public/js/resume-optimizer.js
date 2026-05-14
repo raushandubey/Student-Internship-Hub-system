@@ -78,7 +78,7 @@ window.ResumeOptimizer = (function () {
     // Set gate badge colour and text
     function setGateBadge(id, tier, message) {
         const badge = el('rom-gate-badge-' + id);
-        const msg   = el('rom-gate-message-' + id);
+        const msg = el('rom-gate-message-' + id);
 
         if (!badge) return;
 
@@ -175,22 +175,22 @@ window.ResumeOptimizer = (function () {
                 'Content-Type': 'application/json',
             },
         })
-        .then(r => r.json())
-        .then(data => {
-            hide('rom-rewriting-' + internshipId);
+            .then(r => r.json())
+            .then(data => {
+                hide('rom-rewriting-' + internshipId);
 
-            if (!data.success) {
-                _showError(internshipId, data.error || 'Rewrite failed. Please try again.');
-                return;
-            }
+                if (!data.success) {
+                    _showError(internshipId, data.error || 'Rewrite failed. Please try again.');
+                    return;
+                }
 
-            _renderComparison(internshipId, data.data);
-        })
-        .catch(err => {
-            console.error('[ResumeOptimizer] Rewrite error:', err);
-            hide('rom-rewriting-' + internshipId);
-            _showError(internshipId, 'Network error. Please check your connection.');
-        });
+                _renderComparison(internshipId, data.data);
+            })
+            .catch(err => {
+                console.error('[ResumeOptimizer] Rewrite error:', err);
+                hide('rom-rewriting-' + internshipId);
+                _showError(internshipId, 'Network error. Please check your connection.');
+            });
     }
 
     /**
@@ -229,22 +229,22 @@ window.ResumeOptimizer = (function () {
         fetch(baseUrl + internshipId, {
             headers: { 'Accept': 'application/json' }
         })
-        .then(r => r.json())
-        .then(data => {
-            hide('rom-loading-' + internshipId);
+            .then(r => r.json())
+            .then(data => {
+                hide('rom-loading-' + internshipId);
 
-            if (!data.success) {
-                _showError(internshipId, data.error || 'Unable to analyse resume.');
-                return;
-            }
+                if (!data.success) {
+                    _showError(internshipId, data.error || 'Unable to analyse resume.');
+                    return;
+                }
 
-            _renderScore(internshipId, data.data);
-        })
-        .catch(err => {
-            console.error('[ResumeOptimizer] Score fetch error:', err);
-            hide('rom-loading-' + internshipId);
-            _showError(internshipId, 'Network error. Please try again.');
-        });
+                _renderScore(internshipId, data.data);
+            })
+            .catch(err => {
+                console.error('[ResumeOptimizer] Score fetch error:', err);
+                hide('rom-loading-' + internshipId);
+                _showError(internshipId, 'Network error. Please try again.');
+            });
     }
 
     function _renderScore(internshipId, d) {
@@ -262,12 +262,12 @@ window.ResumeOptimizer = (function () {
 
         // Progress bars
         animateBar('rom-skill-bar-' + internshipId, 'rom-skill-pct-' + internshipId, d.skill_match);
-        animateBar('rom-kw-bar-' + internshipId,    'rom-kw-pct-' + internshipId,    d.keyword_score);
-        animateBar('rom-fmt-bar-' + internshipId,   'rom-fmt-pct-' + internshipId,   d.format_score);
+        animateBar('rom-kw-bar-' + internshipId, 'rom-kw-pct-' + internshipId, d.keyword_score);
+        animateBar('rom-fmt-bar-' + internshipId, 'rom-fmt-pct-' + internshipId, d.format_score);
 
         // Missing skills
         const missingWrap = el('rom-missing-wrap-' + internshipId);
-        const missingBox  = el('rom-missing-skills-' + internshipId);
+        const missingBox = el('rom-missing-skills-' + internshipId);
         if (d.missing_skills && d.missing_skills.length > 0 && missingWrap && missingBox) {
             missingBox.innerHTML = d.missing_skills.map(s =>
                 `<span class="rom-skill-chip rom-missing-chip">${s}</span>`
@@ -307,10 +307,10 @@ window.ResumeOptimizer = (function () {
 
         // Before / After scores
         const beforeEl = el('rom-before-score-' + internshipId);
-        const afterEl  = el('rom-after-score-' + internshipId);
+        const afterEl = el('rom-after-score-' + internshipId);
 
         if (beforeEl) beforeEl.textContent = d.before_score + '%';
-        if (afterEl)  afterEl.textContent  = d.after_score + '%';
+        if (afterEl) afterEl.textContent = d.after_score + '%';
 
         // Colour after score
         if (afterEl) {
@@ -342,6 +342,12 @@ window.ResumeOptimizer = (function () {
         const dlBtn = el('rom-download-btn-' + internshipId);
         if (dlBtn && d.version_id) {
             dlBtn.href = `/resume-optimizer/download/${internshipId}?version_id=${d.version_id}`;
+        }
+
+        // ── Populate the hidden version_id field in the optimised apply form ──
+        const versionInput = el('rom-version-id-' + internshipId);
+        if (versionInput && d.version_id) {
+            versionInput.value = d.version_id;
         }
     }
 

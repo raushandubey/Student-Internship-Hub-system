@@ -235,6 +235,10 @@
                class="nav-link {{ request()->routeIs('recruiter.analytics') ? 'active' : '' }}">
                 <i class="fas fa-chart-bar"></i>Analytics
             </a>
+            <a href="{{ route('recruiter.intelligence.list') }}"
+               class="nav-link {{ request()->routeIs('recruiter.intelligence.*') ? 'active' : '' }}">
+                <i class="fas fa-brain"></i>Intelligence
+            </a>
             <a href="{{ route('recruiter.profile.show') }}"
                class="nav-link {{ request()->routeIs('recruiter.profile.*') ? 'active' : '' }}">
                 <i class="fas fa-user-circle"></i>Profile
@@ -287,6 +291,11 @@
                class="drawer-link {{ request()->routeIs('recruiter.analytics') ? 'active' : '' }}">
                 <div class="drawer-icon"><i class="fas fa-chart-bar"></i></div>
                 Analytics
+            </a>
+            <a href="{{ route('recruiter.intelligence.list') }}"
+               class="drawer-link {{ request()->routeIs('recruiter.intelligence.*') ? 'active' : '' }}">
+                <div class="drawer-icon"><i class="fas fa-brain"></i></div>
+                Intelligence
             </a>
             <a href="{{ route('recruiter.profile.show') }}"
                class="drawer-link {{ request()->routeIs('recruiter.profile.*') ? 'active' : '' }}">
@@ -344,10 +353,10 @@
             <i class="fas fa-users"></i>
             <span>Apps</span>
         </a>
-        <a href="{{ route('recruiter.analytics') }}"
-           class="bn-item {{ request()->routeIs('recruiter.analytics') ? 'active' : '' }}">
-            <i class="fas fa-chart-bar"></i>
-            <span>Stats</span>
+        <a href="{{ route('recruiter.intelligence.list') }}"
+           class="bn-item {{ request()->routeIs('recruiter.intelligence.*') ? 'active' : '' }}">
+            <i class="fas fa-brain"></i>
+            <span>Intel</span>
         </a>
         <a href="{{ route('recruiter.profile.show') }}"
            class="bn-item {{ request()->routeIs('recruiter.profile.*') ? 'active' : '' }}">

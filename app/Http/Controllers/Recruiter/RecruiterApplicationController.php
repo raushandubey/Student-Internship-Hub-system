@@ -144,13 +144,46 @@ class RecruiterApplicationController extends Controller
         $profile = $application->user->profile;
         $user = $application->user;
 
+        $resumeUrl = $profile?->getResumeUrl() ?? null;
+
+        $aiVersion = \App\Models\ResumeVersion::where('user_id', $user->id)
+            ->where('internship_id', $application->internship_id)
+            ->where('type', 'ai_rewrite')
+            ->latest()
+            ->first();
+
+        if ($aiVersion) {
+            $resumeUrl = route('recruiter.applications.resume', $application->id);
+        }
+
         return response()->json([
             'name'              => $user->name,
             'email'             => $user->email,
             'skills'            => $profile?->skills ?? [],
             'academic_background' => $profile?->academic_background ?? null,
             'career_interests'  => $profile?->career_interests ?? null,
-            'resume_url'        => $profile?->getResumeUrl() ?? null,
+            'resume_url'        => $resumeUrl,
         ]);
+    }
+
+    public function downloadResume(Application $application)
+    {
+        // Ownership check
+        if ($application->internship->recruiter_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $aiVersion = \App\Models\ResumeVersion::where('user_id', $application->user_id)
+            ->where('internship_id', $application->internship_id)
+            ->where('type', 'ai_rewrite')
+            ->latest()
+            ->first();
+
+        if ($aiVersion) {
+            $pdfService = app(\App\Services\ResumePdfService::class);
+            return $pdfService->downloadPdf($application->user, $application->internship, $aiVersion->id);
+        }
+
+        abort(404, 'AI Resume not found for this application.');
     }
 }

@@ -44,6 +44,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('applications/{application}/profile', [AdminApplicationController::class, 'getProfile'])
         ->middleware('throttle:60,1')
         ->name('applications.profile');
+    Route::get('applications/{application}/resume', [AdminApplicationController::class, 'downloadResume'])
+        ->name('applications.resume');
     
     // Email Logs
     Route::get('email-logs', [AdminApplicationController::class, 'emailLogs'])->name('email-logs');

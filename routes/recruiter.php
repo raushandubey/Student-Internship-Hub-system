@@ -5,6 +5,7 @@ use App\Http\Controllers\Recruiter\RecruiterInternshipController;
 use App\Http\Controllers\Recruiter\RecruiterApplicationController;
 use App\Http\Controllers\Recruiter\RecruiterProfileController;
 use App\Http\Controllers\Recruiter\RecruiterAnalyticsController;
+use App\Http\Controllers\Recruiter\RecruitmentIntelligenceController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'recruiter'])->prefix('recruiter')->name('recruiter.')->group(function () {
@@ -29,6 +30,8 @@ Route::middleware(['auth', 'recruiter'])->prefix('recruiter')->name('recruiter.'
     // AJAX endpoints
     Route::get('/applications/{application}/profile', [RecruiterApplicationController::class, 'getProfile'])
         ->name('applications.profile');
+    Route::get('/applications/{application}/resume', [RecruiterApplicationController::class, 'downloadResume'])
+        ->name('applications.resume');
 
     Route::get('/applications/{application}/history', [RecruiterApplicationController::class, 'history'])
         ->name('applications.history');
@@ -41,4 +44,13 @@ Route::middleware(['auth', 'recruiter'])->prefix('recruiter')->name('recruiter.'
     Route::get('/profile/edit', [RecruiterProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [RecruiterProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/logo', [RecruiterProfileController::class, 'updateLogo'])->name('profile.logo');
+
+    // ── Phase 2: Recruitment Intelligence ────────────────────────────────
+    Route::prefix('intelligence')->name('intelligence.')->group(function () {
+        Route::get('/', [RecruitmentIntelligenceController::class, 'internshipsList'])->name('list');
+        Route::get('/{internship}', [RecruitmentIntelligenceController::class, 'index'])->name('show');
+        Route::get('/{internship}/api', [RecruitmentIntelligenceController::class, 'apiData'])->name('api');
+        Route::post('/track-view', [RecruitmentIntelligenceController::class, 'trackView'])->name('track-view');
+    });
 });
+

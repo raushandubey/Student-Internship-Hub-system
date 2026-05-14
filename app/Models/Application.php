@@ -21,6 +21,7 @@ class Application extends Model
         'internship_id',
         'status',
         'match_score',
+        'resume_version_id',
     ];
 
     /**

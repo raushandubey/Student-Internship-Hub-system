@@ -8,6 +8,8 @@ use App\Http\Controllers\InternshipController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\RecommendationController;
 use App\Http\Controllers\ResumeOptimizerController;
+use App\Http\Controllers\CandidateInsightController;
+
 
 use Illuminate\Support\Facades\Route;
 
@@ -183,8 +185,15 @@ Route::middleware(['auth', 'role:student'])->group(function () {
         Route::get('/internships', [ResumeOptimizerController::class, 'internshipsList'])->name('internships');
         // PDF download: stream the AI-rewritten resume as a formatted PDF
         Route::get('/download/{internship}', [ResumeOptimizerController::class, 'downloadPdf'])->name('download');
+        // Health check: validate pipeline dependencies
+        Route::get('/health', [ResumeOptimizerController::class, 'health'])->name('health');
     });
+
+    // ── Phase 2: Candidate Profile Intelligence Dashboard ────────────────
+    Route::get('/profile-intelligence', [CandidateInsightController::class, 'dashboard'])
+        ->name('candidate.intelligence');
 });
+
 
 /*
 |--------------------------------------------------------------------------

@@ -94,7 +94,8 @@ class ApplicationController extends Controller
         try {
             $result = $this->applicationService->submitApplication(
                 Auth::user(),
-                $internship
+                $internship,
+                $request->integer('resume_version_id') ?: null
             );
 
             // Clear student analytics cache on new application
