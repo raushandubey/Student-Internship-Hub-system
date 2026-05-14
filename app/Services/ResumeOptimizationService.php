@@ -319,9 +319,38 @@ class ResumeOptimizationService
         $normalizedPath = ltrim($profile->resume_path, '/');
 
         if ($disk === 's3') {
-            if (!Storage::disk('s3')->exists($normalizedPath)) return null;
-            $tmpFile = sys_get_temp_dir() . '/resume_' . $profile->id . '_' . time() . '.pdf';
-            file_put_contents($tmpFile, Storage::disk('s3')->get($normalizedPath));
+            if (!Storage::disk('s3')->exists($normalizedPath)) {
+                Log::warning('[Pipeline] S3 file not found', ['path' => $normalizedPath]);
+                return null;
+            }
+
+            // Try multiple temp directories in order of preference
+            $tmpDirs = array_filter([
+                sys_get_temp_dir(),
+                storage_path('app/tmp'),
+                '/tmp',
+            ]);
+
+            $tmpFile = null;
+            foreach ($tmpDirs as $dir) {
+                $candidate = rtrim($dir, '/') . '/resume_' . $profile->id . '_' . time() . '.pdf';
+                try {
+                    $content = Storage::disk('s3')->get($normalizedPath);
+                    if (file_put_contents($candidate, $content) !== false) {
+                        $tmpFile = $candidate;
+                        break;
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('[Pipeline] Temp write failed', ['dir' => $dir, 'error' => $e->getMessage()]);
+                }
+            }
+
+            if (!$tmpFile) {
+                Log::error('[Pipeline] Could not write resume to any temp directory');
+                return null;
+            }
+
+            Log::info('[Pipeline] Resume downloaded to temp', ['path' => $tmpFile, 'size' => filesize($tmpFile)]);
             return $tmpFile;
         }
 

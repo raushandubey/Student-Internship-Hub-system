@@ -40,7 +40,12 @@ class ResumeParserEngine
     {
         $rawText = $this->extractText($absolutePath);
 
-        if (empty(trim($rawText))) {
+        // Accept any text with meaningful content (> 50 chars)
+        if (strlen(trim($rawText)) < 50) {
+            Log::error('ResumeParser: Extraction produced insufficient text', [
+                'path'        => basename($absolutePath),
+                'text_length' => strlen(trim($rawText)),
+            ]);
             return $this->emptyParsed('Could not extract text from PDF.');
         }
 
@@ -65,23 +70,33 @@ class ResumeParserEngine
     public function extractText(string $filePath): string
     {
         $text = $this->extractWithPdfParser($filePath);
+        Log::info('ResumeParser: PdfParser result', ['length' => strlen(trim($text))]);
+
+        if (strlen(trim($text)) < 200) {
+            $raw = @file_get_contents($filePath);
+            if ($raw !== false) {
+                $btEtText = $this->extractWithBtEt($raw);
+                Log::info('ResumeParser: BT/ET result', ['length' => strlen(trim($btEtText))]);
+                if (strlen(trim($btEtText)) > strlen(trim($text))) {
+                    $text = $btEtText;
+                }
+            }
+        }
 
         if (strlen(trim($text)) < 100) {
             $raw = @file_get_contents($filePath);
             if ($raw !== false) {
-                $text = $this->extractWithBtEt($raw);
+                $binaryText = preg_replace('/[^\x20-\x7E\n\r\t]/', ' ', $raw);
+                $binaryText = preg_replace('/\s{3,}/', "\n", $binaryText);
+                $binaryText = preg_replace('/\b(BT|ET|Td|TD|Tm|Tf|Tj|TJ|cm|q|Q|re|f|S|n|W|w|j|J|d|gs|cs|sc|Do)\b/', '', $binaryText);
+                Log::info('ResumeParser: Binary fallback result', ['length' => strlen(trim($binaryText))]);
+                if (strlen(trim($binaryText)) > strlen(trim($text))) {
+                    $text = $binaryText;
+                }
             }
         }
 
-        if (strlen(trim($text)) < 80) {
-            $raw = @file_get_contents($filePath);
-            if ($raw !== false) {
-                $text = preg_replace('/[^\x20-\x7E\n\r\t]/', ' ', $raw);
-                $text = preg_replace('/\s{3,}/', "\n", $text);
-                $text = preg_replace('/\b(BT|ET|Td|TD|Tm|Tf|Tj|TJ|cm|q|Q|re|f|S|n|W|w|j|J|d|gs|cs|sc|Do)\b/', '', $text);
-            }
-        }
-
+        Log::info('ResumeParser: Final extracted text length', ['length' => strlen(trim($text ?? ''))]);
         return $text ?? '';
     }
 
