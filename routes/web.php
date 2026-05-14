@@ -7,6 +7,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\InternshipController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\RecommendationController;
+use App\Http\Controllers\ResumeOptimizerController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -168,6 +169,20 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::prefix('bookmarks')->name('bookmarks.')->group(function () {
         Route::get('/', [InternshipController::class, 'bookmarks'])->name('index');
         Route::post('/toggle/{internship}', [InternshipController::class, 'toggleBookmark'])->name('toggle');
+    });
+
+    // ── AI Resume Optimizer (ISOLATED — does not touch existing routes) ─────
+    Route::prefix('resume-optimizer')->name('resume-optimizer.')->group(function () {
+        // Score: analyse resume vs job (GET, AJAX)
+        Route::get('/score/{internship}', [ResumeOptimizerController::class, 'score'])->name('score');
+        // Rewrite: AI-powered resume rewrite (POST, AJAX)
+        Route::post('/rewrite/{internship}', [ResumeOptimizerController::class, 'rewrite'])->name('rewrite');
+        // Chatbot integration endpoint
+        Route::get('/chatbot/analyse', [ResumeOptimizerController::class, 'chatbotAnalyse'])->name('chatbot.analyse');
+        // Internships list for chatbot job picker
+        Route::get('/internships', [ResumeOptimizerController::class, 'internshipsList'])->name('internships');
+        // PDF download: stream the AI-rewritten resume as a formatted PDF
+        Route::get('/download/{internship}', [ResumeOptimizerController::class, 'downloadPdf'])->name('download');
     });
 });
 

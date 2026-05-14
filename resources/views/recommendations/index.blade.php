@@ -347,13 +347,17 @@
                                             <span>Already Applied</span>
                                         </button>
                                     @else
-                                        <form action="{{ route('applications.apply', $internship) }}" method="POST" style="flex: 1;">
-                                            @csrf
-                                            <button type="submit" class="action-btn primary" style="width: 100%;">
-                                                <i class="fas fa-paper-plane"></i>
-                                                <span>Apply Now</span>
-                                            </button>
-                                        </form>
+                                        {{-- Opens Resume Optimizer Modal before applying --}}
+                                        <button type="button"
+                                                onclick="ResumeOptimizer.open({{ $internship->id }})"
+                                                class="action-btn primary"
+                                                style="width:100%;">
+                                            <i class="fas fa-paper-plane"></i>
+                                            <span>Apply Now</span>
+                                        </button>
+
+                                        {{-- Inline optimizer modal (one per internship) --}}
+                                        <x-resume-optimizer-modal :internship="$internship" />
                                     @endif
                                 @else
                                     <button disabled class="action-btn primary disabled">
@@ -1732,4 +1736,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 </script>
+
+{{-- Resume Optimizer JS — loaded once with proxy queue pattern --}}
+@once
+<script>
+    window.resumeOptimizerScoreBase   = '/resume-optimizer/score/';
+    window.resumeOptimizerRewriteBase = '/resume-optimizer/rewrite/';
+    // Proxy queue: captures clicks before the script fully loads
+    window._romQueue = window._romQueue || [];
+    if (!window.ResumeOptimizer) {
+        window.ResumeOptimizer = {
+            open:       function(id) { window._romQueue.push(['open', id]); },
+            close:      function(id) { window._romQueue.push(['close', id]); },
+            rewrite:    function(id) { window._romQueue.push(['rewrite', id]); },
+            backToScore:function(id) { window._romQueue.push(['backToScore', id]); },
+            copyResume: function(id) { window._romQueue.push(['copyResume', id]); }
+        };
+    }
+</script>
+<script src="{{ asset('js/resume-optimizer.js') }}"
+        onload="if(window._romQueue){window._romQueue.forEach(function(c){window.ResumeOptimizer[c[0]](c[1]);});window._romQueue=[];}">
+</script>
+@endonce
 @endsection

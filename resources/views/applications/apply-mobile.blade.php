@@ -42,12 +42,50 @@
     </div>
 
     {{-- Info Banner --}}
-    <div class="bg-blue-50 border border-blue-200 rounded-xl p-3.5 mb-5 flex gap-2.5">
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-3.5 mb-4 flex gap-2.5">
         <i class="fas fa-info-circle text-blue-600 mt-0.5 flex-shrink-0"></i>
         <p class="text-sm text-blue-800">
             Complete all <strong>3 steps</strong> before submitting. You can go back to edit any step.
         </p>
     </div>
+
+    {{-- ✨ AI Resume Optimizer Banner --}}
+    <div class="rounded-2xl p-4 mb-5" style="background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(255,255,255,.2);">
+                    <i class="fas fa-robot text-white"></i>
+                </div>
+                <div>
+                    <p class="text-white font-bold text-sm">AI Resume Optimizer</p>
+                    <p class="text-purple-100 text-xs">Check resume match score before applying</p>
+                </div>
+            </div>
+            <button type="button"
+                    onclick="ResumeOptimizer.open({{ $internship->id }})"
+                    class="flex-shrink-0 bg-white text-purple-700 font-bold text-xs px-4 py-2 rounded-xl active:scale-95">
+                <i class="fas fa-magic mr-1"></i>Analyse
+            </button>
+        </div>
+    </div>
+
+    {{-- Resume Optimizer Modal --}}
+    <x-resume-optimizer-modal :internship="$internship" />
+    <script>
+        window.resumeOptimizerScoreBase   = '/resume-optimizer/score/';
+        window.resumeOptimizerRewriteBase = '/resume-optimizer/rewrite/';
+        window._romQueue = window._romQueue || [];
+        if (!window.ResumeOptimizer) {
+            window.ResumeOptimizer = {
+                open:       function(id) { window._romQueue.push(['open', id]); },
+                close:      function(id) { window._romQueue.push(['close', id]); },
+                rewrite:    function(id) { window._romQueue.push(['rewrite', id]); },
+                backToScore:function(id) { window._romQueue.push(['backToScore', id]); },
+                copyResume: function(id) { window._romQueue.push(['copyResume', id]); }
+            };
+        }
+    </script>
+    <script src="{{ asset('js/resume-optimizer.js') }}" onload="if(window._romQueue){window._romQueue.forEach(function(c){window.ResumeOptimizer[c[0]](c[1]);});window._romQueue=[];}"></script>
 
     {{-- Flash errors --}}
     @if($errors->any())

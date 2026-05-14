@@ -162,6 +162,23 @@
                                             </a>
                                         </div>
                                     </div>
+
+                                    {{-- AI Resume Optimizer CTA --}}
+                                    <div style="margin-top:1rem;padding:1rem;background:linear-gradient(135deg,rgba(124,58,237,.2) 0%,rgba(79,70,229,.2) 100%);border-radius:1rem;border:1px solid rgba(124,58,237,.3);">
+                                        <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+                                            <div style="width:2.25rem;height:2.25rem;background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:.625rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                                <i class="fas fa-robot" style="color:#fff;font-size:.9rem;"></i>
+                                            </div>
+                                            <div style="flex:1;min-width:0;">
+                                                <p style="color:white;font-weight:700;font-size:.875rem;margin-bottom:.15rem;">AI Resume Optimizer</p>
+                                                <p style="color:rgba(255,255,255,.75);font-size:.75rem;">Get job-specific score + AI rewrite when you apply for a job</p>
+                                            </div>
+                                            <a href="{{ route('recommendations.index') }}"
+                                               style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;font-weight:700;font-size:.78rem;padding:.5rem .9rem;border-radius:.625rem;text-decoration:none;white-space:nowrap;flex-shrink:0;">
+                                                <i class="fas fa-search" style="margin-right:.3rem;"></i>Browse Jobs
+                                            </a>
+                                        </div>
+                                    </div>
                                 @else
                                     <div class="empty-state">
                                         <i class="fas fa-upload"></i>

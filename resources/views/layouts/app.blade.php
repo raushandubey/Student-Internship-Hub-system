@@ -609,6 +609,8 @@
             
             forms.forEach(form => {
                 form.addEventListener('submit', function() {
+                    // Skip loading overlay for Resume Optimizer forms (they manage their own UX)
+                    if (this.closest('.rom-overlay') || this.hasAttribute('data-no-loader')) return;
                     if (loadingOverlay) {
                         loadingOverlay.classList.add('active');
                     }

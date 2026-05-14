@@ -522,10 +522,17 @@
         handleQuickReply(text, container) {
             // Remove quick reply buttons
             container.remove();
-            
+
             // Log analytics
             this.logAnalytics('quick_reply_clicked', { text });
-            
+
+            // Special case: "Optimize Resume" triggers the AI optimizer flow directly
+            if (text === 'Optimize Resume') {
+                this.elements.input.value = 'optimize resume';
+                this.sendMessage();
+                return;
+            }
+
             // Process as user message
             this.elements.input.value = text;
             this.sendMessage();
@@ -583,7 +590,7 @@
                 type: 'bot',
                 text,
                 timestamp: new Date(),
-                quickReplies: ['Resume Tips', 'Skills to Learn', 'Job Strategy', 'Track Applications'],
+                quickReplies: ['Resume Tips', 'Optimize Resume', 'Job Strategy', 'Track Applications'],
                 isWelcome: true
             });
         },
@@ -629,13 +636,18 @@
                 ShreeRamChatbot.hideTyping();
                 
                 if (personalized) {
-                    ShreeRamChatbot.displayMessage({
-                        type: 'bot',
-                        text: personalized.text,
-                        links: personalized.links || [],
-                        quickReplies: personalized.quickReplies || [],
-                        timestamp: new Date()
-                    });
+                    // Only render message bubble if there is actual text content
+                    if (personalized.text && personalized.text.trim().length > 0) {
+                        ShreeRamChatbot.displayMessage({
+                            type: 'bot',
+                            text: personalized.text,
+                            links: personalized.links || [],
+                            quickReplies: personalized.quickReplies || [],
+                            useInfoBox: personalized.useInfoBox || false,
+                            infoType: personalized.infoType || 'info',
+                            timestamp: new Date()
+                        });
+                    }
                     ShreeRamChatbot.logAnalytics('personalized_response', { topic: personalized.topic });
                     return;
                 }
@@ -1020,8 +1032,32 @@
             const applied = p.appliedJobsCount || 0;
             const hasResume = p.hasResume;
 
-            // --- Resume improvement ---
-            if (this.matches(message, ['resume', 'cv', 'improve resume', 'resume tips'])) {
+            // ── AI Resume Optimizer intent ──────────────────────────────────────
+            if (this.matches(message, ['optimize resume', 'optimise resume', 'improve resume for job',
+                                        'resume optimizer', 'ai resume', 'rewrite resume', 'resume score',
+                                        'resume for job', 'match score', 'resume analysis'])) {
+                // Trigger the job-picker flow — use window.ResumeOptimizerChatbot because
+                // that module is defined AFTER this IIFE closes (avoid ReferenceError)
+                if (typeof window.ResumeOptimizerChatbot !== 'undefined' && window.ResumeOptimizerChatbot.startFlow) {
+                    window.ResumeOptimizerChatbot.startFlow();
+                    return {
+                        topic: 'resume_optimizer',
+                        text: '🔍 Starting resume analysis — select a job below!',
+                        links: [],
+                        quickReplies: []
+                    };
+                }
+                // Fallback if module not loaded
+                return {
+                    topic: 'resume_optimizer',
+                    text: '⚠️ Resume Optimizer is loading. Please try again in a moment.',
+                    links: [],
+                    quickReplies: ['Resume Tips', 'Profile Help']
+                };
+            }
+
+            // --- Resume improvement (generic tips) ---
+            if (this.matches(message, ['resume', 'cv', 'resume tips'])) {
                 const issues = [];
                 if (completion < 80) issues.push(`your profile is only ${completion}% complete — fill in missing sections`);
                 if (!hasResume) issues.push('you haven\'t uploaded a resume yet');
@@ -1133,3 +1169,299 @@
     // Expose to window for testing
     window.ShreeRamChatbot = ShreeRamChatbot;
 })();
+
+/* ======================================================================
+   ResumeOptimizerChatbot — Chatbot integration module
+   Handles the "optimize resume" conversation flow INSIDE the chatbot window.
+   Completely isolated from ShreeRamChatbot internals — only calls
+   ShreeRamChatbot.displayMessage() to inject messages.
+   ====================================================================== */
+window.ResumeOptimizerChatbot = (function () {
+    'use strict';
+
+    let _internships    = [];
+    let _selectedJob    = null;
+    let _flowActive     = false;
+
+    /* ── Start the job-picker conversation flow ── */
+    function startFlow() {
+        if (_flowActive) return;
+        _flowActive = true;
+
+        // If no resume, warn immediately
+        const p = window.chatbotUserProfile || {};
+        if (!p.hasResume) {
+            ShreeRamChatbot.displayMessage({
+                type: 'bot',
+                text: '⚠️ You haven\'t uploaded a resume yet!\n\nPlease upload your resume from your Profile page first, then I can optimize it for any job.',
+                timestamp: new Date(),
+                links: [{ text: 'Upload Resume', url: '/profile/edit', icon: 'fa-upload' }],
+                quickReplies: ['Profile Help', 'Resume Tips']
+            });
+            _flowActive = false;
+            return;
+        }
+
+        // Show typing + fetch internships list
+        ShreeRamChatbot.showTyping();
+
+        fetch('/resume-optimizer/internships', { headers: { Accept: 'application/json' } })
+            .then(r => r.json())
+            .then(data => {
+                ShreeRamChatbot.hideTyping();
+                _internships = data.internships || [];
+
+                if (_internships.length === 0) {
+                    ShreeRamChatbot.displayMessage({
+                        type: 'bot',
+                        text: 'No active internships found right now. Please check back later!',
+                        timestamp: new Date(),
+                        quickReplies: ['View Recommendations', 'Resume Tips']
+                    });
+                    _flowActive = false;
+                    return;
+                }
+
+                _showJobPicker();
+            })
+            .catch(() => {
+                ShreeRamChatbot.hideTyping();
+                ShreeRamChatbot.displayMessage({
+                    type: 'bot',
+                    text: '❌ Could not load internships. Please try again in a moment.',
+                    timestamp: new Date(),
+                    quickReplies: ['Resume Tips', 'Profile Help']
+                });
+                _flowActive = false;
+            });
+    }
+
+    /* ── Show job selector chips ── */
+    function _showJobPicker() {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'margin-top:8px;';
+
+        // Intro message bubble
+        const intro = document.createElement('div');
+        intro.className = 'flex justify-start items-end space-x-2';
+        intro.innerHTML = `
+            <div class="shreeram-msg-avatar"><span class="text-sm">🕉️</span></div>
+            <div class="flex flex-col max-w-[80%]">
+                <div class="px-4 py-3 shreeram-bot-bubble">
+                    <p class="text-sm leading-relaxed">🎯 Which job would you like to optimize your resume for?</p>
+                </div>
+                <div class="mt-2" id="rom-chatbot-job-picker"></div>
+            </div>`;
+
+        document.getElementById('chatbot-messages').appendChild(intro);
+
+        // Render job chips
+        const picker = document.getElementById('rom-chatbot-job-picker');
+        if (!picker) return;
+
+        const chips = document.createElement('div');
+        chips.className = 'flex flex-col gap-1.5';
+
+        _internships.slice(0, 6).forEach(job => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.style.cssText = 'text-align:left;padding:8px 12px;border-radius:12px;font-size:.78rem;font-weight:600;background:#f3f0ff;color:#6d28d9;border:1.5px solid #ddd6fe;cursor:pointer;transition:all .2s;';
+            btn.textContent = `${job.title} — ${job.organization}`;
+            btn.addEventListener('mouseover',  () => btn.style.background = '#ede9fe');
+            btn.addEventListener('mouseleave', () => btn.style.background = '#f3f0ff');
+            btn.addEventListener('click', () => {
+                _selectedJob = job;
+                chips.remove();
+                _analyseForJob(job);
+            });
+            chips.appendChild(btn);
+        });
+
+        picker.appendChild(chips);
+        ShreeRamChatbot.scrollToBottom();
+    }
+
+    /* ── Fetch score for selected job ── */
+    function _analyseForJob(job) {
+        // Show user's selection
+        ShreeRamChatbot.displayMessage({
+            type: 'user',
+            text: `Optimize for: ${job.title}`,
+            timestamp: new Date()
+        });
+
+        ShreeRamChatbot.showTyping();
+
+        fetch(`/resume-optimizer/chatbot/analyse?internship_id=${job.id}`, {
+            headers: { Accept: 'application/json' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            ShreeRamChatbot.hideTyping();
+
+            if (!data.success) {
+                ShreeRamChatbot.displayMessage({
+                    type: 'bot',
+                    text: `❌ ${data.error || 'Unable to analyse resume.'}`,
+                    timestamp: new Date(),
+                    quickReplies: ['Resume Tips', 'Profile Help']
+                });
+                _flowActive = false;
+                return;
+            }
+
+            // Show the analysis summary
+            ShreeRamChatbot.displayMessage({
+                type: 'bot',
+                text: data.chatbot_summary,
+                timestamp: new Date()
+            });
+
+            // Show action buttons
+            _showActionButtons(job, data.score, data.tier);
+        })
+        .catch(() => {
+            ShreeRamChatbot.hideTyping();
+            ShreeRamChatbot.displayMessage({
+                type: 'bot',
+                text: '❌ Failed to analyse resume. Please try again.',
+                timestamp: new Date(),
+                quickReplies: ['Resume Tips', 'Profile Help']
+            });
+            _flowActive = false;
+        });
+    }
+
+    /* ── Show action buttons after analysis ── */
+    function _showActionButtons(job, score, tier) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex justify-start items-end space-x-2';
+
+        const btnStyle = {
+            improve: 'padding:8px 14px;border-radius:10px;font-size:.8rem;font-weight:700;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;cursor:pointer;',
+            apply:   'padding:8px 14px;border-radius:10px;font-size:.8rem;font-weight:600;background:#f3f4f6;color:#374151;border:1.5px solid #e5e7eb;cursor:pointer;'
+        };
+
+        const actionsHtml = `
+            <div class="px-4 py-3 shreeram-bot-bubble">
+                <p class="text-sm font-semibold mb-2">Choose an action:</p>
+                <div style="display:flex;flex-direction:column;gap:8px;" id="rom-chatbot-actions-${job.id}">
+                    <button type="button" id="rom-chatbot-improve-${job.id}" style="${btnStyle.improve}">
+                        ✨ Improve Resume (AI Rewrite)
+                    </button>
+                    <button type="button" id="rom-chatbot-apply-${job.id}" style="${btnStyle.apply}">
+                        📄 Apply Anyway (Score: ${score}%)
+                    </button>
+                </div>
+            </div>`;
+
+        wrapper.innerHTML = `<div class="shreeram-msg-avatar"><span class="text-sm">🕉️</span></div><div class="flex flex-col max-w-[80%]">${actionsHtml}</div>`;
+        document.getElementById('chatbot-messages').appendChild(wrapper);
+        ShreeRamChatbot.scrollToBottom();
+
+        // Wire up buttons
+        const improveBtn = document.getElementById(`rom-chatbot-improve-${job.id}`);
+        const applyBtn   = document.getElementById(`rom-chatbot-apply-${job.id}`);
+
+        if (improveBtn) {
+            improveBtn.addEventListener('click', () => {
+                wrapper.remove();
+                _triggerRewrite(job);
+            });
+        }
+
+        if (applyBtn) {
+            applyBtn.addEventListener('click', () => {
+                wrapper.remove();
+                ShreeRamChatbot.displayMessage({
+                    type: 'bot',
+                    text: `Okay! You can apply for "${job.title}" directly from the recommendations page.`,
+                    timestamp: new Date(),
+                    links: [{ text: 'View Recommendations', url: '/recommendations', icon: 'fa-star' }],
+                    quickReplies: ['Optimize Resume', 'Track Applications']
+                });
+                _flowActive = false;
+            });
+        }
+    }
+
+    /* ── Trigger AI rewrite from chatbot ── */
+    function _triggerRewrite(job) {
+        ShreeRamChatbot.displayMessage({
+            type: 'bot',
+            text: `✨ AI is rewriting your resume for "${job.title}"…\n\nThis takes just a moment.`,
+            timestamp: new Date()
+        });
+
+        ShreeRamChatbot.showTyping();
+
+        const csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+
+        fetch(`/resume-optimizer/rewrite/${job.id}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            ShreeRamChatbot.hideTyping();
+
+            if (!data.success) {
+                ShreeRamChatbot.displayMessage({
+                    type: 'bot',
+                    text: `❌ ${data.error || 'Rewrite failed. Please try again.'}`,
+                    timestamp: new Date(),
+                    quickReplies: ['Resume Tips', 'Profile Help']
+                });
+                _flowActive = false;
+                return;
+            }
+
+            const d = data.data;
+            const delta = d.after_score - d.before_score;
+            const arrow = delta > 0 ? '📈' : '📊';
+
+            ShreeRamChatbot.displayMessage({
+                type: 'bot',
+                text: `${arrow} Resume Optimization Complete!\n\nBEFORE: ${d.before_score}%\nAFTER:  ${d.after_score}% (+${delta}%)\n\nImprovements:\n${d.improvements.slice(0, 3).map(i => '  ' + i).join('\n')}\n\nYou can now apply with your improved resume!`,
+                timestamp: new Date(),
+                links: [
+                    { text: '⬇️ Download Optimized Resume (PDF)', url: '/resume-optimizer/download/' + job.id + '?version_id=' + d.version_id, icon: 'fa-file-pdf' },
+                    { text: 'View Recommendations', url: '/recommendations', icon: 'fa-star' }
+                ],
+                quickReplies: ['Track Applications', 'Job Strategy']
+            });
+
+            _flowActive = false;
+        })
+        .catch(() => {
+            ShreeRamChatbot.hideTyping();
+            ShreeRamChatbot.displayMessage({
+                type: 'bot',
+                text: '❌ Rewrite failed. Please try again later.',
+                timestamp: new Date(),
+                quickReplies: ['Resume Tips', 'Profile Help']
+            });
+            _flowActive = false;
+        });
+    }
+
+    // Add "Optimize Resume" to the knowledge base quick replies
+    if (window.ShreeRamChatbot && Array.isArray(window.ShreeRamChatbot.knowledgeBase)) {
+        window.ShreeRamChatbot.knowledgeBase.push({
+            id: 'resume_optimizer',
+            category: 'ai_feature',
+            keywords: ['optimize', 'optimise', 'ai resume', 'rewrite', 'resume score', 'match score'],
+            response: {
+                text: 'Starting resume optimizer…',
+                quickReplies: []
+            }
+        });
+    }
+
+    return { startFlow };
+})();
+

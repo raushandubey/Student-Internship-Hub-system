@@ -92,7 +92,7 @@
         </div>
     @endif
 
-    {{-- Action Button --}}
+    {{-- Action Buttons (with AI Resume Optimizer gate) --}}
     <div class="flex gap-2">
         @auth
             @if(auth()->user()->role === 'student')
@@ -101,37 +101,63 @@
                         ->where('internship_id', $internship->id)
                         ->exists();
                 @endphp
-                
+
                 @if($hasApplied)
                     <button disabled class="flex-1 bg-gray-100 text-gray-500 px-4 py-2.5 rounded-xl font-medium text-sm cursor-not-allowed">
-                        <i class="fas fa-check-circle mr-2"></i>
-                        Applied
+                        <i class="fas fa-check-circle mr-2"></i>Applied
                     </button>
                 @else
-                    <form method="POST" action="{{ route('applications.apply', $internship) }}" style="flex:1;">
-                        @csrf
-                        <button type="submit"
-                                class="w-full bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm text-center transition-colors active:scale-95">
-                            <i class="fas fa-paper-plane mr-2"></i>
-                            Apply Now
-                        </button>
-                    </form>
+                    {{-- Opens Resume Optimizer Modal first --}}
+                    <button type="button"
+                            onclick="ResumeOptimizer.open({{ $internship->id }})"
+                            class="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm text-center transition-colors active:scale-95">
+                        <i class="fas fa-paper-plane mr-2"></i>Apply Now
+                    </button>
+
+                    {{-- Inline Resume Optimizer Modal --}}
+                    <x-resume-optimizer-modal :internship="$internship" />
                 @endif
             @endif
         @else
             <a href="{{ route('login') }}" class="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm text-center transition-colors">
-                <i class="fas fa-sign-in-alt mr-2"></i>
-                Login to Apply
+                <i class="fas fa-sign-in-alt mr-2"></i>Login to Apply
             </a>
         @endauth
-        
-        <button class="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors active:scale-95" 
-                onclick="toggleSave(this)" 
+
+        <button class="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors active:scale-95"
+                onclick="toggleSave(this)"
                 aria-label="Save internship">
             <i class="far fa-heart text-gray-600"></i>
         </button>
     </div>
 </div>
+
+{{-- Load Resume Optimizer JS (once globally via layout; this is a safe guard) --}}
+@once
+<script>
+    // Inject route bases so the JS module can build URLs without Blade
+    window.resumeOptimizerScoreBase   = '/resume-optimizer/score/';
+    window.resumeOptimizerRewriteBase = '/resume-optimizer/rewrite/';
+
+    // Safe proxy: queue open() calls until the module loads
+    window._romQueue = window._romQueue || [];
+    if (!window.ResumeOptimizer) {
+        window.ResumeOptimizer = {
+            open:       function(id) { window._romQueue.push(['open', id]); },
+            close:      function(id) { window._romQueue.push(['close', id]); },
+            rewrite:    function(id) { window._romQueue.push(['rewrite', id]); },
+            backToScore:function(id) { window._romQueue.push(['backToScore', id]); },
+            copyResume: function(id) { window._romQueue.push(['copyResume', id]); }
+        };
+    }
+</script>
+<script src="{{ asset('js/resume-optimizer.js') }}" onload="
+    if(window._romQueue){
+        window._romQueue.forEach(function(call){ window.ResumeOptimizer[call[0]](call[1]); });
+        window._romQueue=[];
+    }
+"></script>
+@endonce
 
 <script>
 function toggleSave(button) {
