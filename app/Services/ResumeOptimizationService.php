@@ -321,7 +321,7 @@ class ResumeOptimizationService
             ->first();
     }
 
-    private function resolveResumePath(Profile $profile): ?string|array
+    private function resolveResumePath(Profile $profile): string|array|null
     {
         $disk           = config('filesystems.default');
         $normalizedPath = ltrim($profile->resume_path, '/');
