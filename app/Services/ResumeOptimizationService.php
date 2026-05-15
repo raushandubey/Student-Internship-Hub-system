@@ -51,14 +51,14 @@ class ResumeOptimizationService
 
             $profile = $user->profile;
             if (!$profile || !$profile->resume_path) {
-                Log::warning('[Pipeline] FAIL: No resume path found');
-                return $this->emptyScore('No resume uploaded. Please upload your resume from your profile page.');
+                Log::warning('[Pipeline] FAIL: No resume path found', ['user_id' => $user->id]);
+                return $this->emptyScore('', 'RESUME_NOT_FOUND');
             }
 
             $absolutePath = $this->resolveResumePath($profile);
             if (!$absolutePath) {
-                Log::warning('[Pipeline] FAIL: Resume file not found on disk');
-                return $this->emptyScore('Unable to locate your resume file. Please re-upload your resume.');
+                Log::warning('[Pipeline] FAIL: Resume file not found on disk', ['user_id' => $user->id]);
+                return $this->emptyScore('', 'RESUME_DOWNLOAD_FAILED');
             }
 
             // ── Stage 1: Parsing ──────────────────────────────────────────
@@ -70,8 +70,12 @@ class ResumeOptimizationService
             Log::info('[Pipeline] Stage 1 COMPLETE: Resume Parsed', ['text_length' => strlen($parsedResume['raw_text'] ?? '')]);
 
             if (!empty($parsedResume['parse_error']) && empty(trim($parsedResume['raw_text']))) {
-                Log::error('[Pipeline] Stage 1 FAIL: Parser error', ['error' => $parsedResume['parse_error']]);
-                return $this->emptyScore('Unable to read your resume PDF. Please ensure it is a valid, non-encrypted PDF.');
+                Log::error('[Pipeline] Stage 1 FAIL: Parser error', [
+                    'error' => $parsedResume['parse_error'],
+                    'user_id' => $user->id,
+                    'path' => is_array($absolutePath) ? ($absolutePath['path'] ?? 'unknown') : basename($absolutePath),
+                ]);
+                return $this->emptyScore('', 'PARSER_FAILED');
             }
 
             // ── Stage 2: JD Intelligence ──────────────────────────────────
@@ -336,34 +340,85 @@ class ResumeOptimizationService
         $disk           = config('filesystems.default');
         $normalizedPath = ltrim($profile->resume_path, '/');
 
+        Log::info('[Pipeline] Resolving resume path', [
+            'disk' => $disk,
+            'path' => $normalizedPath,
+            'profile_id' => $profile->id,
+        ]);
+
         if ($disk === 's3' || $disk === 'r2') {
+            // Cloud storage (S3/R2)
             if (!Storage::disk($disk)->exists($normalizedPath)) {
-                Log::warning("[Pipeline] {$disk} file not found", ['path' => $normalizedPath]);
+                Log::error("[Pipeline] {$disk} file not found", [
+                    'path' => $normalizedPath,
+                    'disk' => $disk,
+                ]);
                 return null;
             }
 
             try {
                 // Return raw content directly — avoids temp file issues on Laravel Cloud
                 $content = Storage::disk($disk)->get($normalizedPath);
+                
                 if (empty($content)) {
-                    Log::error("[Pipeline] {$disk} file downloaded but empty", ['path' => $normalizedPath]);
+                    Log::error("[Pipeline] {$disk} file downloaded but empty", [
+                        'path' => $normalizedPath,
+                        'disk' => $disk,
+                    ]);
                     return null;
                 }
-                Log::info("[Pipeline] {$disk} content loaded", ['path' => $normalizedPath, 'size' => strlen($content)]);
+                
+                // Validate PDF magic bytes
+                if (!str_starts_with($content, '%PDF')) {
+                    Log::error("[Pipeline] Invalid PDF file (missing magic bytes)", [
+                        'path' => $normalizedPath,
+                        'first_bytes' => substr($content, 0, 10),
+                    ]);
+                    return null;
+                }
+                
+                Log::info("[Pipeline] {$disk} content loaded successfully", [
+                    'path' => $normalizedPath,
+                    'size' => strlen($content),
+                    'disk' => $disk,
+                ]);
+                
                 // Return as array to signal "content mode" to the caller
-                return ['content' => $content, 'mode' => 's3_content'];
+                return ['content' => $content, 'mode' => 's3_content', 'path' => $normalizedPath];
+                
             } catch (\Exception $e) {
-                Log::error("[Pipeline] {$disk} download failed", ['path' => $normalizedPath, 'error' => $e->getMessage()]);
+                Log::error("[Pipeline] {$disk} download failed", [
+                    'path' => $normalizedPath,
+                    'disk' => $disk,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
                 return null;
             }
         }
 
+        // Local storage
         $path1 = storage_path('app/public/' . $normalizedPath);
-        if (file_exists($path1)) return $path1;
+        if (file_exists($path1) && is_readable($path1)) {
+            Log::info('[Pipeline] Local file found', ['path' => $path1]);
+            return $path1;
+        }
 
         if (Storage::disk('public')->exists($normalizedPath)) {
-            return Storage::disk('public')->path($normalizedPath);
+            $path = Storage::disk('public')->path($normalizedPath);
+            if (is_readable($path)) {
+                Log::info('[Pipeline] Public disk file found', ['path' => $path]);
+                return $path;
+            }
         }
+
+        Log::error('[Pipeline] Resume file not found in any location', [
+            'normalized_path' => $normalizedPath,
+            'checked_paths' => [
+                $path1,
+                Storage::disk('public')->path($normalizedPath),
+            ],
+        ]);
 
         return null;
     }
@@ -489,6 +544,16 @@ class ResumeOptimizationService
 
     private function emptyScore(string $reason = '', string $stage = 'UNKNOWN'): array
     {
+        // Provide more helpful error messages based on stage
+        $userMessage = match($stage) {
+            'RESUME_NOT_FOUND' => 'Resume file not found. Please re-upload your resume from your profile page.',
+            'RESUME_DOWNLOAD_FAILED' => 'Unable to access your resume file. This may be a temporary server issue. Please try again in a few moments.',
+            'INVALID_PDF' => 'The uploaded file appears to be corrupted or is not a valid PDF. Please re-upload your resume.',
+            'PARSER_FAILED' => 'Unable to extract text from your PDF. If your resume is image-based (scanned), please upload a text-based PDF instead.',
+            'CRITICAL_SYSTEM_FAILURE' => 'A system error occurred. Our team has been notified. Please try again later.',
+            default => $reason ?: 'Unable to analyse resume. Please ensure your resume is a valid, text-based PDF.',
+        };
+
         return [
             'success'         => false,
             'stage_failed'    => $stage,
@@ -496,11 +561,11 @@ class ResumeOptimizationService
             'format_score' => 0, 'exp_score' => 0, 'proj_score' => 0,
             'intrinsic_score' => 0, 'overall_score' => 0,
             'matching_skills' => [], 'missing_skills' => [],
-            'issues'          => [$reason ?: 'Unable to analyse resume'],
+            'issues'          => [$userMessage],
             'strengths'       => [],
             'weak_areas'      => [], 'recommendations' => [], 'role_category' => 'general',
             'tier'            => 'low',
-            'gate_message'    => '🔴 Analysis Failed — ' . ($stage !== 'UNKNOWN' ? "[{$stage}] " : '') . $reason,
+            'gate_message'    => '🔴 Analysis Failed — ' . ($stage !== 'UNKNOWN' ? "[{$stage}] " : '') . $userMessage,
             'badge_class'     => 'bg-red-100 text-red-800',
             'resume_text'     => '',
             'quality_tier'    => 'unknown', 'quality_score' => 0,
