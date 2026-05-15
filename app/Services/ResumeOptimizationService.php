@@ -66,10 +66,6 @@ class ResumeOptimizationService
                 $parsedResume = $this->parser->parseFromContent($absolutePath['content']);
             } else {
                 $parsedResume = $this->parser->parse($absolutePath);
-                // Clean up temp file if we created one for S3/R2
-                if (str_contains($absolutePath, 'temp_resume_')) {
-                    @unlink($absolutePath);
-                }
             }
             Log::info('[Pipeline] Stage 1 COMPLETE: Resume Parsed', ['text_length' => strlen($parsedResume['raw_text'] ?? '')]);
 
@@ -347,25 +343,15 @@ class ResumeOptimizationService
             }
 
             try {
-                // Download from S3/R2 to a temporary local file for stable parsing
+                // Return raw content directly — avoids temp file issues on Laravel Cloud
                 $content = Storage::disk($disk)->get($normalizedPath);
                 if (empty($content)) {
                     Log::error("[Pipeline] {$disk} file downloaded but empty", ['path' => $normalizedPath]);
                     return null;
                 }
-                
-                $tempFilename = 'temp_resume_' . uniqid() . '.pdf';
-                $tempPath = storage_path('app/private/' . $tempFilename);
-                
-                // Ensure directory exists
-                if (!file_exists(storage_path('app/private'))) {
-                    mkdir(storage_path('app/private'), 0755, true);
-                }
-                
-                file_put_contents($tempPath, $content);
-                Log::info("[Pipeline] {$disk} content saved to temp file", ['path' => $tempPath, 'size' => strlen($content)]);
-                
-                return $tempPath;
+                Log::info("[Pipeline] {$disk} content loaded", ['path' => $normalizedPath, 'size' => strlen($content)]);
+                // Return as array to signal "content mode" to the caller
+                return ['content' => $content, 'mode' => 's3_content'];
             } catch (\Exception $e) {
                 Log::error("[Pipeline] {$disk} download failed", ['path' => $normalizedPath, 'error' => $e->getMessage()]);
                 return null;
