@@ -70,6 +70,26 @@ return [
             'r2_public_url' => env('R2_PUBLIC_URL'),
         ],
 
+        // Cloudflare R2 (S3-compatible) - Alias for s3 disk
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION', 'auto'),
+            'bucket' => env('AWS_BUCKET'),
+            'url' => env('AWS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', true),
+            'throw' => false,
+            'report' => false,
+            'visibility' => 'public',
+            'options' => [
+                'CacheControl' => 'max-age=31536000, public',
+                'ACL' => 'public-read',
+            ],
+            'r2_public_url' => env('R2_PUBLIC_URL'),
+        ],
+
     ],
 
     /*
