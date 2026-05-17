@@ -153,6 +153,13 @@ class ResumeOptimizerController extends Controller
         }
     }
 
+    public function storageDebug(): JsonResponse
+    {
+        return response()->json(
+            $this->optimizer->debugResumeAccess(Auth::user())
+        );
+    }
+
     /* ------------------------------------------------------------------ */
     /*  PDF Download Endpoint                                               */
     /* ------------------------------------------------------------------ */

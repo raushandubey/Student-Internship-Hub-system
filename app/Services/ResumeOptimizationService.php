@@ -13,6 +13,7 @@ use App\Services\Resume\JobDescriptionAnalyzer;
 use App\Services\Resume\ResumeParserEngine;
 use App\Services\Resume\ResumeQualityDetector;
 use App\Services\Resume\WeaknessDetectionEngine;
+use App\Support\ResumeStoragePaths;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -32,6 +33,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class ResumeOptimizationService
 {
+    private ?string $resumeAccessIssue = null;
+
     public function __construct(
         private readonly ResumeParserEngine      $parser,
         private readonly JobDescriptionAnalyzer  $jdAnalyzer,
@@ -58,8 +61,11 @@ class ResumeOptimizationService
 
             $absolutePath = $this->resolveResumePath($profile);
             if (!$absolutePath) {
-                Log::warning('[Pipeline] FAIL: Resume file not found on disk', ['user_id' => $user->id]);
-                return $this->emptyScore('', 'RESUME_DOWNLOAD_FAILED');
+                Log::warning('[Pipeline] FAIL: Resume file not found on disk', [
+                    'user_id' => $user->id,
+                    'issue' => $this->resumeAccessIssue,
+                ]);
+                return $this->emptyScore($this->resumeAccessIssue ?? '', 'RESUME_DOWNLOAD_FAILED');
             }
 
             // ── Stage 1: Parsing ──────────────────────────────────────────
@@ -338,32 +344,46 @@ class ResumeOptimizationService
 
     private function resolveResumePath(Profile $profile): string|array|null
     {
-        $disk           = config('filesystems.default');
-        $normalizedPath = ltrim($profile->resume_path, '/');
+        $disk = config('filesystems.default');
+        $pathCandidates = ResumeStoragePaths::candidates($profile->resume_path);
+        $normalizedPath = $pathCandidates[0] ?? ltrim($profile->resume_path, '/');
+        $this->resumeAccessIssue = null;
 
         Log::info('[Pipeline] Resolving resume path', [
             'disk' => $disk,
             'path' => $normalizedPath,
+            'path_candidates' => $pathCandidates,
             'profile_id' => $profile->id,
         ]);
 
-        if (in_array($disk, ['s3', 'r2'], true)) {
-            $content = $this->readCloudResumeContent($disk, $normalizedPath);
+        if ($this->isCloudDisk($disk)) {
+            foreach ($pathCandidates as $pathCandidate) {
+                $content = $this->readCloudResumeContent($disk, $pathCandidate);
 
-            if ($content !== null) {
-                return ['content' => $content, 'mode' => 's3_content', 'path' => $normalizedPath];
+                if ($content !== null) {
+                    return ['content' => $content, 'mode' => 's3_content', 'path' => $pathCandidate];
+                }
             }
 
+            $this->resumeAccessIssue = 'Your resume record exists, but the PDF could not be read from cloud storage. Please re-upload your resume from Profile.';
             return null;
         }
 
-        $localPath = $this->resolveLocalResumePath($disk, $normalizedPath);
+        $localPath = $this->resolveLocalResumePath($disk, $pathCandidates);
 
         if ($localPath) {
             return $localPath;
         }
 
+        $this->resumeAccessIssue = 'Your resume record points to a file that is missing from server storage. Please re-upload your resume from Profile.';
+
         return null;
+    }
+
+    private function isCloudDisk(string $disk): bool
+    {
+        return in_array($disk, ['s3', 'r2'], true)
+            || config("filesystems.disks.{$disk}.driver") === 's3';
     }
 
     private function readCloudResumeContent(string $disk, string $normalizedPath): ?string
@@ -481,22 +501,24 @@ class ResumeOptimizationService
             return null;
         }
 
-        $encodedPath = implode('/', array_map('rawurlencode', explode('/', $normalizedPath)));
+        $encodedPath = ResumeStoragePaths::encode($normalizedPath);
 
         return rtrim($baseUrl, '/') . '/' . $encodedPath;
     }
 
-    private function resolveLocalResumePath(string $defaultDisk, string $normalizedPath): ?string
+    private function resolveLocalResumePath(string $defaultDisk, array $pathCandidates): ?string
     {
-        $directPaths = [
-            storage_path('app/public/' . $normalizedPath),
-            storage_path('app/' . $normalizedPath),
-        ];
+        $directPaths = [];
 
-        foreach ($directPaths as $path) {
-            if (file_exists($path) && is_readable($path)) {
-                Log::info('[Pipeline] Local file found', ['path' => $path]);
-                return $path;
+        foreach ($pathCandidates as $pathCandidate) {
+            $directPaths[] = storage_path('app/public/' . $pathCandidate);
+            $directPaths[] = storage_path('app/' . $pathCandidate);
+
+            foreach (array_slice($directPaths, -2) as $path) {
+                if (file_exists($path) && is_readable($path)) {
+                    Log::info('[Pipeline] Local file found', ['path' => $path]);
+                    return $path;
+                }
             }
         }
 
@@ -510,31 +532,34 @@ class ResumeOptimizationService
             }
 
             try {
-                if (!Storage::disk($candidateDisk)->exists($normalizedPath)) {
-                    continue;
-                }
+                foreach ($pathCandidates as $pathCandidate) {
+                    if (!Storage::disk($candidateDisk)->exists($pathCandidate)) {
+                        continue;
+                    }
 
-                $path = Storage::disk($candidateDisk)->path($normalizedPath);
+                    $path = Storage::disk($candidateDisk)->path($pathCandidate);
 
-                if (is_readable($path)) {
-                    Log::info('[Pipeline] Local disk file found', [
-                        'path' => $path,
-                        'disk' => $candidateDisk,
-                    ]);
+                    if (is_readable($path)) {
+                        Log::info('[Pipeline] Local disk file found', [
+                            'path' => $path,
+                            'disk' => $candidateDisk,
+                            'storage_path' => $pathCandidate,
+                        ]);
 
-                    return $path;
+                        return $path;
+                    }
                 }
             } catch (\Throwable $e) {
                 Log::warning('[Pipeline] Local disk lookup failed', [
                     'disk' => $candidateDisk,
-                    'path' => $normalizedPath,
+                    'path_candidates' => $pathCandidates,
                     'error' => $e->getMessage(),
                 ]);
             }
         }
 
         Log::error('[Pipeline] Resume file not found in any local location', [
-            'normalized_path' => $normalizedPath,
+            'path_candidates' => $pathCandidates,
             'default_disk' => $defaultDisk,
             'checked_paths' => $directPaths,
             'checked_disks' => $candidateDisks,
@@ -671,12 +696,105 @@ class ResumeOptimizationService
         return $health;
     }
 
+    public function debugResumeAccess(User $user): array
+    {
+        $profile = $user->profile;
+        $defaultDisk = config('filesystems.default');
+        $pathCandidates = ResumeStoragePaths::candidates($profile?->resume_path);
+        $diskNames = array_values(array_unique(array_filter([$defaultDisk, 's3', 'r2', 'public', 'local'])));
+        $diskChecks = [];
+
+        foreach ($diskNames as $diskName) {
+            $driver = config("filesystems.disks.{$diskName}.driver");
+
+            if (!$driver) {
+                continue;
+            }
+
+            $checks = [];
+            foreach ($pathCandidates as $pathCandidate) {
+                $check = [
+                    'path' => $pathCandidate,
+                    'exists' => false,
+                    'readable_pdf' => false,
+                    'error' => null,
+                ];
+
+                try {
+                    $check['exists'] = Storage::disk($diskName)->exists($pathCandidate);
+
+                    if ($check['exists']) {
+                        if ($driver === 'local') {
+                            $path = Storage::disk($diskName)->path($pathCandidate);
+                            $check['readable_pdf'] = is_readable($path)
+                                && $this->isValidPdfContent(file_get_contents($path));
+                        } else {
+                            $check['readable_pdf'] = $this->isValidPdfContent(Storage::disk($diskName)->get($pathCandidate));
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    $check['error'] = $e->getMessage();
+                }
+
+                $checks[] = $check;
+            }
+
+            $diskChecks[$diskName] = [
+                'driver' => $driver,
+                'is_default' => $diskName === $defaultDisk,
+                'is_cloud' => $this->isCloudDisk($diskName),
+                'configured' => [
+                    'bucket' => (bool) config("filesystems.disks.{$diskName}.bucket"),
+                    'endpoint' => (bool) config("filesystems.disks.{$diskName}.endpoint"),
+                    'url' => (bool) config("filesystems.disks.{$diskName}.url"),
+                    'r2_public_url' => (bool) config("filesystems.disks.{$diskName}.r2_public_url"),
+                    'key' => (bool) config("filesystems.disks.{$diskName}.key"),
+                    'secret' => (bool) config("filesystems.disks.{$diskName}.secret"),
+                ],
+                'checks' => $checks,
+            ];
+        }
+
+        return [
+            'patch_version' => 'resume-storage-v2-path-candidates',
+            'user_id' => $user->id,
+            'profile_id' => $profile?->id,
+            'has_resume_path' => !empty($profile?->resume_path),
+            'stored_resume_path' => $profile?->resume_path,
+            'path_candidates' => $pathCandidates,
+            'default_disk' => $defaultDisk,
+            'disk_checks' => $diskChecks,
+            'next_step' => $this->debugNextStep($diskChecks),
+        ];
+    }
+
+    private function debugNextStep(array $diskChecks): string
+    {
+        foreach ($diskChecks as $diskName => $diskCheck) {
+            foreach ($diskCheck['checks'] as $check) {
+                if (($check['readable_pdf'] ?? false) === true) {
+                    return "Resume is readable on disk [{$diskName}] at path [{$check['path']}]. If the modal still fails, redeploy and clear Laravel config/view caches.";
+                }
+            }
+        }
+
+        foreach ($diskChecks as $diskName => $diskCheck) {
+            foreach ($diskCheck['checks'] as $check) {
+                if (($check['exists'] ?? false) === true) {
+                    return "A file exists on disk [{$diskName}], but it is not a readable PDF. Re-upload a valid text-based PDF resume.";
+                }
+            }
+        }
+
+        return 'No checked disk contains the resume PDF. Re-upload the resume after confirming production FILESYSTEM_DISK points to the intended persistent disk.';
+    }
+
     private function emptyScore(string $reason = '', string $stage = 'UNKNOWN'): array
     {
         // Provide more helpful error messages based on stage
         $userMessage = match($stage) {
             'RESUME_NOT_FOUND' => 'Resume file not found. Please re-upload your resume from your profile page.',
-            'RESUME_DOWNLOAD_FAILED' => 'Unable to access your resume file. This may be a temporary server issue. Please try again in a few moments.',
+            'RESUME_DOWNLOAD_FAILED' => $reason ?: 'Unable to access your resume file. Please re-upload your resume from your profile page.',
             'INVALID_PDF' => 'The uploaded file appears to be corrupted or is not a valid PDF. Please re-upload your resume.',
             'PARSER_FAILED' => 'Unable to extract text from your PDF. If your resume is image-based (scanned), please upload a text-based PDF instead.',
             'CRITICAL_SYSTEM_FAILURE' => 'A system error occurred. Our team has been notified. Please try again later.',

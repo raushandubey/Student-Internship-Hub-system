@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Profile;
+use App\Support\ResumeStoragePaths;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -110,7 +111,8 @@ class ResumeController extends Controller
                 abort(404, 'Resume not found');
             }
             
-            $normalizedPath = ltrim($profile->resume_path, '/');
+            $pathCandidates = ResumeStoragePaths::candidates($profile->resume_path);
+            $normalizedPath = $pathCandidates[0] ?? ltrim($profile->resume_path, '/');
             $disk = config('filesystems.default');
             
             // Cloud storage - redirect to direct public URL.
@@ -137,16 +139,18 @@ class ResumeController extends Controller
             }
             
             // Local Storage - Direct download
-            if ($disk === 'local' && Storage::disk('local')->exists($normalizedPath)) {
-                $filename = $profile->user->name . '_Resume.pdf';
-                $filename = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $filename);
-                return Storage::disk('local')->download($normalizedPath, $filename);
-            }
+            foreach ($pathCandidates as $pathCandidate) {
+                if ($disk === 'local' && Storage::disk('local')->exists($pathCandidate)) {
+                    $filename = $profile->user->name . '_Resume.pdf';
+                    $filename = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $filename);
+                    return Storage::disk('local')->download($pathCandidate, $filename);
+                }
 
-            if (Storage::disk('public')->exists($normalizedPath)) {
-                $filename = $profile->user->name . '_Resume.pdf';
-                $filename = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $filename);
-                return Storage::disk('public')->download($normalizedPath, $filename);
+                if (Storage::disk('public')->exists($pathCandidate)) {
+                    $filename = $profile->user->name . '_Resume.pdf';
+                    $filename = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $filename);
+                    return Storage::disk('public')->download($pathCandidate, $filename);
+                }
             }
             
             abort(404, 'Resume file not found');

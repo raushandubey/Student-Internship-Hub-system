@@ -187,6 +187,8 @@ Route::middleware(['auth', 'role:student'])->group(function () {
         Route::get('/download/{internship}', [ResumeOptimizerController::class, 'downloadPdf'])->name('download');
         // Health check: validate pipeline dependencies
         Route::get('/health', [ResumeOptimizerController::class, 'health'])->name('health');
+        // Safe resume storage diagnostics for the logged-in student
+        Route::get('/storage-debug', [ResumeOptimizerController::class, 'storageDebug'])->name('storage-debug');
     });
 
     // ── Phase 2: Candidate Profile Intelligence Dashboard ────────────────

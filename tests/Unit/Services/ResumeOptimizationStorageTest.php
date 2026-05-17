@@ -31,6 +31,21 @@ class ResumeOptimizationStorageTest extends TestCase
         $this->assertStringStartsWith('%PDF', file_get_contents($resolved));
     }
 
+    public function test_resolver_reads_resume_when_database_path_contains_storage_prefix(): void
+    {
+        config(['filesystems.default' => 'public']);
+        Storage::fake('public');
+
+        Storage::disk('public')->put('resumes/legacy-resume.pdf', $this->samplePdf());
+
+        $profile = $this->profileWithResume('/storage/resumes/legacy-resume.pdf');
+        $resolved = $this->resolveResumePath($profile);
+
+        $this->assertIsString($resolved);
+        $this->assertFileExists($resolved);
+        $this->assertStringStartsWith('%PDF', file_get_contents($resolved));
+    }
+
     public function test_resolver_reads_resume_content_from_r2_disk(): void
     {
         config(['filesystems.default' => 'r2']);
@@ -41,6 +56,24 @@ class ResumeOptimizationStorageTest extends TestCase
         Storage::disk('r2')->put($path, $content);
 
         $profile = $this->profileWithResume($path);
+        $resolved = $this->resolveResumePath($profile);
+
+        $this->assertIsArray($resolved);
+        $this->assertSame('s3_content', $resolved['mode']);
+        $this->assertSame($path, $resolved['path']);
+        $this->assertSame($content, $resolved['content']);
+    }
+
+    public function test_resolver_reads_r2_resume_when_database_path_is_full_url(): void
+    {
+        config(['filesystems.default' => 'r2']);
+        Storage::fake('r2');
+
+        $path = 'resumes/r2-url-resume.pdf';
+        $content = $this->samplePdf();
+        Storage::disk('r2')->put($path, $content);
+
+        $profile = $this->profileWithResume('https://example.com/storage/' . $path);
         $resolved = $this->resolveResumePath($profile);
 
         $this->assertIsArray($resolved);

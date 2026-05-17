@@ -234,7 +234,8 @@ window.ResumeOptimizer = (function () {
                 hide('rom-loading-' + internshipId);
 
                 if (!data.success) {
-                    _showError(internshipId, data.error || 'Unable to analyse resume.');
+                    const prefix = data.stage_failed ? '[' + data.stage_failed + '] ' : '';
+                    _showError(internshipId, prefix + (data.error || 'Unable to analyse resume.'));
                     return;
                 }
 

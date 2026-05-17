@@ -14,6 +14,7 @@ use App\Services\Resume\CandidateRankingEngine;
 use App\Services\Resume\JobDescriptionAnalyzer;
 use App\Services\Resume\ResumeParserEngine;
 use App\Services\Resume\WeaknessDetectionEngine;
+use App\Support\ResumeStoragePaths;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -553,38 +554,41 @@ class RecruitmentIntelligenceService
     private function resolveResumePath(Profile $profile): ?string
     {
         if (!$profile->resume_path) return null;
-        $normalized = ltrim($profile->resume_path, '/');
+        $pathCandidates = ResumeStoragePaths::candidates($profile->resume_path);
         $disk = config('filesystems.default');
 
-        if (in_array($disk, ['s3', 'r2'], true)) {
-            try {
-                $content = Storage::disk($disk)->get($normalized);
+        if ($this->isCloudDisk($disk)) {
+            foreach ($pathCandidates as $pathCandidate) {
+                try {
+                    $content = Storage::disk($disk)->get($pathCandidate);
 
-                if (!is_string($content) || $content === '') {
-                    return null;
+                    if (!is_string($content) || $content === '') {
+                        continue;
+                    }
+
+                    return $this->writeTempResume($profile, $content);
+                } catch (\Throwable $e) {
+                    Log::warning('Recruitment intelligence cloud resume read failed', [
+                        'profile_id' => $profile->id,
+                        'disk' => $disk,
+                        'path' => $pathCandidate,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
-
-                return $this->writeTempResume($profile, $content);
-            } catch (\Throwable $e) {
-                Log::warning('Recruitment intelligence cloud resume read failed', [
-                    'profile_id' => $profile->id,
-                    'disk' => $disk,
-                    'path' => $normalized,
-                    'error' => $e->getMessage(),
-                ]);
-
-                return null;
             }
+
+            return null;
         }
 
-        $directPaths = [
-            storage_path('app/public/' . $normalized),
-            storage_path('app/' . $normalized),
-        ];
+        $directPaths = [];
+        foreach ($pathCandidates as $pathCandidate) {
+            $directPaths[] = storage_path('app/public/' . $pathCandidate);
+            $directPaths[] = storage_path('app/' . $pathCandidate);
 
-        foreach ($directPaths as $path) {
-            if (file_exists($path) && is_readable($path)) {
-                return $path;
+            foreach (array_slice($directPaths, -2) as $path) {
+                if (file_exists($path) && is_readable($path)) {
+                    return $path;
+                }
             }
         }
 
@@ -596,20 +600,22 @@ class RecruitmentIntelligenceService
             }
 
             try {
-                if (!Storage::disk($candidateDisk)->exists($normalized)) {
-                    continue;
-                }
+                foreach ($pathCandidates as $pathCandidate) {
+                    if (!Storage::disk($candidateDisk)->exists($pathCandidate)) {
+                        continue;
+                    }
 
-                $path = Storage::disk($candidateDisk)->path($normalized);
+                    $path = Storage::disk($candidateDisk)->path($pathCandidate);
 
-                if (is_readable($path)) {
-                    return $path;
+                    if (is_readable($path)) {
+                        return $path;
+                    }
                 }
             } catch (\Throwable $e) {
                 Log::warning('Recruitment intelligence local resume lookup failed', [
                     'profile_id' => $profile->id,
                     'disk' => $candidateDisk,
-                    'path' => $normalized,
+                    'path_candidates' => $pathCandidates,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -629,6 +635,12 @@ class RecruitmentIntelligenceService
         $tmp = $tmpDir . DIRECTORY_SEPARATOR . 'resume_' . $profile->id . '_' . time() . '.pdf';
 
         return file_put_contents($tmp, $content) === false ? null : $tmp;
+    }
+
+    private function isCloudDisk(string $disk): bool
+    {
+        return in_array($disk, ['s3', 'r2'], true)
+            || config("filesystems.disks.{$disk}.driver") === 's3';
     }
 
     private function noResumePlaceholder(Application $app): array
