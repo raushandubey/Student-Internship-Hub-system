@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class Profile extends Model
 {
@@ -43,14 +45,13 @@ class Profile extends Model
         $normalized = ltrim($this->profile_photo, '/');
         $disk = config('filesystems.default');
 
-        if ($disk === 's3') {
-            $r2PublicUrl = config('filesystems.disks.s3.r2_public_url');
-            return $r2PublicUrl ? rtrim($r2PublicUrl, '/') . '/' . $normalized : null;
+        if ($this->isCloudDisk($disk)) {
+            return $this->buildCloudFileUrl($disk, $normalized);
         }
 
         // Local public disk
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($normalized)) {
-            return \Illuminate\Support\Facades\Storage::disk('public')->url($normalized);
+        if (Storage::disk('public')->exists($normalized)) {
+            return Storage::disk('public')->url($normalized);
         }
 
         $fullPath = storage_path('app/public/' . $normalized);
@@ -84,45 +85,41 @@ class Profile extends Model
             $disk = config('filesystems.default');
             $normalizedPath = ltrim($this->resume_path, '/');
             
-            // R2 Storage (Production on Laravel Cloud)
-            if ($disk === 's3') {
-                // Check if file exists on R2 first
-                if (!\Illuminate\Support\Facades\Storage::disk('s3')->exists($normalizedPath)) {
-                    \Log::warning('Resume file not found on R2', [
+            // R2/S3 Storage (Production on Laravel Cloud)
+            if ($this->isCloudDisk($disk)) {
+                if (!Storage::disk($disk)->exists($normalizedPath)) {
+                    Log::warning('Resume file not found on cloud storage', [
                         'profile_id' => $this->id,
-                        'resume_path' => $normalizedPath
+                        'resume_path' => $normalizedPath,
+                        'disk' => $disk,
                     ]);
                     return null;
                 }
-                
-                // CRITICAL: Manually construct R2 public URL
-                // DO NOT use Storage::url() - it returns Laravel Cloud domain
-                $r2PublicUrl = config('filesystems.disks.s3.r2_public_url');
-                
-                if (empty($r2PublicUrl)) {
-                    \Log::error('R2_PUBLIC_URL not configured', [
+
+                $url = $this->buildCloudFileUrl($disk, $normalizedPath);
+
+                if (!$url) {
+                    Log::error('Cloud public URL not configured for resume', [
                         'profile_id' => $this->id,
-                        'resume_path' => $normalizedPath
+                        'resume_path' => $normalizedPath,
+                        'disk' => $disk,
                     ]);
                     return null;
                 }
-                
-                // Construct direct R2 URL: https://pub-{hash}.r2.dev/resumes/filename.pdf
-                $url = rtrim($r2PublicUrl, '/') . '/' . $normalizedPath;
-                
-                \Log::debug('R2 resume URL generated (manual construction)', [
+
+                Log::debug('Cloud resume URL generated', [
                     'profile_id' => $this->id,
                     'path' => $normalizedPath,
                     'url' => $url,
-                    'method' => 'manual_construction'
+                    'disk' => $disk,
                 ]);
-                
+
                 return $url;
             }
             
             // Local/Public Storage (Development) - Check existence then generate URL
-            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($normalizedPath)) {
-                return \Illuminate\Support\Facades\Storage::disk('public')->url($normalizedPath);
+            if (Storage::disk('public')->exists($normalizedPath)) {
+                return Storage::disk('public')->url($normalizedPath);
             }
             
             // Direct filesystem check (fallback for symlink issues)
@@ -132,7 +129,7 @@ class Profile extends Model
             }
             
             // File not found - return null
-            \Log::warning('Resume file not found', [
+            Log::warning('Resume file not found', [
                 'profile_id' => $this->id,
                 'resume_path' => $this->resume_path
             ]);
@@ -140,7 +137,7 @@ class Profile extends Model
             return null;
             
         } catch (\Exception $e) {
-            \Log::error('Resume URL generation failed', [
+            Log::error('Resume URL generation failed', [
                 'profile_id' => $this->id,
                 'resume_path' => $this->resume_path,
                 'error' => $e->getMessage()
@@ -164,22 +161,29 @@ class Profile extends Model
             $disk = config('filesystems.default');
             
             // Check S3 first if configured
-            if ($disk === 's3') {
-                return \Illuminate\Support\Facades\Storage::disk('s3')->exists($this->resume_path);
+            $normalizedPath = ltrim($this->resume_path, '/');
+
+            if ($this->isCloudDisk($disk)) {
+                return Storage::disk($disk)->exists($normalizedPath);
             }
             
             // Check public disk
-            $normalizedPath = ltrim($this->resume_path, '/');
-            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($normalizedPath)) {
+            if (Storage::disk('public')->exists($normalizedPath)) {
+                return true;
+            }
+
+            if ($disk === 'local' && Storage::disk('local')->exists($normalizedPath)) {
                 return true;
             }
             
             // Check direct file system
             $fullPath = storage_path('app/public/' . $normalizedPath);
-            return file_exists($fullPath);
+            $legacyLocalPath = storage_path('app/' . $normalizedPath);
+
+            return file_exists($fullPath) || file_exists($legacyLocalPath);
             
         } catch (\Exception $e) {
-            \Log::warning('Resume file check failed', [
+            Log::warning('Resume file check failed', [
                 'profile_id' => $this->id,
                 'resume_path' => $this->resume_path,
                 'error' => $e->getMessage()
@@ -187,5 +191,46 @@ class Profile extends Model
             
             return false;
         }
+    }
+
+    private function isCloudDisk(string $disk): bool
+    {
+        return in_array($disk, ['s3', 'r2'], true);
+    }
+
+    private function buildCloudFileUrl(string $disk, string $path): ?string
+    {
+        $baseUrl = config("filesystems.disks.{$disk}.r2_public_url")
+            ?: config("filesystems.disks.{$disk}.url");
+
+        if ($baseUrl) {
+            $baseHost = parse_url($baseUrl, PHP_URL_HOST);
+            $appHost = parse_url(config('app.url'), PHP_URL_HOST);
+
+            if (!$baseHost || !$appHost || strcasecmp($baseHost, $appHost) !== 0) {
+                return rtrim($baseUrl, '/') . '/' . $this->encodeStoragePath($path);
+            }
+        }
+
+        try {
+            $url = Storage::disk($disk)->url($path);
+            $urlHost = parse_url($url, PHP_URL_HOST);
+            $appHost = parse_url(config('app.url'), PHP_URL_HOST);
+
+            return ($urlHost && $appHost && strcasecmp($urlHost, $appHost) === 0) ? null : $url;
+        } catch (\Throwable $e) {
+            Log::warning('Cloud file URL generation failed', [
+                'disk' => $disk,
+                'path' => $path,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function encodeStoragePath(string $path): string
+    {
+        return implode('/', array_map('rawurlencode', explode('/', ltrim($path, '/'))));
     }
 }

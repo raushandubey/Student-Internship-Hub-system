@@ -13,6 +13,7 @@ use App\Services\Resume\JobDescriptionAnalyzer;
 use App\Services\Resume\ResumeParserEngine;
 use App\Services\Resume\ResumeQualityDetector;
 use App\Services\Resume\WeaknessDetectionEngine;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -346,81 +347,209 @@ class ResumeOptimizationService
             'profile_id' => $profile->id,
         ]);
 
-        if ($disk === 's3' || $disk === 'r2') {
-            // Cloud storage (S3/R2)
-            if (!Storage::disk($disk)->exists($normalizedPath)) {
-                Log::error("[Pipeline] {$disk} file not found", [
+        if (in_array($disk, ['s3', 'r2'], true)) {
+            $content = $this->readCloudResumeContent($disk, $normalizedPath);
+
+            if ($content !== null) {
+                return ['content' => $content, 'mode' => 's3_content', 'path' => $normalizedPath];
+            }
+
+            return null;
+        }
+
+        $localPath = $this->resolveLocalResumePath($disk, $normalizedPath);
+
+        if ($localPath) {
+            return $localPath;
+        }
+
+        return null;
+    }
+
+    private function readCloudResumeContent(string $disk, string $normalizedPath): ?string
+    {
+        try {
+            $exists = Storage::disk($disk)->exists($normalizedPath);
+
+            if (!$exists) {
+                Log::warning("[Pipeline] {$disk} exists() returned false; trying direct read", [
                     'path' => $normalizedPath,
                     'disk' => $disk,
                 ]);
-                return null;
             }
 
-            try {
-                // Return raw content directly — avoids temp file issues on Laravel Cloud
-                $content = Storage::disk($disk)->get($normalizedPath);
-                
-                if (empty($content)) {
-                    Log::error("[Pipeline] {$disk} file downloaded but empty", [
-                        'path' => $normalizedPath,
-                        'disk' => $disk,
-                    ]);
-                    return null;
-                }
-                
-                // Validate PDF magic bytes
-                if (!str_starts_with($content, '%PDF')) {
-                    Log::error("[Pipeline] Invalid PDF file (missing magic bytes)", [
-                        'path' => $normalizedPath,
-                        'first_bytes' => substr($content, 0, 10),
-                    ]);
-                    return null;
-                }
-                
+            // Some S3-compatible providers can fail HEAD/exists while GET still works.
+            $content = Storage::disk($disk)->get($normalizedPath);
+
+            if ($this->isValidPdfContent($content)) {
                 Log::info("[Pipeline] {$disk} content loaded successfully", [
                     'path' => $normalizedPath,
                     'size' => strlen($content),
                     'disk' => $disk,
+                    'source' => 'storage_disk',
                 ]);
-                
-                // Return as array to signal "content mode" to the caller
-                return ['content' => $content, 'mode' => 's3_content', 'path' => $normalizedPath];
-                
-            } catch (\Exception $e) {
-                Log::error("[Pipeline] {$disk} download failed", [
+
+                return $content;
+            }
+
+            Log::error("[Pipeline] {$disk} file read but invalid or empty", [
+                'path' => $normalizedPath,
+                'disk' => $disk,
+                'first_bytes' => is_string($content) ? substr($content, 0, 10) : null,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error("[Pipeline] {$disk} storage read failed", [
+                'path' => $normalizedPath,
+                'disk' => $disk,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $this->readCloudResumePublicUrl($disk, $normalizedPath);
+    }
+
+    private function readCloudResumePublicUrl(string $disk, string $normalizedPath): ?string
+    {
+        $url = $this->cloudResumePublicUrl($disk, $normalizedPath);
+
+        if (!$url) {
+            Log::error("[Pipeline] {$disk} public URL fallback unavailable", [
+                'path' => $normalizedPath,
+                'disk' => $disk,
+            ]);
+
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(15)->retry(2, 250)->get($url);
+
+            if (!$response->successful()) {
+                Log::error("[Pipeline] {$disk} public URL read failed", [
                     'path' => $normalizedPath,
                     'disk' => $disk,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
+                    'status' => $response->status(),
                 ]);
+
                 return null;
             }
+
+            $content = $response->body();
+
+            if (!$this->isValidPdfContent($content)) {
+                Log::error("[Pipeline] {$disk} public URL returned invalid PDF", [
+                    'path' => $normalizedPath,
+                    'disk' => $disk,
+                    'first_bytes' => substr($content, 0, 10),
+                ]);
+
+                return null;
+            }
+
+            Log::info("[Pipeline] {$disk} content loaded from public URL", [
+                'path' => $normalizedPath,
+                'size' => strlen($content),
+                'disk' => $disk,
+                'source' => 'public_url',
+            ]);
+
+            return $content;
+        } catch (\Throwable $e) {
+            Log::error("[Pipeline] {$disk} public URL download failed", [
+                'path' => $normalizedPath,
+                'disk' => $disk,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function cloudResumePublicUrl(string $disk, string $normalizedPath): ?string
+    {
+        $baseUrl = config("filesystems.disks.{$disk}.r2_public_url")
+            ?: config("filesystems.disks.{$disk}.url");
+
+        if (!$baseUrl) {
+            return null;
         }
 
-        // Local storage
-        $path1 = storage_path('app/public/' . $normalizedPath);
-        if (file_exists($path1) && is_readable($path1)) {
-            Log::info('[Pipeline] Local file found', ['path' => $path1]);
-            return $path1;
+        $baseHost = parse_url($baseUrl, PHP_URL_HOST);
+        $appHost = parse_url(config('app.url'), PHP_URL_HOST);
+
+        if ($baseHost && $appHost && strcasecmp($baseHost, $appHost) === 0) {
+            return null;
         }
 
-        if (Storage::disk('public')->exists($normalizedPath)) {
-            $path = Storage::disk('public')->path($normalizedPath);
-            if (is_readable($path)) {
-                Log::info('[Pipeline] Public disk file found', ['path' => $path]);
+        $encodedPath = implode('/', array_map('rawurlencode', explode('/', $normalizedPath)));
+
+        return rtrim($baseUrl, '/') . '/' . $encodedPath;
+    }
+
+    private function resolveLocalResumePath(string $defaultDisk, string $normalizedPath): ?string
+    {
+        $directPaths = [
+            storage_path('app/public/' . $normalizedPath),
+            storage_path('app/' . $normalizedPath),
+        ];
+
+        foreach ($directPaths as $path) {
+            if (file_exists($path) && is_readable($path)) {
+                Log::info('[Pipeline] Local file found', ['path' => $path]);
                 return $path;
             }
         }
 
-        Log::error('[Pipeline] Resume file not found in any location', [
+        $candidateDisks = array_values(array_unique(array_filter([$defaultDisk, 'public', 'local'])));
+
+        foreach ($candidateDisks as $candidateDisk) {
+            $driver = config("filesystems.disks.{$candidateDisk}.driver");
+
+            if ($driver !== 'local') {
+                continue;
+            }
+
+            try {
+                if (!Storage::disk($candidateDisk)->exists($normalizedPath)) {
+                    continue;
+                }
+
+                $path = Storage::disk($candidateDisk)->path($normalizedPath);
+
+                if (is_readable($path)) {
+                    Log::info('[Pipeline] Local disk file found', [
+                        'path' => $path,
+                        'disk' => $candidateDisk,
+                    ]);
+
+                    return $path;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('[Pipeline] Local disk lookup failed', [
+                    'disk' => $candidateDisk,
+                    'path' => $normalizedPath,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::error('[Pipeline] Resume file not found in any local location', [
             'normalized_path' => $normalizedPath,
-            'checked_paths' => [
-                $path1,
-                Storage::disk('public')->path($normalizedPath),
-            ],
+            'default_disk' => $defaultDisk,
+            'checked_paths' => $directPaths,
+            'checked_disks' => $candidateDisks,
         ]);
 
         return null;
+    }
+
+    private function isValidPdfContent(mixed $content): bool
+    {
+        if (!is_string($content) || $content === '') {
+            return false;
+        }
+
+        return str_starts_with(ltrim(substr($content, 0, 1024)), '%PDF');
     }
 
     private function buildVersionLabel(string $tier, array $rewriteResult): string

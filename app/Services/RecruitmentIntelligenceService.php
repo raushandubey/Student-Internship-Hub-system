@@ -554,21 +554,81 @@ class RecruitmentIntelligenceService
     {
         if (!$profile->resume_path) return null;
         $normalized = ltrim($profile->resume_path, '/');
+        $disk = config('filesystems.default');
 
-        if (config('filesystems.default') === 's3') {
-            if (!Storage::disk('s3')->exists($normalized)) return null;
-            $tmp = sys_get_temp_dir() . '/resume_' . $profile->id . '_' . time() . '.pdf';
-            file_put_contents($tmp, Storage::disk('s3')->get($normalized));
-            return $tmp;
+        if (in_array($disk, ['s3', 'r2'], true)) {
+            try {
+                $content = Storage::disk($disk)->get($normalized);
+
+                if (!is_string($content) || $content === '') {
+                    return null;
+                }
+
+                return $this->writeTempResume($profile, $content);
+            } catch (\Throwable $e) {
+                Log::warning('Recruitment intelligence cloud resume read failed', [
+                    'profile_id' => $profile->id,
+                    'disk' => $disk,
+                    'path' => $normalized,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return null;
+            }
         }
 
-        $path = storage_path('app/public/' . $normalized);
-        if (file_exists($path)) return $path;
+        $directPaths = [
+            storage_path('app/public/' . $normalized),
+            storage_path('app/' . $normalized),
+        ];
 
-        if (Storage::disk('public')->exists($normalized)) {
-            return Storage::disk('public')->path($normalized);
+        foreach ($directPaths as $path) {
+            if (file_exists($path) && is_readable($path)) {
+                return $path;
+            }
         }
+
+        $candidateDisks = array_values(array_unique(array_filter([$disk, 'public', 'local'])));
+
+        foreach ($candidateDisks as $candidateDisk) {
+            if (config("filesystems.disks.{$candidateDisk}.driver") !== 'local') {
+                continue;
+            }
+
+            try {
+                if (!Storage::disk($candidateDisk)->exists($normalized)) {
+                    continue;
+                }
+
+                $path = Storage::disk($candidateDisk)->path($normalized);
+
+                if (is_readable($path)) {
+                    return $path;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Recruitment intelligence local resume lookup failed', [
+                    'profile_id' => $profile->id,
+                    'disk' => $candidateDisk,
+                    'path' => $normalized,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
         return null;
+    }
+
+    private function writeTempResume(Profile $profile, string $content): ?string
+    {
+        $tmpDir = storage_path('app/tmp');
+
+        if (!is_dir($tmpDir) && !mkdir($tmpDir, 0775, true) && !is_dir($tmpDir)) {
+            return null;
+        }
+
+        $tmp = $tmpDir . DIRECTORY_SEPARATOR . 'resume_' . $profile->id . '_' . time() . '.pdf';
+
+        return file_put_contents($tmp, $content) === false ? null : $tmp;
     }
 
     private function noResumePlaceholder(Application $app): array

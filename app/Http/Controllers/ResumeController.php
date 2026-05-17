@@ -113,28 +113,36 @@ class ResumeController extends Controller
             $normalizedPath = ltrim($profile->resume_path, '/');
             $disk = config('filesystems.default');
             
-            // R2 Storage - Redirect to direct public URL (manual construction)
-            if ($disk === 's3') {
-                // CRITICAL: Manually construct R2 URL (bypass Storage::url())
-                $r2PublicUrl = config('filesystems.disks.s3.r2_public_url');
-                
-                if (empty($r2PublicUrl)) {
-                    Log::error('R2_PUBLIC_URL not configured for download');
-                    abort(500, 'Storage configuration error');
+            // Cloud storage - redirect to direct public URL.
+            if (in_array($disk, ['s3', 'r2'], true)) {
+                $url = $profile->getResumeUrl();
+
+                if (!$url) {
+                    Log::error('Cloud resume URL unavailable for download', [
+                        'profile_id' => $profileId,
+                        'path' => $normalizedPath,
+                        'disk' => $disk,
+                    ]);
+
+                    abort(404, 'Resume file not found');
                 }
-                
-                $url = rtrim($r2PublicUrl, '/') . '/' . $normalizedPath;
-                
-                Log::info('Resume download redirect to R2 (manual URL)', [
+
+                Log::info('Resume download redirect to cloud storage', [
                     'profile_id' => $profileId,
                     'url' => $url,
-                    'method' => 'manual_construction'
+                    'disk' => $disk,
                 ]);
                 
                 return redirect($url);
             }
             
             // Local Storage - Direct download
+            if ($disk === 'local' && Storage::disk('local')->exists($normalizedPath)) {
+                $filename = $profile->user->name . '_Resume.pdf';
+                $filename = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $filename);
+                return Storage::disk('local')->download($normalizedPath, $filename);
+            }
+
             if (Storage::disk('public')->exists($normalizedPath)) {
                 $filename = $profile->user->name . '_Resume.pdf';
                 $filename = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $filename);
