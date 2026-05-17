@@ -2,7 +2,6 @@
 
 namespace App\Services\Resume;
 
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -32,99 +31,129 @@ class AiRewriteEngine
         'tasked with'     => 'Executed',
     ];
 
+    public function __construct(
+        private ?AiProviderGateway $aiGateway = null,
+        private ?ResumeOptimizationQualityGate $qualityGate = null,
+    ) {}
+
     /* ------------------------------------------------------------------ */
     /*  Public API                                                          */
     /* ------------------------------------------------------------------ */
 
-    public function rewrite(array $parsedResume, array $jdAnalysis, array $weaknessReport, array $qualityReport = []): array
+    public function rewrite(array $parsedResume, array $jdAnalysis, array $weaknessReport, array $qualityReport = [], bool $strongerPrompt = false): array
     {
         $tier             = $qualityReport['tier'] ?? 'average';
-        $lockedSections   = $qualityReport['locked_sections'] ?? [];
-        $preservationMode = $qualityReport['preservation_mode'] ?? false;
 
-        // ELITE resumes: keyword-only enhancement, NO structural rewrite
-        if ($tier === 'elite') {
-            $enhanced = $this->keywordOnlyEnhancement($parsedResume, $jdAnalysis, $weaknessReport);
-            return ['success' => true, 'rewritten_text' => $enhanced, 'ai_used' => false, 'mode' => 'keyword_only'];
+        $systemPrompt = $this->buildSystemPrompt($tier);
+        $userPrompt   = $this->buildSelectivePrompt($parsedResume, $jdAnalysis, $weaknessReport, $qualityReport);
+
+        if ($strongerPrompt) {
+            $userPrompt .= "\n\n━━━ RETRY QUALITY REQUIREMENT ━━━\n"
+                . "The previous rewrite was too weak. Rewrite every eligible weak bullet and summary more materially, "
+                . "add missing required ATS keywords naturally, and ensure the optimized sections are measurably different while preserving facts.";
         }
 
-        $webhookUrl = config('services.n8n.webhook_url');
-        $webhookKey = config('services.resume_intelligence.api_key');
+        $gatewayResult = $this->gateway()->complete('resume_rewrite', $systemPrompt, $userPrompt, [
+            'tier' => $tier,
+            'retry' => $strongerPrompt,
+        ]);
 
-        if (!empty($webhookUrl)) {
-            $systemPrompt = $this->buildSystemPrompt($tier);
-            $userPrompt   = $this->buildSelectivePrompt($parsedResume, $jdAnalysis, $weaknessReport, $qualityReport);
-
-            try {
-                \Illuminate\Support\Facades\Log::info('AiRewrite: Dispatching to n8n AI orchestrator');
-                $response = \Illuminate\Support\Facades\Http::withHeaders([
-                    'X-Resume-Intelligence-Key' => $webhookKey,
-                    'Content-Type'              => 'application/json',
-                ])->timeout(90)->post($webhookUrl, [
-                    'system_prompt'   => $systemPrompt,
-                    'user_prompt'     => $userPrompt,
-                    'resume'          => $parsedResume,
-                    'job_description' => $jdAnalysis,
-                ]);
-
-                if ($response->successful()) {
-                    $json = $response->json();
-                    if (($json['success'] ?? false) && !empty($json['data'])) {
-                        $aiData = $this->safeJsonDecode($json['data']);
-                        
-                        if ($aiData && isset($aiData['optimized_sections'])) {
-                            // Merge optimized sections into original parsed resume
-                            $finalResume = $parsedResume;
-                            foreach (['summary', 'skills', 'experience', 'projects', 'education', 'certifications'] as $key) {
-                                if (!empty($aiData['optimized_sections'][$key]['optimized']) && isset($aiData['optimized_sections'][$key]['content'])) {
-                                    $finalResume[$key] = $aiData['optimized_sections'][$key]['content'];
-                                }
-                            }
-                            $resultText = json_encode($finalResume);
-                        } else {
-                            $resultText = is_string($json['data'] ?? '') ? $json['data'] : json_encode($json['data'] ?? []);
-                        }
-
-                        \Illuminate\Support\Facades\Log::info('AiRewrite: n8n orchestration success', [
-                            'provider' => $json['provider'] ?? 'unknown',
-                            'response_size' => strlen($resultText)
-                        ]);
-
-                        return [
-                            'success'        => true, 
-                            'rewritten_text' => $resultText, 
-                            'ai_used'        => true, 
-                            'engine'         => $json['provider'] ?? 'n8n', 
-                            'mode'           => 'targeted'
-                        ];
-                    }
-                }
-                \Illuminate\Support\Facades\Log::error('AiRewrite: n8n failure', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('AiRewrite: n8n orchestration exception', ['error' => $e->getMessage()]);
-            }
+        if (!($gatewayResult['success'] ?? false)) {
+            return [
+                'success' => false,
+                'error' => $gatewayResult['error'] ?? 'AI providers unavailable.',
+                'stage_failed' => 'AI_UNAVAILABLE',
+                'attempts' => $gatewayResult['attempts'] ?? [],
+                'ai_used' => false,
+            ];
         }
 
-        // ── Fallback Safety ───────────────────────────────────────────
-        \Illuminate\Support\Facades\Log::warning('AiRewrite: n8n failed or unavailable — activating rule-based fallback');
-        $rewritten = $this->preservationAwareRuleRewrite($parsedResume, $jdAnalysis, $weaknessReport, $lockedSections, $preservationMode);
-        
+        $resultText = $this->normalizeAiOutput($gatewayResult['content'] ?? '', $parsedResume, $gatewayResult);
+
+        if ($resultText === null) {
+            return [
+                'success' => false,
+                'error' => 'AI provider returned invalid or unusable rewrite JSON.',
+                'stage_failed' => 'AI_OUTPUT_INVALID',
+                'attempts' => $gatewayResult['attempts'] ?? [],
+                'ai_used' => true,
+                'engine' => $gatewayResult['provider'] ?? 'unknown',
+            ];
+        }
+
         return [
-            'success'        => true,
-            'rewritten_text' => $rewritten,
-            'ai_used'        => false,
-            'mode'           => 'rule_based',
-            'ai_offline'     => true,
-            'api_errors'     => ['n8n' => 'Fallback activated']
+            'success'        => true, 
+            'rewritten_text' => $resultText, 
+            'ai_used'        => true, 
+            'engine'         => $gatewayResult['provider'] ?? 'unknown',
+            'provider'       => $gatewayResult['provider'] ?? 'unknown',
+            'model'          => $gatewayResult['model'] ?? null,
+            'mode'           => $strongerPrompt ? 'targeted_retry' : 'targeted',
+            'tokens'         => $gatewayResult['tokens'] ?? [],
+            'attempts'       => $gatewayResult['attempts'] ?? [],
         ];
     }
 
     /* ------------------------------------------------------------------ */
     /*  Keyword-Only Enhancement (Elite Resumes)                            */
     /* ------------------------------------------------------------------ */
+
+    private function normalizeAiOutput(string $content, array $parsedResume, array $gatewayResult): ?string
+    {
+        $aiData = $this->safeJsonDecode($content);
+
+        if (!$aiData) {
+            return null;
+        }
+
+        $finalResume = $parsedResume;
+
+        if (isset($aiData['optimized_sections']) && is_array($aiData['optimized_sections'])) {
+            foreach (['summary', 'skills', 'experience', 'projects', 'education', 'certifications'] as $key) {
+                $section = $aiData['optimized_sections'][$key] ?? null;
+
+                if (!is_array($section)) {
+                    continue;
+                }
+
+                if (($section['optimized'] ?? false) && array_key_exists('content', $section)) {
+                    $finalResume[$key] = $section['content'];
+                }
+            }
+        } else {
+            $hasResumeSections = false;
+            foreach (['summary', 'skills', 'experience', 'projects', 'education', 'certifications'] as $key) {
+                if (array_key_exists($key, $aiData)) {
+                    $finalResume[$key] = $aiData[$key];
+                    $hasResumeSections = true;
+                }
+            }
+
+            if (!$hasResumeSections) {
+                return null;
+            }
+        }
+
+        $finalResume['raw_text'] = $this->qualityGate()->canonicalRawText($finalResume);
+        $finalResume['optimization_meta'] = [
+            'ai_used' => true,
+            'provider' => $gatewayResult['provider'] ?? 'unknown',
+            'model' => $gatewayResult['model'] ?? null,
+            'generated_at' => now()->toISOString(),
+        ];
+
+        return json_encode($finalResume);
+    }
+
+    private function gateway(): AiProviderGateway
+    {
+        return $this->aiGateway ??= app(AiProviderGateway::class);
+    }
+
+    private function qualityGate(): ResumeOptimizationQualityGate
+    {
+        return $this->qualityGate ??= app(ResumeOptimizationQualityGate::class);
+    }
 
     private function keywordOnlyEnhancement(array $parsed, array $jd, array $weakness): string
     {
@@ -237,9 +266,10 @@ Output ONLY structured JSON. No commentary, no markdown wrapping.";
         $cert = !empty($parsed['certifications']) ? "CERTIFICATIONS\n" . implode("\n", array_map(fn($c) => "• $c", $parsed['certifications'])) : '';
 
         $name    = strtoupper($parsed['name'] ?? 'CANDIDATE');
-        $contact = $parsed['contact'] ?? ($parsed['email'] ?? '') . ($parsed['phone'] ? ' | ' . $parsed['phone'] : '');
+        $contact = $parsed['contact'] ?? trim(($parsed['email'] ?? '') . (!empty($parsed['phone']) ? ' | ' . $parsed['phone'] : ''));
 
         $tierInstruction = match($tier) {
+            'elite'  => "This is an ELITE resume. Preserve all strong bullets verbatim. Only add missing ATS keywords to skills and lightly adjust weak summary text if it exists.",
             'strong' => "This is a STRONG resume. ONLY rewrite sections marked [WEAK — REWRITE]. Copy [LOCKED] sections VERBATIM.",
             'average'=> "This is an AVERAGE resume. Rewrite sections marked [WEAK] with stronger language. Keep [LOCKED] sections exactly.",
             'weak'   => "This is a WEAK resume. Improve all [WEAK] sections significantly. Keep any [LOCKED] sections exactly.",
@@ -447,6 +477,12 @@ PROMPT;
 
     public function preservationAwareRuleRewrite(array $parsed, array $jd, array $weakness, array $lockedSections = [], bool $preservationMode = false): string
     {
+        Log::warning('[RULE_ENGINE_USED]', [
+            'reason' => 'manual_rule_rewrite_path_invoked',
+            'preservation_mode' => $preservationMode,
+            'locked_sections' => $lockedSections,
+        ]);
+
         $name    = strtoupper($parsed['name'] ?? 'CANDIDATE');
         $contact = $parsed['contact'] ?? '';
         $skills  = $parsed['skills'] ?? [];
@@ -616,10 +652,14 @@ PROMPT;
             return ["Invalid JSON format or corrupted AI response structure"];
         }
 
-        foreach (['summary', 'experience', 'education', 'skills'] as $section) {
+        foreach (['summary', 'skills'] as $section) {
             if (empty($decoded[$section])) {
                 $issues[] = "Missing or empty section: {$section}";
             }
+        }
+
+        if (empty($decoded['experience']) && empty($decoded['projects']) && empty($decoded['education'])) {
+            $issues[] = 'Missing resume body sections: expected experience, projects, or education';
         }
 
         if (!empty($decoded['experience']) && is_array($decoded['experience'])) {

@@ -37,11 +37,15 @@ return [
 
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_RESUME_MODEL', 'gpt-5.1'),
+        'endpoint' => env('OPENAI_RESUME_ENDPOINT', 'https://api.openai.com/v1/responses'),
     ],
 
     // Claude (Anthropic) — primary AI rewrite engine
     'anthropic' => [
         'api_key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('ANTHROPIC_RESUME_MODEL', 'claude-3-5-sonnet-latest'),
+        'endpoint' => env('ANTHROPIC_RESUME_ENDPOINT', 'https://api.anthropic.com/v1/messages'),
     ],
 
     // Alias for backward compatibility
@@ -52,12 +56,19 @@ return [
     // LaTeXLite — PDF compilation from LaTeX source
     'latexlite' => [
         'api_key' => env('LATEXLITE_API_KEY'),
-        'url'     => 'https://api.latexlite.com/compile',
+        'url'     => env('LATEXLITE_API_URL', 'https://latexlite.com/v1/renders-sync'),
     ],
 
     // OpenRouter — third-tier AI fallback (DeepSeek V4 Flash — free tier)
     'openrouter' => [
         'api_key' => env('OPENROUTER_API_KEY'),
+        'model' => env('OPENROUTER_RESUME_MODEL', 'deepseek/deepseek-chat'),
+        'endpoint' => env('OPENROUTER_RESUME_ENDPOINT', 'https://openrouter.ai/api/v1/chat/completions'),
+    ],
+
+    'resume_optimizer' => [
+        'min_score_delta' => (int) env('RESUME_OPTIMIZER_MIN_SCORE_DELTA', 1),
+        'min_text_delta' => (float) env('RESUME_OPTIMIZER_MIN_TEXT_DELTA', 0.08),
     ],
 
     // Resume Intelligence API — secures n8n integration endpoints

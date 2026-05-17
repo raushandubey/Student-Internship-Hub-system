@@ -15,6 +15,10 @@ class LatexTemplateEngine
 {
     private const LATEX_API_URL = 'https://latexlite.com/v1/renders-sync';
 
+    public function __construct(
+        private ?PdfBinaryValidator $pdfValidator = null,
+    ) {}
+
     /**
      * Generate PDF from parsed AI data using strict LaTeX layout.
      */
@@ -28,22 +32,47 @@ class LatexTemplateEngine
         }
 
         try {
-            $apiKey = config('services.latexlite.key', env('LATEXLITE_API_KEY', ''));
+            $apiKey = (string) config('services.latexlite.api_key', '');
+            $apiUrl = (string) config('services.latexlite.url', self::LATEX_API_URL);
+
+            if ($apiKey === '') {
+                Log::warning('LatexTemplate: LaTeXLite API key missing');
+                return null;
+            }
             
             // Dispatch to enterprise compilation API
+            Log::info('[LATEX_REQUEST_SENT]', [
+                'endpoint_host' => parse_url($apiUrl, PHP_URL_HOST),
+                'tex_size' => strlen($tex),
+            ]);
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type'  => 'application/json',
-            ])->timeout(45)->post(self::LATEX_API_URL, [
+            ])->timeout(45)->post($apiUrl, [
                 'template' => $tex
+            ]);
+
+            Log::info('[LATEX_RESPONSE_RECEIVED]', [
+                'status' => $response->status(),
+                'body_size' => strlen($response->body()),
             ]);
 
             if ($response->successful()) {
                 $pdfBinary = $response->body();
-                if (str_starts_with(trim($pdfBinary), '%PDF-')) {
+                $validation = $this->validator()->validate($pdfBinary);
+
+                if ($validation['valid']) {
+                    Log::info('[LATEX_BINARY_VALID]', $validation);
+                    Log::info('[PDF_MAGIC_BYTES_VALID]', [
+                        'source' => 'latexlite',
+                        'size' => $validation['size'],
+                    ]);
+
                     return $pdfBinary;
                 }
-                Log::error('LatexTemplate: API returned invalid PDF binary (missing magic bytes)');
+
+                Log::error('LatexTemplate: API returned invalid PDF binary', $validation);
             }
             
             Log::error('LatexTemplate: Compilation API failed', ['status' => $response->status(), 'error' => $response->body()]);
@@ -52,6 +81,11 @@ class LatexTemplateEngine
         }
 
         return null;
+    }
+
+    private function validator(): PdfBinaryValidator
+    {
+        return $this->pdfValidator ??= app(PdfBinaryValidator::class);
     }
 
     /**

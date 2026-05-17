@@ -42,6 +42,13 @@ Artisan::command('app:run-jobs-sync', function () {
     $this->info('Done! Check storage/logs/laravel.log for results.');
 })->purpose('Run all scheduled jobs synchronously (for demo)');
 
+Artisan::command('ai:debug {--no-probe : Report config only without outbound provider probes}', function () {
+    $diagnostics = app(\App\Services\Resume\AiProductionDiagnosticsService::class)
+        ->run(!$this->option('no-probe'));
+
+    $this->line(json_encode($diagnostics, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+})->purpose('Run redacted AI and PDF production diagnostics');
+
 /**
  * Scheduled Jobs Configuration
  * 

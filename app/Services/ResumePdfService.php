@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Internship;
 use App\Models\ResumeVersion;
 use App\Models\User;
+use App\Services\Resume\PdfBinaryValidator;
 use App\Services\Resume\ResumeParserEngine;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
@@ -21,6 +22,7 @@ class ResumePdfService
     public function __construct(
         private readonly ResumeParserEngine $parser,
         private readonly \App\Services\Resume\LatexTemplateEngine $latexEngine,
+        private readonly PdfBinaryValidator $pdfValidator,
     ) {}
 
     /* ------------------------------------------------------------------ */
@@ -53,15 +55,32 @@ class ResumePdfService
         $pdfBinary = $this->latexEngine->generatePdf($data);
 
         if ($pdfBinary) {
-            Log::info('ResumePdf: LaTeX PDF generated successfully', [
-                'user_id'       => $user->id,
-                'internship_id' => $internship->id,
-                'version_id'    => $version->id,
-            ]);
+            $validation = $this->pdfValidator->validate($pdfBinary);
 
-            return response($pdfBinary)
-                ->header('Content-Type', 'application/pdf')
-                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+            if (!$validation['valid']) {
+                Log::error('ResumePdf: LaTeX PDF failed final validation', $validation + [
+                    'user_id' => $user->id,
+                    'internship_id' => $internship->id,
+                    'version_id' => $version->id,
+                ]);
+            } else {
+                Log::info('[PDF_MAGIC_BYTES_VALID]', [
+                    'source' => 'latexlite_final',
+                    'size' => $validation['size'],
+                ]);
+                Log::info('[PDF_RENDER_SUCCESS]', [
+                    'source' => 'latexlite',
+                    'user_id'       => $user->id,
+                    'internship_id' => $internship->id,
+                    'version_id'    => $version->id,
+                ]);
+                Log::info('[PDF_VALID]', $validation + [
+                    'source' => 'latexlite',
+                ]);
+
+                return $this->binaryPdfResponse($pdfBinary, $filename);
+            }
+
         }
 
         // ── DomPDF Rendering (Safe Fallback) ──────────────────────────
@@ -78,7 +97,60 @@ class ResumePdfService
             ->setOption('fontHeightRatio', 1.1)
             ->setOption('chroot', base_path());
 
-        return $pdf->download($filename);
+        $domPdfBinary = $pdf->output();
+        $validation = $this->pdfValidator->validate($domPdfBinary);
+
+        if (!$validation['valid']) {
+            Log::error('ResumePdf: DomPDF fallback returned invalid PDF', $validation + [
+                'user_id' => $user->id,
+                'internship_id' => $internship->id,
+                'version_id' => $version->id,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'stage_failed' => 'PDF_BINARY_VALIDATION_FAILED',
+                'error' => 'PDF renderer returned invalid output. Please try again later.',
+                'validation' => $validation,
+            ], 502);
+        }
+
+        Log::info('[PDF_RENDER_SUCCESS]', [
+            'source' => 'dompdf',
+            'user_id'       => $user->id,
+            'internship_id' => $internship->id,
+            'version_id'    => $version->id,
+        ]);
+        Log::info('[PDF_VALID]', $validation + ['source' => 'dompdf']);
+        Log::info('[PDF_MAGIC_BYTES_VALID]', [
+            'source' => 'dompdf',
+            'size' => $validation['size'],
+        ]);
+
+        return $this->binaryPdfResponse($domPdfBinary, $filename);
+    }
+
+    private function binaryPdfResponse(string $pdfBinary, string $filename): Response
+    {
+        if (PHP_SAPI !== 'cli') {
+            while (ob_get_level() > 0) {
+                @ob_end_clean();
+            }
+        }
+
+        Log::info('[DOWNLOAD_READY]', [
+            'filename' => $filename,
+            'content_type' => 'application/pdf',
+            'size' => strlen($pdfBinary),
+            'first_bytes' => substr($pdfBinary, 0, 5),
+        ]);
+
+        return response($pdfBinary, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Length' => (string) strlen($pdfBinary),
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /* ------------------------------------------------------------------ */

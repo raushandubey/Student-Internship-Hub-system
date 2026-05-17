@@ -12,6 +12,7 @@ use App\Services\Resume\AtsScoreEngine;
 use App\Services\Resume\JobDescriptionAnalyzer;
 use App\Services\Resume\ResumeParserEngine;
 use App\Services\Resume\ResumeQualityDetector;
+use App\Services\Resume\ResumeOptimizationQualityGate;
 use App\Services\Resume\WeaknessDetectionEngine;
 use App\Support\ResumeStoragePaths;
 use Illuminate\Support\Facades\Http;
@@ -42,6 +43,7 @@ class ResumeOptimizationService
         private readonly WeaknessDetectionEngine $weaknessEngine,
         private readonly AtsScoreEngine          $scoreEngine,
         private readonly AiRewriteEngine         $rewriteEngine,
+        private readonly ResumeOptimizationQualityGate $qualityGate,
     ) {}
 
     /* ------------------------------------------------------------------ */
@@ -75,6 +77,11 @@ class ResumeOptimizationService
                 $parsedResume = $this->parser->parse($absolutePath);
             }
             Log::info('[Pipeline] Stage 1 COMPLETE: Resume Parsed', ['text_length' => strlen($parsedResume['raw_text'] ?? '')]);
+            Log::info('[PDF_PARSE_SUCCESS]', [
+                'user_id' => $user->id,
+                'internship_id' => $internship->id,
+                'text_length' => strlen($parsedResume['raw_text'] ?? ''),
+            ]);
 
             if (!empty($parsedResume['parse_error']) && empty(trim($parsedResume['raw_text']))) {
                 Log::error('[Pipeline] Stage 1 FAIL: Parser error', [
@@ -192,6 +199,13 @@ class ResumeOptimizationService
                 return ['success' => false, 'error' => 'Unable to read your resume PDF. Please ensure it is a valid, non-encrypted PDF.'];
             }
 
+            Log::info('[PDF_PARSE_SUCCESS]', [
+                'user_id' => $user->id,
+                'internship_id' => $internship->id,
+                'text_length' => strlen($parsedResume['raw_text'] ?? ''),
+                'pipeline' => 'rewrite',
+            ]);
+
             $jdAnalysis     = $this->jdAnalyzer->analyze($internship);
             $qualityReport  = $this->qualityDetector->detect($parsedResume);
             $weaknessReport = $this->weaknessEngine->detect($parsedResume, $jdAnalysis);
@@ -202,77 +216,131 @@ class ResumeOptimizationService
                 'quality_tier' => $qualityReport['tier'],
                 'before_score' => $beforeScore
             ]);
+            Log::info('[ATS_BEFORE]', [
+                'score' => $beforeScore,
+                'skill_match' => $beforeBreakdown['skill_match'] ?? null,
+                'keyword_score' => $beforeBreakdown['keyword_score'] ?? null,
+            ]);
 
             // ── Stage 2: AI Enhancement ──────────────────────────────────
-            Log::info('[Pipeline] Stage 2 START: AI Enhancement Request');
-            $rewriteResult = $this->rewriteEngine->rewrite(
-                $parsedResume,
-                $jdAnalysis,
-                $weaknessReport,
-                $qualityReport
-            );
+            $rewriteResult = null;
+            $rewrittenText = null;
+            $afterParsed = null;
+            $aiScoreData = null;
+            $afterScore = 0;
+            $afterBreakdown = [];
+            $improvements = [];
+            $qualityGate = null;
 
-            if (!$rewriteResult['success']) {
-                Log::warning('[Pipeline] Stage 2 WARNING: AI Rewrite failed, falling back', ['error' => $rewriteResult['error'] ?? 'unknown']);
-                $rewrittenText = $this->rewriteEngine->preservationAwareRuleRewrite(
+            for ($attempt = 1; $attempt <= 2; $attempt++) {
+                Log::info('[Pipeline] Stage 2 START: AI Enhancement Request', ['attempt' => $attempt]);
+
+                $rewriteResult = $this->rewriteEngine->rewrite(
                     $parsedResume,
                     $jdAnalysis,
                     $weaknessReport,
-                    $qualityReport['locked_sections'] ?? [],
-                    $qualityReport['preservation_mode'] ?? false
+                    $qualityReport,
+                    $attempt > 1
                 );
-            } else {
-                Log::info('[Pipeline] Stage 2 COMPLETE: AI Rewrite Success');
+
+                if (!$rewriteResult['success']) {
+                    Log::error('[Pipeline] Stage 2 FAIL: AI Rewrite failed closed', [
+                        'attempt' => $attempt,
+                        'stage_failed' => $rewriteResult['stage_failed'] ?? 'AI_UNAVAILABLE',
+                        'error' => $rewriteResult['error'] ?? 'unknown',
+                    ]);
+
+                    return [
+                        'success' => false,
+                        'stage_failed' => $rewriteResult['stage_failed'] ?? 'AI_UNAVAILABLE',
+                        'error' => 'AI optimization is temporarily unavailable. No fallback resume was created.',
+                        'provider_attempts' => $rewriteResult['attempts'] ?? [],
+                    ];
+                }
+
                 $rewrittenText = $rewriteResult['rewritten_text'];
+                $validationIssues = $this->rewriteEngine->validateOutput($rewrittenText);
+
+                if (!empty($validationIssues)) {
+                    Log::warning('[Pipeline] Stage 3 WARNING: AI output validation failed', [
+                        'attempt' => $attempt,
+                        'issues' => $validationIssues,
+                    ]);
+
+                    if ($attempt === 1) {
+                        continue;
+                    }
+
+                    return [
+                        'success' => false,
+                        'stage_failed' => 'AI_OUTPUT_VALIDATION_FAILED',
+                        'error' => 'AI returned a malformed optimization. No optimized version was created.',
+                        'validation_issues' => $validationIssues,
+                    ];
+                }
+
+                $rewrittenText = $this->rewriteEngine->sanitizeForStorage($rewrittenText);
+                $afterParsed = json_decode($rewrittenText, true);
+
+                if (!is_array($afterParsed)) {
+                    if ($attempt === 1) {
+                        continue;
+                    }
+
+                    return [
+                        'success' => false,
+                        'stage_failed' => 'AI_OUTPUT_JSON_INVALID',
+                        'error' => 'AI optimization could not be converted into structured resume data.',
+                    ];
+                }
+
+                $afterParsed['raw_text'] = $this->qualityGate->canonicalRawText($afterParsed);
+                $rewrittenText = json_encode($afterParsed);
+
+                Log::info('[Pipeline] Stage 4 START: Semantic Scoring', ['attempt' => $attempt]);
+                $aiScoreData    = $this->scoreEngine->evaluateImprovement($parsedResume, $afterParsed, $jdAnalysis);
+                $beforeScore    = $aiScoreData['before_score'];
+                $afterScore     = $aiScoreData['after_score'];
+                $afterBreakdown = $aiScoreData['after_breakdown'];
+                $improvements   = $aiScoreData['improvements'];
+                $qualityGate    = $this->qualityGate->evaluate($parsedResume, $afterParsed, $jdAnalysis, $beforeScore, $afterScore);
+
+                Log::info('[ATS_AFTER]', [
+                    'score' => $afterScore,
+                    'score_delta' => $qualityGate['score_delta'],
+                    'quality_gate_passed' => $qualityGate['passed'],
+                    'attempt' => $attempt,
+                ]);
+
+                if ($qualityGate['passed']) {
+                    Log::info('[Pipeline] Stage 4 COMPLETE: Optimization quality gate passed', [
+                        'after_score' => $afterScore,
+                        'quality_gate' => $qualityGate,
+                    ]);
+                    break;
+                }
+
+                Log::warning('[Pipeline] Stage 4 WARNING: Optimization quality gate failed', [
+                    'attempt' => $attempt,
+                    'quality_gate' => $qualityGate,
+                ]);
             }
 
-            // ── Stage 3: Validation & Sanitization ───────────────────────
-            $validationIssues = $this->rewriteEngine->validateOutput($rewrittenText);
-            if (!empty($validationIssues)) {
-                Log::warning('[Pipeline] Stage 3 WARNING: Validation failed, applying safety net', ['issues' => $validationIssues]);
-                $rewrittenText = $this->rewriteEngine->preservationAwareRuleRewrite(
-                    $parsedResume,
-                    $jdAnalysis,
-                    $weaknessReport,
-                    $qualityReport['locked_sections'] ?? [],
-                    $qualityReport['preservation_mode'] ?? false
-                );
+            if (!$qualityGate || !$qualityGate['passed']) {
+                return [
+                    'success' => false,
+                    'stage_failed' => 'OPTIMIZATION_QUALITY_GATE_FAILED',
+                    'error' => 'AI output did not materially improve ATS alignment. No optimized version was created.',
+                    'quality_gate' => $qualityGate,
+                ];
             }
-
-            $rewrittenText = $this->rewriteEngine->sanitizeForStorage($rewrittenText);
-            Log::info('[Pipeline] Stage 3 COMPLETE: Sanitization Done');
-
-            // ── Stage 4: AI Semantic Scoring ─────────────────────────────
-            Log::info('[Pipeline] Stage 4 START: Semantic Scoring');
-            // rewrittenText may be plain text (rule-based) or JSON (AI rewrite).
-            // Build a minimal parsed array for scoring in either case.
-            $afterParsed = json_decode($rewrittenText, true);
-            if (!is_array($afterParsed)) {
-                // Plain-text fallback: wrap in a minimal structure so evaluateImprovement works
-                $afterParsed = array_merge($parsedResume, ['raw_text' => $rewrittenText]);
-            }
-            
-            $aiScoreData    = $this->scoreEngine->evaluateImprovement($parsedResume, $afterParsed, $jdAnalysis);
-            $beforeScore    = $aiScoreData['before_score'];
-            $afterScore     = $aiScoreData['after_score'];
-            $afterBreakdown = $aiScoreData['after_breakdown'];
-            $improvements   = $aiScoreData['improvements'];
-
-            // Apply ATS Consistency Bounds
-            $afterScore = max($beforeScore, $afterScore);
-            $tier = $qualityReport['tier'];
-            if ($tier === 'weak' && $afterScore > 85) { $afterScore = 80; }
-            elseif ($tier === 'elite' && $afterScore < 85) { $afterScore = max(88, $beforeScore); }
-            elseif ($tier === 'strong' && $afterScore < 75) { $afterScore = max(80, $beforeScore); }
-
-            Log::info('[Pipeline] Stage 4 COMPLETE: Semantic Scoring Success', ['after_score' => $afterScore]);
 
             // ── Stage 5: Persistence ─────────────────────────────────────
+            $this->saveOriginalSnapshot($user->id, $internship->id, $parsedResume['raw_text'], $beforeScore);
+
             $nextVersion = (ResumeVersion::where('user_id', $user->id)
                 ->where('internship_id', $internship->id)
                 ->max('version_number') ?? 0) + 1;
-
-            $this->saveOriginalSnapshot($user->id, $internship->id, $parsedResume['raw_text'], $beforeScore);
 
             $newVersion = ResumeVersion::create([
                 'user_id'           => $user->id,
@@ -310,6 +378,10 @@ class ResumeOptimizationService
                 'improvements'      => $improvements,
                 'version_id'        => $newVersion->id,
                 'ai_disabled'       => !($rewriteResult['ai_used'] ?? false),
+                'ai_used'           => (bool) ($rewriteResult['ai_used'] ?? false),
+                'ai_provider'       => $rewriteResult['provider'] ?? $rewriteResult['engine'] ?? null,
+                'ai_model'          => $rewriteResult['model'] ?? null,
+                'quality_gate'      => $qualityGate,
                 'role_category'     => $jdAnalysis['role_category'],
                 'quality_tier'      => $qualityReport['tier'],
                 'preservation_mode' => $qualityReport['preservation_mode'],
@@ -580,12 +652,12 @@ class ResumeOptimizationService
     private function buildVersionLabel(string $tier, array $rewriteResult): string
     {
         $mode   = $rewriteResult['mode'] ?? 'rule_based';
-        $engine = $rewriteResult['engine'] ?? 'rule-based';
+        $engine = $rewriteResult['provider'] ?? $rewriteResult['engine'] ?? 'ai';
 
         if ($mode === 'keyword_only') return 'Elite Preservation — Keywords Enhanced';
         if ($mode === 'selective')    return 'Selective AI Enhancement — v' . now()->format('H:i');
 
-        return ucfirst($tier) . ' Resume — AI Optimized';
+        return ucfirst($tier) . ' Resume — ' . ucfirst((string) $engine) . ' Optimized';
     }
 
     private function buildImprovementsList(array $before, array $after, array $weakness, array $quality, array $rewriteResult): array
@@ -631,8 +703,9 @@ class ResumeOptimizationService
         }
 
         $engine = $rewriteResult['engine'] ?? null;
-        if ($engine === 'claude')  $list[] = "+ Optimized by Claude AI with surgical precision";
-        if ($engine === 'openai')  $list[] = "+ Optimized by GPT-4 for ATS compatibility";
+        if ($engine === 'anthropic') $list[] = "+ Optimized by Anthropic with surgical precision";
+        if ($engine === 'openai')    $list[] = "+ Optimized by OpenAI for ATS compatibility";
+        if ($engine === 'openrouter') $list[] = "+ Optimized by OpenRouter fallback provider";
 
         return $list;
     }
@@ -665,19 +738,19 @@ class ResumeOptimizationService
             'dependencies' => [],
         ];
 
-        // 1. Check n8n Webhook
-        $n8nUrl = config('services.n8n.webhook_url');
-        $n8nKey = config('services.resume_intelligence.api_key');
-        
-        $health['dependencies']['n8n'] = [
-            'status' => !empty($n8nUrl) ? 'configured' : 'missing',
-            'endpoint' => $n8nUrl ? parse_url($n8nUrl, PHP_URL_HOST) : null,
-            'key_present' => !empty($n8nKey),
-        ];
+        foreach (['openai', 'anthropic', 'openrouter'] as $provider) {
+            $endpoint = config("services.{$provider}.endpoint");
+            $health['dependencies'][$provider] = [
+                'status' => filled(config("services.{$provider}.api_key")) ? 'configured' : 'missing',
+                'endpoint' => $endpoint ? parse_url($endpoint, PHP_URL_HOST) : null,
+                'key_present' => filled(config("services.{$provider}.api_key")),
+                'model' => config("services.{$provider}.model"),
+            ];
+        }
 
-        // 2. Check LaTeX Rendering
-        $latexUrl = config('services.latex_lite.api_url');
-        $latexKey = config('services.latex_lite.api_key');
+        // Check LaTeX Rendering
+        $latexUrl = config('services.latexlite.url');
+        $latexKey = config('services.latexlite.api_key');
         
         $health['dependencies']['latex_render'] = [
             'status' => !empty($latexUrl) ? 'configured' : 'missing',

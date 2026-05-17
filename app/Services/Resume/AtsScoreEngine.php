@@ -56,58 +56,69 @@ class AtsScoreEngine
         'led','managed','spearheaded','mentored',
     ];
 
+    public function __construct(
+        private ?AiProviderGateway $aiGateway = null,
+    ) {}
+
     /* ------------------------------------------------------------------ */
     /*  Public API                                                          */
     /* ------------------------------------------------------------------ */
 
     public function evaluateImprovement(array $originalResume, array $optimizedResume, array $jdAnalysis): array
     {
-        $webhookUrl = config('services.n8n.webhook_url');
-        $webhookKey = config('services.resume_intelligence.api_key');
-
         $fallbackBefore = $this->ruleBasedScore($originalResume, $jdAnalysis);
         $fallbackAfter  = $this->ruleBasedScore($optimizedResume, $jdAnalysis);
 
-        if (!empty($webhookUrl)) {
-            try {
-                \Illuminate\Support\Facades\Log::info('AtsScore: Dispatching to AI Semantic Evaluator');
-                $response = \Illuminate\Support\Facades\Http::withHeaders([
-                    'X-Resume-Intelligence-Key' => $webhookKey,
-                    'Content-Type'              => 'application/json',
-                ])->timeout(60)->post($webhookUrl, [
-                    'system_prompt' => $this->buildAiSystemPrompt(),
-                    'user_prompt'   => json_encode([
-                        'job_description'  => [
-                            'role'              => $jdAnalysis['role_category'] ?? '',
-                            'required_skills'   => $jdAnalysis['required_skills'] ?? [],
-                            'recruiter_focus'   => $jdAnalysis['recruiter_terms'] ?? [],
-                            'semantic_clusters' => $jdAnalysis['semantic_clusters'] ?? [],
-                        ],
-                        'original_resume'  => $originalResume['raw_text'] ?? '',
-                        'optimized_resume' => $optimizedResume['raw_text'] ?? '',
-                    ]),
+        \Illuminate\Support\Facades\Log::info('[ATS_BEFORE]', [
+            'score' => $fallbackBefore['overall_score'],
+            'skill_match' => $fallbackBefore['skill_match'],
+            'keyword_score' => $fallbackBefore['keyword_score'],
+        ]);
+
+        $gatewayResult = $this->gateway()->complete(
+            'ats_scoring',
+            $this->buildAiSystemPrompt(),
+            json_encode([
+                'job_description' => [
+                    'role' => $jdAnalysis['role_category'] ?? '',
+                    'required_skills' => $jdAnalysis['required_skills'] ?? [],
+                    'recruiter_focus' => $jdAnalysis['recruiter_terms'] ?? [],
+                    'semantic_clusters' => $jdAnalysis['semantic_clusters'] ?? [],
+                ],
+                'original_resume' => $originalResume['raw_text'] ?? '',
+                'optimized_resume' => $optimizedResume['raw_text'] ?? '',
+            ])
+        );
+
+        if (($gatewayResult['success'] ?? false) === true) {
+            $aiData = $this->safeJsonDecode($gatewayResult['content'] ?? '');
+            if ($aiData) {
+                $result = $this->parseAiScoreReport($aiData, $fallbackBefore, $fallbackAfter);
+                $result['ai_used'] = true;
+                $result['provider'] = $gatewayResult['provider'] ?? null;
+                $result['model'] = $gatewayResult['model'] ?? null;
+
+                \Illuminate\Support\Facades\Log::info('[ATS_AFTER]', [
+                    'score' => $result['after_score'],
+                    'provider' => $result['provider'],
+                    'model' => $result['model'],
                 ]);
 
-                if ($response->successful()) {
-                    $json = $response->json();
-                    if (($json['success'] ?? false) && !empty($json['data'])) {
-                        $aiData = $this->safeJsonDecode($json['data']);
-                        if ($aiData) {
-                            \Illuminate\Support\Facades\Log::info('AtsScore: AI Analysis success');
-                            return $this->parseAiScoreReport($aiData, $fallbackBefore, $fallbackAfter);
-                        }
-                    }
-                }
-                \Illuminate\Support\Facades\Log::error('AtsScore: AI Analysis failure', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('AtsScore: AI Analysis exception', ['error' => $e->getMessage()]);
+                return $result;
             }
+
+            \Illuminate\Support\Facades\Log::error('AtsScore: AI Analysis returned invalid JSON', [
+                'provider' => $gatewayResult['provider'] ?? 'unknown',
+                'model' => $gatewayResult['model'] ?? null,
+            ]);
         }
 
         \Illuminate\Support\Facades\Log::warning('AtsScore: Falling back to rule-based evaluation');
+        \Illuminate\Support\Facades\Log::info('[ATS_AFTER]', [
+            'score' => $fallbackAfter['overall_score'],
+            'fallback_used' => true,
+        ]);
+
         return [
             'before_score'   => $fallbackBefore['overall_score'],
             'after_score'    => $fallbackAfter['overall_score'],
@@ -116,6 +127,9 @@ class AtsScoreEngine
                 "Enhanced technical phrasing and structure.",
                 "Improved ATS readability and keyword coverage."
             ],
+            'ai_used' => false,
+            'fallback_used' => true,
+            'attempts' => $gatewayResult['attempts'] ?? [],
         ];
     }
 
@@ -526,5 +540,9 @@ PROMPT;
         ];
         return $map[$role] ?? [];
     }
-}
 
+    private function gateway(): AiProviderGateway
+    {
+        return $this->aiGateway ??= app(AiProviderGateway::class);
+    }
+}

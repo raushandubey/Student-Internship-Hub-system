@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AdminAuditLogController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminInternshipController;
 use App\Http\Controllers\Admin\AdminApplicationController;
+use App\Http\Controllers\Admin\AiDiagnosticsController;
 use App\Http\Controllers\Admin\AdminRecruiterAnalyticsController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminRecruiterController;
@@ -19,6 +20,10 @@ use Illuminate\Support\Facades\Route;
 | Only users with role='admin' can access these routes
 |
 */
+
+Route::middleware(['auth', 'admin'])
+    ->get('/debug-ai', [AiDiagnosticsController::class, 'debug'])
+    ->name('debug-ai');
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     
@@ -72,6 +77,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     // Audit Logs (Task 14.3)
     Route::get('audit-logs', [AdminAuditLogController::class, 'index'])->name('audit-logs.index');
+
+    // Temporary production AI/PDF diagnostics. Redacts secrets and requires admin auth.
+    Route::get('debug-ai', [AiDiagnosticsController::class, 'debug'])->name('debug-ai');
 
     // Internship deactivation (Task 14.4)
     Route::post('internships/{internship}/deactivate', [AdminInternshipController::class, 'deactivateRecruiterInternship'])->name('internships.deactivate');

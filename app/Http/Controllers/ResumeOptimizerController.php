@@ -7,7 +7,6 @@ use App\Services\ResumeOptimizationService;
 use App\Services\ResumePdfService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
@@ -117,6 +116,10 @@ class ResumeOptimizerController extends Controller
                     'version_id'        => $result['version_id'],
                     'rewritten_text'    => $result['rewritten_text'],
                     'ai_disabled'       => $result['ai_disabled'] ?? false,
+                    'ai_used'           => $result['ai_used'] ?? false,
+                    'ai_provider'       => $result['ai_provider'] ?? null,
+                    'ai_model'          => $result['ai_model'] ?? null,
+                    'quality_gate'      => $result['quality_gate'] ?? null,
                     'role_category'     => $result['role_category'] ?? 'general',
                     'quality_tier'      => $result['quality_tier'] ?? 'unknown',
                     'preservation_mode' => $result['preservation_mode'] ?? false,
@@ -164,7 +167,7 @@ class ResumeOptimizerController extends Controller
     /*  PDF Download Endpoint                                               */
     /* ------------------------------------------------------------------ */
 
-    public function downloadPdf(Request $request, Internship $internship): Response
+    public function downloadPdf(Request $request, Internship $internship)
     {
         try {
             $user      = Auth::user();
