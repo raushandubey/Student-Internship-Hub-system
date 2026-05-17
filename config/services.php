@@ -37,8 +37,8 @@ return [
 
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
-        'model' => env('OPENAI_RESUME_MODEL', 'gpt-5.1'),
-        'endpoint' => env('OPENAI_RESUME_ENDPOINT', 'https://api.openai.com/v1/responses'),
+        'model' => env('OPENAI_RESUME_MODEL', 'gpt-4o-mini'),
+        'endpoint' => env('OPENAI_RESUME_ENDPOINT', 'https://api.openai.com/v1/chat/completions'),
     ],
 
     // Claude (Anthropic) — primary AI rewrite engine

@@ -253,7 +253,7 @@ class ResumeOptimizationService
                     return [
                         'success' => false,
                         'stage_failed' => $rewriteResult['stage_failed'] ?? 'AI_UNAVAILABLE',
-                        'error' => 'AI optimization is temporarily unavailable. No fallback resume was created.',
+                        'error' => 'Unable to optimize your resume right now. Please try again later or contact support.',
                         'provider_attempts' => $rewriteResult['attempts'] ?? [],
                     ];
                 }

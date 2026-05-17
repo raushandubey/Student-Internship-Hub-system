@@ -8,8 +8,8 @@ beforeEach(function () {
     Config::set('services.openai.api_key', null);
     Config::set('services.anthropic.api_key', null);
     Config::set('services.openrouter.api_key', null);
-    Config::set('services.openai.model', 'gpt-5.1');
-    Config::set('services.openai.endpoint', 'https://api.openai.com/v1/responses');
+    Config::set('services.openai.model', 'gpt-4o-mini');
+    Config::set('services.openai.endpoint', 'https://api.openai.com/v1/chat/completions');
     Config::set('services.anthropic.model', 'claude-test');
     Config::set('services.anthropic.endpoint', 'https://api.anthropic.com/v1/messages');
     Config::set('services.openrouter.model', 'test/openrouter');
@@ -41,7 +41,7 @@ test('openai success returns provider metadata', function () {
 
     expect($result['success'])->toBeTrue()
         ->and($result['provider'])->toBe('openai')
-        ->and($result['model'])->toBe('gpt-5.1')
+        ->and($result['model'])->toBe('gpt-4o-mini')
         ->and($result['tokens']['total'])->toBe(30);
 });
 

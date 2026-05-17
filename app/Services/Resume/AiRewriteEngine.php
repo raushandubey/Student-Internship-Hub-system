@@ -59,6 +59,18 @@ class AiRewriteEngine
         ]);
 
         if (!($gatewayResult['success'] ?? false)) {
+            $fallback = $this->structuredRuleBasedRewrite(
+                $parsedResume,
+                $jdAnalysis,
+                $weaknessReport,
+                $qualityReport,
+                'ai_providers_unavailable'
+            );
+
+            if ($fallback !== null) {
+                return $fallback + ['attempts' => $gatewayResult['attempts'] ?? []];
+            }
+
             return [
                 'success' => false,
                 'error' => $gatewayResult['error'] ?? 'AI providers unavailable.',
@@ -71,6 +83,18 @@ class AiRewriteEngine
         $resultText = $this->normalizeAiOutput($gatewayResult['content'] ?? '', $parsedResume, $gatewayResult);
 
         if ($resultText === null) {
+            $fallback = $this->structuredRuleBasedRewrite(
+                $parsedResume,
+                $jdAnalysis,
+                $weaknessReport,
+                $qualityReport,
+                'ai_output_invalid'
+            );
+
+            if ($fallback !== null) {
+                return $fallback + ['attempts' => $gatewayResult['attempts'] ?? []];
+            }
+
             return [
                 'success' => false,
                 'error' => 'AI provider returned invalid or unusable rewrite JSON.',
@@ -469,6 +493,119 @@ PROMPT;
         elseif ($wc < 5) $score -= 15;
 
         return max(0, min(100, $score));
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  Structured Rule-Based Fallback (no AI)                              */
+    /* ------------------------------------------------------------------ */
+
+    public function structuredRuleBasedRewrite(
+        array $parsed,
+        array $jd,
+        array $weakness,
+        array $qualityReport = [],
+        string $reason = 'ai_providers_unavailable'
+    ): ?array {
+        $lockedSections   = $qualityReport['locked_sections'] ?? [];
+        $preservationMode = (bool) ($qualityReport['preservation_mode'] ?? false);
+        $tier             = $qualityReport['tier'] ?? 'average';
+
+        if ($tier === 'elite') {
+            $preservationMode = true;
+        }
+
+        Log::warning('[RULE_ENGINE_USED]', [
+            'reason' => $reason,
+            'preservation_mode' => $preservationMode,
+            'locked_sections' => $lockedSections,
+        ]);
+
+        $optimized = json_decode(json_encode($parsed), true);
+        if (!is_array($optimized)) {
+            return null;
+        }
+
+        $skills = is_array($optimized['skills'] ?? null) ? $optimized['skills'] : [];
+        $missing = array_slice($weakness['missing_skills'] ?? [], 0, 5);
+        $optimized['skills'] = array_values(array_unique(array_merge($skills, $missing)));
+
+        $summaryLocked = in_array('summary', $lockedSections, true);
+        if (!$summaryLocked && ($weakness['summary_weak'] ?? false)) {
+            $jobTitle  = $jd['job_title'] ?? 'the position';
+            $org       = $jd['organization'] ?? '';
+            $topSkills = implode(', ', array_slice($jd['required_skills'] ?? [], 0, 3));
+            $optimized['summary'] = "Results-driven software engineer targeting the {$jobTitle} role"
+                . ($org ? " at {$org}" : '') . '. '
+                . ($topSkills ? "Skilled in {$topSkills}. " : '')
+                . 'Experienced in building scalable, production-grade systems with measurable impact.';
+        }
+
+        if (!in_array('experience', $lockedSections, true) && !empty($optimized['experience']) && is_array($optimized['experience'])) {
+            foreach ($optimized['experience'] as $i => $exp) {
+                if (!is_array($exp) || empty($exp['bullets']) || !is_array($exp['bullets'])) {
+                    continue;
+                }
+
+                foreach ($exp['bullets'] as $j => $bullet) {
+                    if (!is_string($bullet) || trim($bullet) === '') {
+                        continue;
+                    }
+
+                    $bulletScore = $this->scoreBulletQuality($bullet);
+                    if ($preservationMode || $bulletScore >= 70) {
+                        continue;
+                    }
+
+                    $optimized['experience'][$i]['bullets'][$j] = $this->enhanceBullet($bullet);
+                }
+            }
+        }
+
+        if (!in_array('projects', $lockedSections, true) && !empty($optimized['projects']) && is_array($optimized['projects'])) {
+            foreach ($optimized['projects'] as $i => $proj) {
+                if (!is_array($proj) || empty($proj['bullets']) || !is_array($proj['bullets'])) {
+                    continue;
+                }
+
+                foreach ($proj['bullets'] as $j => $bullet) {
+                    if (!is_string($bullet) || trim($bullet) === '') {
+                        continue;
+                    }
+
+                    $bulletScore = $this->scoreBulletQuality($bullet);
+                    if ($preservationMode || $bulletScore >= 70) {
+                        continue;
+                    }
+
+                    $optimized['projects'][$i]['bullets'][$j] = $this->enhanceBullet($bullet);
+                }
+            }
+        }
+
+        $optimized['raw_text'] = $this->qualityGate()->canonicalRawText($optimized);
+        $optimized['optimization_meta'] = [
+            'ai_used' => false,
+            'provider' => 'rule_engine',
+            'model' => null,
+            'generated_at' => now()->toISOString(),
+            'fallback_reason' => $reason,
+        ];
+
+        $encoded = json_encode($optimized);
+        if ($encoded === false || !empty($this->validateOutput($encoded))) {
+            return null;
+        }
+
+        return [
+            'success'        => true,
+            'rewritten_text' => $encoded,
+            'ai_used'        => false,
+            'engine'         => 'rule_engine',
+            'provider'       => 'rule_engine',
+            'model'          => null,
+            'mode'           => 'rule_based',
+            'tokens'         => [],
+        ];
     }
 
     /* ------------------------------------------------------------------ */

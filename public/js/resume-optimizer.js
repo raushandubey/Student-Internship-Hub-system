@@ -306,6 +306,15 @@ window.ResumeOptimizer = (function () {
     function _renderComparison(internshipId, d) {
         show('rom-comparison-' + internshipId);
 
+        const ruleFallback = el('rom-rule-fallback-' + internshipId);
+        if (ruleFallback) {
+            if (d.ai_disabled) {
+                ruleFallback.classList.remove('hidden');
+            } else {
+                ruleFallback.classList.add('hidden');
+            }
+        }
+
         // Before / After scores
         const beforeEl = el('rom-before-score-' + internshipId);
         const afterEl = el('rom-after-score-' + internshipId);

@@ -167,8 +167,8 @@ class AiProviderGateway
                 'name' => 'openai',
                 'api_key' => (string) config('services.openai.api_key', ''),
                 'key_present' => filled(config('services.openai.api_key')),
-                'model' => (string) config('services.openai.model', 'gpt-5.1'),
-                'endpoint' => (string) config('services.openai.endpoint', 'https://api.openai.com/v1/responses'),
+                'model' => (string) config('services.openai.model', 'gpt-4o-mini'),
+                'endpoint' => (string) config('services.openai.endpoint', 'https://api.openai.com/v1/chat/completions'),
             ],
             [
                 'name' => 'anthropic',

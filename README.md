@@ -121,13 +121,31 @@ DB_USERNAME=root
 DB_PASSWORD=your_password
 ```
 
-### 5. Configure OpenAI API (Optional - for AI Candidate Summaries)
-Add your OpenAI API key to `.env`:
+### 5. Configure AI APIs (Resume Optimizer + Admin Summaries)
+
+The **AI Resume Optimizer** rewrite step uses a provider chain (OpenAI → Anthropic → OpenRouter). Without any key, the app falls back to a **rule-based optimizer** (still produces an optimized resume, but without full AI rewriting).
+
+For the best optimization quality, set **at least one** key in `.env`:
+
 ```env
+# Recommended: OpenRouter free-tier models
+OPENROUTER_API_KEY=your_openrouter_key_here
+OPENROUTER_RESUME_MODEL=deepseek/deepseek-chat
+
+# Or OpenAI
 OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_RESUME_MODEL=gpt-4o-mini
+OPENAI_RESUME_ENDPOINT=https://api.openai.com/v1/chat/completions
+
+# Or Anthropic
+ANTHROPIC_API_KEY=your_anthropic_key_here
 ```
 
-**Note:** The Admin Profile Viewer feature includes AI-powered candidate summaries. If the API key is not configured, the feature will gracefully degrade and show profiles without AI summaries.
+**Production (Laravel Cloud):** add the same variables in Environment Variables, then run `php artisan config:clear && php artisan config:cache`.
+
+**Verify:** `GET /resume-optimizer/health` (logged in) or `php artisan ai:debug` on the server.
+
+**Note:** Admin Profile Viewer candidate summaries also use `OPENAI_API_KEY` when configured; otherwise summaries are skipped.
 
 ### 6. Run Migrations
 ```bash
