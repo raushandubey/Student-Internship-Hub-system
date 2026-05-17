@@ -122,3 +122,32 @@ test('rule-based fallback runs when all ai providers are unavailable', function 
         ->and($decoded['summary'])->toContain('Backend Engineer')
         ->and($decoded['experience'][0]['bullets'][0])->toStartWith('Developed');
 });
+
+test('rule-based fallback succeeds when parsed resume has sparse sections', function () {
+    $gateway = new class extends AiProviderGateway {
+        public function complete(string $purpose, string $systemPrompt, string $userPrompt, array $metadata = []): array
+        {
+            return ['success' => false, 'error' => 'no keys', 'attempts' => []];
+        }
+    };
+
+    $engine = new AiRewriteEngine($gateway, app(ResumeOptimizationQualityGate::class));
+
+    $result = $engine->rewrite(
+        [
+            'summary' => '',
+            'skills' => [],
+            'experience' => [],
+            'projects' => [],
+            'education' => [],
+            'raw_text' => "JOHN DOE\n- Worked on REST APIs for internal dashboards\n- Helped deploy services to cloud hosting\nB.Tech Computer Science 2025",
+        ],
+        ['required_skills' => ['Laravel', 'AWS'], 'job_title' => 'SDE Intern'],
+        ['missing_skills' => ['Laravel', 'AWS']],
+        ['tier' => 'average', 'locked_sections' => []]
+    );
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['ai_used'])->toBeFalse()
+        ->and(json_decode($result['rewritten_text'], true)['skills'])->not->toBeEmpty();
+});

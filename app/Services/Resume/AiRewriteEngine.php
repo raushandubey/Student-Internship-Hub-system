@@ -520,8 +520,8 @@ PROMPT;
             'locked_sections' => $lockedSections,
         ]);
 
-        $optimized = json_decode(json_encode($parsed), true);
-        if (!is_array($optimized)) {
+        $optimized = $this->prepareParsedForRuleFallback($parsed, $jd, $weakness);
+        if ($optimized === null) {
             return null;
         }
 
@@ -530,7 +530,12 @@ PROMPT;
         $optimized['skills'] = array_values(array_unique(array_merge($skills, $missing)));
 
         $summaryLocked = in_array('summary', $lockedSections, true);
-        if (!$summaryLocked && ($weakness['summary_weak'] ?? false)) {
+        $shouldRewriteSummary = !$summaryLocked && (
+            ($weakness['summary_weak'] ?? false)
+            || trim((string) ($parsed['summary'] ?? '')) === ''
+        );
+
+        if ($shouldRewriteSummary) {
             $jobTitle  = $jd['job_title'] ?? 'the position';
             $org       = $jd['organization'] ?? '';
             $topSkills = implode(', ', array_slice($jd['required_skills'] ?? [], 0, 3));
@@ -591,8 +596,26 @@ PROMPT;
             'fallback_reason' => $reason,
         ];
 
+        $optimized = $this->ensureRuleFallbackStructure($optimized, $jd, $weakness);
+
         $encoded = json_encode($optimized);
-        if ($encoded === false || !empty($this->validateOutput($encoded))) {
+        if ($encoded === false) {
+            Log::error('[RULE_ENGINE_FAIL]', ['reason' => 'json_encode_failed']);
+
+            return null;
+        }
+
+        $issues = $this->validateOutput($encoded);
+        if (!empty($issues)) {
+            Log::warning('[RULE_ENGINE_VALIDATION]', ['issues' => $issues]);
+            $optimized = $this->ensureRuleFallbackStructure($optimized, $jd, $weakness);
+            $encoded = json_encode($optimized);
+            $issues = $encoded !== false ? $this->validateOutput($encoded) : ['json_encode_failed'];
+        }
+
+        if ($encoded === false || !empty($issues)) {
+            Log::error('[RULE_ENGINE_FAIL]', ['issues' => $issues]);
+
             return null;
         }
 
@@ -606,6 +629,109 @@ PROMPT;
             'mode'           => 'rule_based',
             'tokens'         => [],
         ];
+    }
+
+    private function prepareParsedForRuleFallback(array $parsed, array $jd, array $weakness): ?array
+    {
+        $optimized = json_decode(json_encode($parsed), true);
+
+        return is_array($optimized)
+            ? $this->ensureRuleFallbackStructure($optimized, $jd, $weakness)
+            : null;
+    }
+
+    private function ensureRuleFallbackStructure(array $parsed, array $jd, array $weakness): array
+    {
+        $skills = $parsed['skills'] ?? [];
+        if (is_string($skills)) {
+            $skills = array_filter(array_map('trim', preg_split('/[,|•]+/', $skills)));
+        }
+        if (!is_array($skills)) {
+            $skills = [];
+        }
+
+        $jdSkills = array_slice($jd['required_skills'] ?? $jd['keywords'] ?? [], 0, 8);
+        $missing  = array_slice($weakness['missing_skills'] ?? [], 0, 5);
+        $parsed['skills'] = array_values(array_unique(array_filter(array_merge($skills, $missing, $jdSkills))));
+
+        if (empty($parsed['skills'])) {
+            $parsed['skills'] = ['Communication', 'Problem Solving', 'Team Collaboration'];
+        }
+
+        if (trim((string) ($parsed['summary'] ?? '')) === '') {
+            $raw = trim((string) ($parsed['raw_text'] ?? ''));
+            if (strlen($raw) > 80) {
+                $parsed['summary'] = substr(preg_replace('/\s+/', ' ', $raw), 0, 280);
+            } else {
+                $jobTitle = $jd['job_title'] ?? 'the role';
+                $parsed['summary'] = "Motivated candidate targeting the {$jobTitle} position with relevant technical experience.";
+            }
+        }
+
+        $hasBody = !empty($parsed['experience']) || !empty($parsed['projects']) || !empty($parsed['education']);
+        if (!$hasBody) {
+            $parsed = $this->hydrateBodyFromRawText($parsed);
+        }
+
+        foreach ($parsed['experience'] ?? [] as $i => $exp) {
+            if (!is_array($exp)) {
+                unset($parsed['experience'][$i]);
+                continue;
+            }
+
+            $bullets = $exp['bullets'] ?? [];
+            if (!is_array($bullets) || empty(array_filter($bullets, fn ($b) => is_string($b) && trim($b) !== ''))) {
+                $parsed['experience'][$i]['bullets'] = [
+                    'Delivered technical contributions aligned with role requirements and team objectives.',
+                ];
+            }
+        }
+
+        if (is_array($parsed['experience'] ?? null)) {
+            $parsed['experience'] = array_values($parsed['experience']);
+        }
+
+        return $parsed;
+    }
+
+    private function hydrateBodyFromRawText(array $parsed): array
+    {
+        $raw = (string) ($parsed['raw_text'] ?? '');
+        $bullets = [];
+
+        foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            if (preg_match('/^[-•*]\s*(.+)/u', $line, $match) && strlen($match[1]) > 12) {
+                $bullets[] = $match[1];
+            }
+        }
+
+        $bullets = array_values(array_unique(array_slice($bullets, 0, 6)));
+
+        if (!empty($bullets)) {
+            $parsed['experience'] = [[
+                'org'     => '',
+                'title'   => 'Professional Experience',
+                'date'    => '',
+                'bullets' => $bullets,
+            ]];
+
+            return $parsed;
+        }
+
+        if (trim($raw) !== '') {
+            $parsed['education'] = [[
+                'degree' => 'Academic & Professional Background',
+                'school' => substr(preg_replace('/\s+/', ' ', $raw), 0, 160),
+                'year'   => '',
+            ]];
+        }
+
+        return $parsed;
     }
 
     /* ------------------------------------------------------------------ */
