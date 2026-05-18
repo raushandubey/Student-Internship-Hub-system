@@ -8,11 +8,7 @@ beforeEach(function () {
     Config::set('services.openai.api_key', null);
     Config::set('services.anthropic.api_key', null);
     Config::set('services.openrouter.api_key', null);
-    Config::set('services.openai.model', 'gpt-4o-mini');
-    Config::set('services.openai.endpoint', 'https://api.openai.com/v1/chat/completions');
-    Config::set('services.anthropic.model', 'claude-test');
-    Config::set('services.anthropic.endpoint', 'https://api.anthropic.com/v1/messages');
-    Config::set('services.openrouter.model', 'test/openrouter');
+    Config::set('services.openrouter.model', 'deepseek/deepseek-v4-flash:free');
     Config::set('services.openrouter.endpoint', 'https://openrouter.ai/api/v1/chat/completions');
 });
 
@@ -22,47 +18,67 @@ test('missing provider keys fail closed', function () {
     $result = app(AiProviderGateway::class)->complete('resume_rewrite', 'system', 'user');
 
     expect($result['success'])->toBeFalse()
-        ->and($result['attempts'])->toHaveCount(3);
+        ->and($result['attempts'])->toHaveCount(1);
 
     Http::assertNothingSent();
 });
 
-test('openai success returns provider metadata', function () {
-    Config::set('services.openai.api_key', 'test-openai-key');
+test('openrouter success returns provider metadata', function () {
+    Config::set('services.openrouter.api_key', 'test-openrouter-key');
 
     Http::fake([
-        'api.openai.com/*' => Http::response([
-            'output_text' => '{"summary":"Optimized","skills":["PHP"],"projects":[{"title":"A","bullets":["Built API"]}]}',
-            'usage' => ['input_tokens' => 10, 'output_tokens' => 20, 'total_tokens' => 30],
+        'openrouter.ai/*' => Http::response([
+            'choices' => [
+                [
+                    'message' => [
+                        'content' => '{"summary":"Optimized","skills":["PHP"],"projects":[{"title":"A","bullets":["Built API"]}]}'
+                    ]
+                ]
+            ],
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 20, 'total_tokens' => 30],
         ], 200),
     ]);
 
     $result = app(AiProviderGateway::class)->complete('resume_rewrite', 'system', 'user');
 
     expect($result['success'])->toBeTrue()
-        ->and($result['provider'])->toBe('openai')
-        ->and($result['model'])->toBe('gpt-4o-mini')
+        ->and($result['provider'])->toBe('openrouter')
+        ->and($result['model'])->toBe('deepseek/deepseek-v4-flash:free')
         ->and($result['tokens']['total'])->toBe(30);
 });
 
-test('openai failure falls through to anthropic', function () {
+test('openai is tried before openrouter when both keys are configured', function () {
     Config::set('services.openai.api_key', 'test-openai-key');
-    Config::set('services.anthropic.api_key', 'test-anthropic-key');
+    Config::set('services.openai.model', 'gpt-4o-mini');
+    Config::set('services.openai.endpoint', 'https://api.openai.com/v1/chat/completions');
+    Config::set('services.openrouter.api_key', 'test-openrouter-key');
 
     Http::fake([
-        'api.openai.com/*' => Http::response(['error' => ['message' => 'bad model']], 404),
-        'api.anthropic.com/*' => Http::response([
-            'content' => [
-                ['type' => 'text', 'text' => '{"summary":"Optimized","skills":["PHP"],"projects":[{"title":"A","bullets":["Built API"]}]}'],
+        'api.openai.com/*' => Http::response([
+            'choices' => [
+                ['message' => ['content' => '{"summary":"OK"}']],
             ],
-            'usage' => ['input_tokens' => 5, 'output_tokens' => 7],
         ], 200),
+        'openrouter.ai/*' => Http::response(['error' => 'should not be called'], 500),
     ]);
 
     $result = app(AiProviderGateway::class)->complete('resume_rewrite', 'system', 'user');
 
     expect($result['success'])->toBeTrue()
-        ->and($result['provider'])->toBe('anthropic')
-        ->and($result['attempts'][0]['success'])->toBeFalse()
-        ->and($result['attempts'][1]['success'])->toBeTrue();
+        ->and($result['provider'])->toBe('openai');
+
+    Http::assertSentCount(1);
+});
+
+test('openrouter failure returns failure', function () {
+    Config::set('services.openrouter.api_key', 'test-openrouter-key');
+
+    Http::fake([
+        'openrouter.ai/*' => Http::response(['error' => ['message' => 'bad model']], 404),
+    ]);
+
+    $result = app(AiProviderGateway::class)->complete('resume_rewrite', 'system', 'user');
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['attempts'][0]['success'])->toBeFalse();
 });

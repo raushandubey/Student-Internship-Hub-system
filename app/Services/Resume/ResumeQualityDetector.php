@@ -8,16 +8,20 @@ namespace App\Services\Resume;
  * Classifies resume quality BEFORE any AI touching occurs.
  *
  * Tiers:
- *   elite   → 85-100  : Preservation Mode — NO full rewrites, keyword-only
- *   strong  → 65-84   : Enhancement Mode — rewrite weak sections only
- *   average → 40-64   : Standard Mode    — rewrite weak sections, add structure
- *   weak    → 0-39    : Full Mode        — major improvements allowed
+ *   elite   → > 85    : Preservation Mode — NO full rewrites, keyword-only
+ *   strong  → 70-85   : Enhancement Mode — rewrite weak sections only
+ *   average → 50-70   : Standard Mode    — rewrite weak sections, add structure
+ *   weak    → < 50    : Full Mode        — major improvements allowed
  *
- * A LOCKED section (section score ≥ 85) cannot be fully rewritten by AI.
+ * A LOCKED section (section score > 80) cannot be fully rewritten by AI.
  */
 class ResumeQualityDetector
 {
     use \App\Traits\ResilientJsonTrait;
+
+    public function __construct(
+        private ?N8nOrchestrator $n8n = null,
+    ) {}
     // Elite signals: only resumes with these patterns are truly elite
     private const ELITE_SIGNALS = [
         'architecture' => ['architected','designed system','scalable','distributed','microservices','system design'],
@@ -52,37 +56,17 @@ class ResumeQualityDetector
      */
     public function detect(array $parsedResume): array
     {
-        $webhookUrl = config('services.n8n.webhook_url');
-        $webhookKey = config('services.resume_intelligence.api_key');
+        $n8nResult = ($this->n8n ?? new N8nOrchestrator())->dispatch(
+            $this->buildAiSystemPrompt(),
+            'Analyze the following resume sections:' . "\n" . json_encode($parsedResume)
+        );
 
-        if (!empty($webhookUrl)) {
-            try {
-                \Illuminate\Support\Facades\Log::info('ResumeQuality: Dispatching to AI Section Analyzer');
-                $response = \Illuminate\Support\Facades\Http::withHeaders([
-                    'X-Resume-Intelligence-Key' => $webhookKey,
-                    'Content-Type'              => 'application/json',
-                ])->timeout(60)->post($webhookUrl, [
-                    'system_prompt' => $this->buildAiSystemPrompt(),
-                    'user_prompt'   => "Analyze the following resume sections:\n" . json_encode($parsedResume),
-                ]);
+        if ($n8nResult['success'] && !empty($n8nResult['data'])) {
+            \Illuminate\Support\Facades\Log::info('ResumeQuality: AI Analysis success', [
+                'attempts' => $n8nResult['attempts'],
+            ]);
 
-                if ($response->successful()) {
-                    $json = $response->json();
-                    if (($json['success'] ?? false) && !empty($json['data'])) {
-                        $aiData = $this->safeJsonDecode($json['data']);
-                        if ($aiData) {
-                            \Illuminate\Support\Facades\Log::info('ResumeQuality: AI Analysis success');
-                            return $this->parseAiQualityReport($aiData, $parsedResume);
-                        }
-                    }
-                }
-                \Illuminate\Support\Facades\Log::error('ResumeQuality: AI Analysis failure', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('ResumeQuality: AI Analysis exception', ['error' => $e->getMessage()]);
-            }
+            return $this->parseAiQualityReport($n8nResult['data'], $parsedResume);
         }
 
         \Illuminate\Support\Facades\Log::warning('ResumeQuality: Falling back to rule-based detection');
@@ -108,7 +92,7 @@ Score each section from 0-100 based on:
 9. Role Relevance
 
 CRITICAL RULES:
-- If a section score is >= 85, you MUST set "locked": true.
+- If a section score is > 80, you MUST set "locked": true.
 - Locked sections cannot be rewritten in the next pipeline step. They must preserve technical depth, architecture terminology, APIs, metrics, and engineering language.
 - DO NOT simplify strong technical content.
 - Preserve authenticity and natural engineering tone. The resume must feel human-written and recruiter-approved, NOT generic AI.
@@ -138,7 +122,7 @@ PROMPT;
                 $isLocked = filter_var($aiData[$key]['locked'] ?? false, FILTER_VALIDATE_BOOLEAN);
                 $sectionScores[$key] = $score;
                 
-                if ($isLocked || $score >= 85) {
+                if ($isLocked || $score > 80) {
                     $lockedSections[] = $key;
                 }
                 if ($score < 60) {
@@ -190,8 +174,8 @@ PROMPT;
         // ── Classify tier ─────────────────────────────────────────────
         $tier = $this->classifyTier($qualityScore);
 
-        // ── Determine locked sections (score ≥ 85 → LOCKED) ──────────
-        $lockedSections = array_keys(array_filter($sectionScores, fn($s) => $s >= 85));
+        // ── Determine locked sections (score > 80 → LOCKED) ──────────
+        $lockedSections = array_keys(array_filter($sectionScores, fn($s) => $s > 80));
 
         // ── Determine weak sections (score < 60) ─────────────────────
         $weakSections = array_keys(array_filter($sectionScores, fn($s) => $s < 60));
@@ -493,9 +477,9 @@ PROMPT;
 
     private function classifyTier(int $score): string
     {
-        if ($score >= 80) return 'elite';
-        if ($score >= 60) return 'strong';
-        if ($score >= 40) return 'average';
+        if ($score > 85) return 'elite';
+        if ($score >= 70) return 'strong';
+        if ($score >= 50) return 'average';
         return 'weak';
     }
 }

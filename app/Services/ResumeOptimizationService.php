@@ -7,9 +7,16 @@ use App\Models\Profile;
 use App\Models\ResumeScore;
 use App\Models\ResumeVersion;
 use App\Models\User;
+use App\Services\Resume\AiOutputSanitizer;
+use App\Services\Resume\AiProductionDiagnosticsService;
+use App\Services\Resume\AiProviderGateway;
 use App\Services\Resume\AiRewriteEngine;
 use App\Services\Resume\AtsScoreEngine;
+use App\Services\Resume\IdentityPreservationEngine;
 use App\Services\Resume\JobDescriptionAnalyzer;
+use App\Services\Resume\LatexTemplateEngine;
+use App\Services\Resume\N8nOrchestrator;
+use App\Services\Resume\PipelineTracer;
 use App\Services\Resume\ResumeParserEngine;
 use App\Services\Resume\ResumeQualityDetector;
 use App\Services\Resume\ResumeOptimizationQualityGate;
@@ -37,13 +44,24 @@ class ResumeOptimizationService
     private ?string $resumeAccessIssue = null;
 
     public function __construct(
-        private readonly ResumeParserEngine      $parser,
-        private readonly JobDescriptionAnalyzer  $jdAnalyzer,
-        private readonly ResumeQualityDetector   $qualityDetector,
-        private readonly WeaknessDetectionEngine $weaknessEngine,
-        private readonly AtsScoreEngine          $scoreEngine,
-        private readonly AiRewriteEngine         $rewriteEngine,
+        private readonly ResumeParserEngine           $parser,
+        private readonly JobDescriptionAnalyzer       $jdAnalyzer,
+        private readonly ResumeQualityDetector        $qualityDetector,
+        private readonly WeaknessDetectionEngine      $weaknessEngine,
+        private readonly AtsScoreEngine               $scoreEngine,
+        private readonly AiRewriteEngine              $rewriteEngine,
         private readonly ResumeOptimizationQualityGate $qualityGate,
+        private readonly IdentityPreservationEngine   $identityEngine,
+        private readonly AiOutputSanitizer            $outputSanitizer,
+        private readonly PipelineTracer               $tracer,
+        // ── Subsystem 6: Production API Diagnostics ──────────────────────
+        private readonly AiProductionDiagnosticsService $diagnostics,
+        // ── Subsystem 5: LaTeX/PDF Rendering ─────────────────────────────
+        private readonly LatexTemplateEngine          $latexEngine,
+        // ── Subsystem 7: N8N Orchestration ───────────────────────────────
+        private readonly N8nOrchestrator              $n8nOrchestrator,
+        // ── Subsystem 1 & 4: Shared AI Provider Gateway ──────────────────
+        private readonly AiProviderGateway            $aiGateway,
     ) {}
 
     /* ------------------------------------------------------------------ */
@@ -54,7 +72,6 @@ class ResumeOptimizationService
     {
         try {
             Log::info('[Pipeline] START: Resume Analysis', ['user_id' => $user->id, 'internship_id' => $internship->id]);
-
             $profile = $user->profile;
             if (!$profile || !$profile->resume_path) {
                 Log::warning('[Pipeline] FAIL: No resume path found', ['user_id' => $user->id]);
@@ -168,8 +185,31 @@ class ResumeOptimizationService
 
     public function rewriteResume(User $user, Internship $internship): array
     {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(180);
+        }
+
+        $correlationId = $this->tracer->start('rewrite', [
+            'user_id' => $user->id,
+            'internship_id' => $internship->id,
+        ]);
+
+        // ── Subsystem 6: Attach diagnostics + correlation ID to all API calls ──
+        // AiProviderGateway::withDiagnostics() ensures every OpenAI/Anthropic/OpenRouter
+        // call is logged with request/response payloads, timing, and error context.
+        $this->aiGateway->withDiagnostics($this->diagnostics, $correlationId);
+
+        // ── Subsystem 7: Attach diagnostics to N8N orchestrator ──────────────
+        // N8nOrchestrator::withDiagnostics() ensures every webhook attempt is logged
+        // with full failure context for production diagnostics.
+        $this->n8nOrchestrator->withDiagnostics($this->diagnostics);
+
         try {
-            Log::info('[Pipeline] START: Resume Rewrite', ['user_id' => $user->id, 'internship_id' => $internship->id]);
+            Log::info('[Pipeline] START: Resume Rewrite', [
+                'user_id' => $user->id,
+                'internship_id' => $internship->id,
+                'correlation_id' => $correlationId,
+            ]);
 
             $profile = $user->profile;
             if (!$profile || !$profile->resume_path) {
@@ -208,6 +248,11 @@ class ResumeOptimizationService
 
             $jdAnalysis     = $this->jdAnalyzer->analyze($internship);
             $qualityReport  = $this->qualityDetector->detect($parsedResume);
+            $qualityReport  = $this->applyTieredOptimizationProfile($qualityReport);
+            $identityContext = $this->identityEngine->buildContext($parsedResume, $jdAnalysis);
+            $qualityReport['candidate_identity'] = $identityContext['identity'];
+            $qualityReport['optimization_mode']  = $identityContext['optimization_mode'];
+            $qualityReport['cross_domain']       = $identityContext['cross_domain'];
             $weaknessReport = $this->weaknessEngine->detect($parsedResume, $jdAnalysis);
             $beforeBreakdown= $this->scoreEngine->ruleBasedScore($parsedResume, $jdAnalysis);
             $beforeScore    = $beforeBreakdown['overall_score'];
@@ -274,28 +319,80 @@ class ResumeOptimizationService
                 }
 
                 $rewrittenText = $rewriteResult['rewritten_text'];
-                $validationIssues = $this->rewriteEngine->validateOutput($rewrittenText);
+                $sanitized = $this->outputSanitizer->sanitizeAndValidate($rewrittenText);
 
-                if (!empty($validationIssues)) {
+                if (!$sanitized['valid']) {
                     Log::warning('[Pipeline] Stage 3 WARNING: AI output validation failed', [
                         'attempt' => $attempt,
-                        'issues' => $validationIssues,
+                        'issues' => $sanitized['issues'],
+                        'correlation_id' => $correlationId,
                     ]);
 
-                    if ($attempt === 1) {
-                        continue;
+                    $rewriteResult = $this->rewriteEngine->structuredRuleBasedRewrite(
+                        $parsedResume,
+                        $jdAnalysis,
+                        $weaknessReport,
+                        $qualityReport,
+                        'ai_output_validation_fallback'
+                    );
+
+                    if (!$rewriteResult || !($rewriteResult['success'] ?? false)) {
+                        if ($attempt === 1) {
+                            continue;
+                        }
+
+                        return [
+                            'success' => false,
+                            'stage_failed' => 'AI_OUTPUT_VALIDATION_FAILED',
+                            'error' => 'AI returned a malformed optimization and rule fallback failed.',
+                            'validation_issues' => $sanitized['issues'],
+                        ];
                     }
 
-                    return [
-                        'success' => false,
-                        'stage_failed' => 'AI_OUTPUT_VALIDATION_FAILED',
-                        'error' => 'AI returned a malformed optimization. No optimized version was created.',
-                        'validation_issues' => $validationIssues,
-                    ];
+                    $rewrittenText = $rewriteResult['rewritten_text'];
+                    $sanitized = $this->outputSanitizer->sanitizeAndValidate($rewrittenText);
+                    if (!$sanitized['valid']) {
+                        if ($attempt === 1) {
+                            continue;
+                        }
+
+                        return [
+                            'success' => false,
+                            'stage_failed' => 'AI_OUTPUT_VALIDATION_FAILED',
+                            'error' => 'Optimization output could not be validated.',
+                            'validation_issues' => $sanitized['issues'],
+                        ];
+                    }
                 }
 
+                $rewrittenText = $sanitized['json'] ?? $rewrittenText;
                 $rewrittenText = $this->rewriteEngine->sanitizeForStorage($rewrittenText);
-                $afterParsed = json_decode($rewrittenText, true);
+                $afterParsed = $sanitized['data'] ?? json_decode($rewrittenText, true);
+
+                if (!is_array($afterParsed)) {
+                    $rewriteResult = $this->rewriteEngine->structuredRuleBasedRewrite(
+                        $parsedResume,
+                        $jdAnalysis,
+                        $weaknessReport,
+                        $qualityReport,
+                        'json_decode_fallback'
+                    );
+
+                    if (!$rewriteResult || !($rewriteResult['success'] ?? false)) {
+                        if ($attempt === 1) {
+                            continue;
+                        }
+
+                        return [
+                            'success' => false,
+                            'stage_failed' => 'AI_OUTPUT_JSON_INVALID',
+                            'error' => 'AI optimization could not be converted into structured resume data.',
+                        ];
+                    }
+
+                    $rewrittenText = $rewriteResult['rewritten_text'];
+                    $afterParsed = json_decode($rewrittenText, true);
+                }
 
                 if (!is_array($afterParsed)) {
                     if ($attempt === 1) {
@@ -309,11 +406,59 @@ class ResumeOptimizationService
                     ];
                 }
 
+                $afterParsed = $this->rewriteEngine->preserveOriginalStructure($parsedResume, $afterParsed);
+
+                $identityCheck = $this->identityEngine->validate(
+                    $identityContext['identity'],
+                    $afterParsed,
+                    $parsedResume
+                );
+
+                if (!$identityCheck['valid']) {
+                    Log::error('[Pipeline] IDENTITY_CORRUPTION_DETECTED', [
+                        'violations' => $identityCheck['violations'],
+                        'correlation_id' => $correlationId,
+                    ]);
+
+                    $rewriteResult = $this->rewriteEngine->structuredRuleBasedRewrite(
+                        $parsedResume,
+                        $jdAnalysis,
+                        $weaknessReport,
+                        $qualityReport,
+                        'identity_preservation_fallback'
+                    );
+
+                    if (!$rewriteResult || !($rewriteResult['success'] ?? false)) {
+                        return [
+                            'success' => false,
+                            'stage_failed' => 'IDENTITY_CORRUPTION_DETECTED',
+                            'error' => 'Optimization altered your professional identity. No version was saved.',
+                            'violations' => $identityCheck['violations'],
+                        ];
+                    }
+
+                    $rewrittenText = $rewriteResult['rewritten_text'];
+                    $afterParsed = json_decode($rewrittenText, true);
+                    if (!is_array($afterParsed)) {
+                        return [
+                            'success' => false,
+                            'stage_failed' => 'IDENTITY_CORRUPTION_DETECTED',
+                            'error' => 'Optimization altered your professional identity.',
+                            'violations' => $identityCheck['violations'],
+                        ];
+                    }
+                    $afterParsed = $this->rewriteEngine->preserveOriginalStructure($parsedResume, $afterParsed);
+                }
                 $afterParsed['raw_text'] = $this->qualityGate->canonicalRawText($afterParsed);
                 $rewrittenText = json_encode($afterParsed);
 
                 Log::info('[Pipeline] Stage 4 START: Semantic Scoring', ['attempt' => $attempt]);
-                $aiScoreData    = $this->scoreEngine->evaluateImprovement($parsedResume, $afterParsed, $jdAnalysis);
+                $aiScoreData    = $this->scoreEngine->evaluateImprovement(
+                    $parsedResume,
+                    $afterParsed,
+                    $jdAnalysis,
+                    $qualityReport['tier'] ?? 'average'
+                );
                 $beforeScore    = $aiScoreData['before_score'];
                 $afterScore     = $aiScoreData['after_score'];
                 $afterBreakdown = $aiScoreData['after_breakdown'];
@@ -340,10 +485,6 @@ class ResumeOptimizationService
                 if ($ruleBasedRewrite && $this->ruleFallbackHasMaterialChanges($qualityGate)) {
                     $qualityGate['passed'] = true;
                     $qualityGate['reason'] = 'rule_based_material_change';
-                    if ($afterScore < $beforeScore) {
-                        $afterScore = min(100, $beforeScore + max(1, (int) config('services.resume_optimizer.min_score_delta', 1)));
-                        $afterBreakdown['overall_score'] = $afterScore;
-                    }
                     Log::info('[Pipeline] Stage 4 COMPLETE: Rule-based optimization accepted', [
                         'after_score' => $afterScore,
                         'quality_gate' => $qualityGate,
@@ -373,6 +514,48 @@ class ResumeOptimizationService
                 ->where('internship_id', $internship->id)
                 ->max('version_number') ?? 0) + 1;
 
+            // ── Subsystem 5: LaTeX generation via deterministic PHP template ──
+            // LatexTemplateEngine::render() accepts structured JSON only (no AI-generated LaTeX).
+            // This enforces strict template boundaries and prevents whitespace corruption.
+            $latexContent = null;
+            if (is_array($afterParsed)) {
+                try {
+                    // Map parsed resume structure to LatexTemplateEngine data format
+                    $latexData = [
+                        'name'       => $afterParsed['name'] ?? ($parsedResume['name'] ?? ''),
+                        'email'      => $afterParsed['email'] ?? ($parsedResume['email'] ?? ''),
+                        'phone'      => $afterParsed['phone'] ?? ($parsedResume['phone'] ?? ''),
+                        'headline'   => $afterParsed['summary'] ?? ($parsedResume['summary'] ?? ''),
+                        'targetRole' => $jdAnalysis['job_title'] ?? '',
+                        'sections'   => [
+                            'summary'    => $afterParsed['summary'] ?? ($parsedResume['summary'] ?? ''),
+                            'skills'     => $afterParsed['skills'] ?? ($parsedResume['skills'] ?? []),
+                            'experience' => $afterParsed['experience'] ?? ($parsedResume['experience'] ?? []),
+                            'projects'   => $afterParsed['projects'] ?? ($parsedResume['projects'] ?? []),
+                            'education'  => $afterParsed['education'] ?? ($parsedResume['education'] ?? []),
+                        ],
+                    ];
+                    $latexContent = $this->latexEngine->render($latexData);
+                    Log::info('[Pipeline] Stage 7: LaTeX rendered via deterministic PHP template', [
+                        'latex_length' => strlen($latexContent),
+                        'correlation_id' => $correlationId,
+                    ]);
+                } catch (\Throwable $e) {
+                    // LaTeX rendering failure is non-fatal — JSON content is still persisted
+                    Log::warning('[Pipeline] Stage 7: LaTeX render failed (non-fatal), JSON content persisted', [
+                        'error' => $e->getMessage(),
+                        'correlation_id' => $correlationId,
+                    ]);
+                    $this->diagnostics->logApiFailure(
+                        provider: 'latex_template_engine',
+                        endpoint: 'render()',
+                        exception: $e,
+                        context: ['correlation_id' => $correlationId, 'stage' => 'persistence'],
+                        correlationId: $correlationId,
+                    );
+                }
+            }
+
             $newVersion = ResumeVersion::create([
                 'user_id'           => $user->id,
                 'internship_id'     => $internship->id,
@@ -401,6 +584,38 @@ class ResumeOptimizationService
 
             Log::info('[Pipeline] SUCCESS: Resume Rewrite Finished');
 
+            // ── Subsystem 7: N8N webhook dispatch with exponential backoff ──
+            // N8nOrchestrator uses 3 attempts with 2s/4s/8s delays.
+            // On failure, pipeline continues in degraded mode (non-fatal).
+            $n8nWebhookUrl = config('services.n8n.webhook_url');
+            if (!empty($n8nWebhookUrl)) {
+                $n8nSystemPrompt = 'Resume optimization pipeline completed. Process post-optimization workflow.';
+                $n8nUserPrompt   = json_encode([
+                    'event'          => 'resume_optimized',
+                    'user_id'        => $user->id,
+                    'internship_id'  => $internship->id,
+                    'version_id'     => $newVersion->id,
+                    'before_score'   => $beforeScore,
+                    'after_score'    => $afterScore,
+                    'quality_tier'   => $qualityReport['tier'],
+                    'correlation_id' => $correlationId,
+                ]);
+
+                $n8nResult = $this->n8nOrchestrator->dispatch($n8nSystemPrompt, $n8nUserPrompt);
+
+                if (!$n8nResult['success']) {
+                    Log::warning('[Pipeline] N8N webhook dispatch failed (degraded mode — pipeline continues)', [
+                        'last_error'     => $n8nResult['last_error'] ?? 'unknown',
+                        'attempts'       => count($n8nResult['attempts'] ?? []),
+                        'correlation_id' => $correlationId,
+                    ]);
+                } else {
+                    Log::info('[Pipeline] N8N webhook dispatched successfully', [
+                        'correlation_id' => $correlationId,
+                    ]);
+                }
+            }
+
             return [
                 'success'           => true,
                 'rewritten_text'    => $rewrittenText,
@@ -418,6 +633,8 @@ class ResumeOptimizationService
                 'preservation_mode' => $qualityReport['preservation_mode'],
                 'rewrite_mode'      => $rewriteResult['mode'] ?? 'rule_based',
                 'locked_sections'   => $qualityReport['locked_sections'],
+                'optimization_profile' => $qualityReport['optimization_profile'] ?? null,
+                'correlation_id'    => $correlationId,
             ];
 
         } catch (\Exception $e) {
@@ -680,6 +897,47 @@ class ResumeOptimizationService
         return str_starts_with(ltrim(substr($content, 0, 1024)), '%PDF');
     }
 
+    /**
+     * @param  array<string, mixed>  $qualityReport
+     * @return array<string, mixed>
+     */
+    private function applyTieredOptimizationProfile(array $qualityReport): array
+    {
+        $tier = $qualityReport['tier'] ?? 'average';
+
+        $profile = match ($tier) {
+            'elite', 'strong' => [
+                'mode' => 'light',
+                'max_bullet_rewrites' => 2,
+                'summary_policy' => 'append_only',
+                'skills_policy' => 'additive_only',
+                'force_light_mode' => true,
+            ],
+            'average' => [
+                'mode' => 'selective',
+                'max_bullet_rewrites' => 6,
+                'summary_policy' => 'weak_only',
+                'skills_policy' => 'additive',
+                'force_light_mode' => false,
+            ],
+            default => [
+                'mode' => 'enhanced',
+                'max_bullet_rewrites' => 12,
+                'summary_policy' => 'rewrite_weak',
+                'skills_policy' => 'merge',
+                'force_light_mode' => false,
+            ],
+        };
+
+        if ($profile['force_light_mode']) {
+            config(['services.resume_optimizer.light_mode' => true]);
+        }
+
+        $qualityReport['optimization_profile'] = $profile;
+
+        return $qualityReport;
+    }
+
     private function ruleFallbackHasMaterialChanges(array $qualityGate): bool
     {
         return !empty($qualityGate['changed_sections'])
@@ -694,7 +952,9 @@ class ResumeOptimizationService
         $engine = $rewriteResult['provider'] ?? $rewriteResult['engine'] ?? 'ai';
 
         if ($mode === 'keyword_only') return 'Elite Preservation — Keywords Enhanced';
-        if ($mode === 'selective')    return 'Selective AI Enhancement — v' . now()->format('H:i');
+        if (in_array($mode, ['optimized', 'optimized_retry', 'selective', 'targeted', 'rule_based'], true)) {
+            return 'ATS Optimized — v' . now()->format('H:i');
+        }
 
         return ucfirst($tier) . ' Resume — ' . ucfirst((string) $engine) . ' Optimized';
     }
@@ -737,11 +997,15 @@ class ResumeOptimizationService
             $list[] = "+ Added missing skills to skills section: {$added}";
         }
 
-        if ($mode === 'keyword_only') {
-            $list[] = "🔒 Elite resume preserved — only injected missing ATS keywords into skills";
+        if ($mode === 'keyword_only' || $mode === 'light_optimized') {
+            $list[] = 'Preserved your original experience, projects, and education.';
+            $list[] = 'Added missing ATS keywords to your skills section only.';
         }
 
         $engine = $rewriteResult['engine'] ?? null;
+        if ($engine === 'light_optimizer') {
+            $list[] = 'Light optimization — no full rewrite, your content stayed intact.';
+        }
         if ($engine === 'anthropic') $list[] = "+ Optimized by Anthropic with surgical precision";
         if ($engine === 'openai')    $list[] = "+ Optimized by OpenAI for ATS compatibility";
         if ($engine === 'openrouter') $list[] = "+ Optimized by OpenRouter fallback provider";

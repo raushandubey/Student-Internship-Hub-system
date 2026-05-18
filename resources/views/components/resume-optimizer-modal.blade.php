@@ -146,16 +146,16 @@
                             onclick="ResumeOptimizer.rewrite({{ $internship->id }})"
                             id="rom-improve-btn-{{ $internship->id }}"
                             class="rom-btn-improve w-full">
-                        <i class="fas fa-magic mr-2"></i>✨ Improve Resume (Recommended)
+                        <i class="fas fa-magic mr-2"></i>✨ Optimize Resume (Recommended)
                     </button>
                 </div>
             </div>
 
-            {{-- ── STEP 3: Rewriting State ───────────────────────── --}}
+            {{-- ── STEP 3: Optimizing State ───────────────────────── --}}
             <div id="rom-rewriting-{{ $internship->id }}" class="hidden py-8 text-center">
                 <div class="rom-spinner mx-auto mb-4" style="border-top-color:#7c3aed"></div>
-                <p class="rom-loading-text" style="color:#7c3aed">AI is rewriting your resume…</p>
-                <p class="text-sm text-gray-400 mt-1">Optimising for {{ $internship->title }}</p>
+                <p class="rom-loading-text" style="color:#7c3aed">Optimizing your resume for this role…</p>
+                <p class="text-sm text-gray-400 mt-1">Optimising for {{ $internship->title }} — may take up to 90 seconds</p>
             </div>
 
             {{-- ── STEP 4: Before/After Comparison ─────────────────  --}}
@@ -164,7 +164,7 @@
                 <div id="rom-rule-fallback-{{ $internship->id }}"
                      class="hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                     <i class="fas fa-info-circle mr-1"></i>
-                    Optimized with rule-based engine (AI unavailable).
+                    Light ATS optimization — your resume content is preserved.
                 </div>
 
                 <h3 class="text-center font-bold text-gray-800 text-base">📊 Resume Improvement</h3>

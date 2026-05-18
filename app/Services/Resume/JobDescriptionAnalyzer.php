@@ -18,11 +18,16 @@ use App\Models\Internship;
 class JobDescriptionAnalyzer
 {
     use \App\Traits\ResilientJsonTrait;
+
+    public function __construct(
+        private ?N8nOrchestrator $n8n = null,
+    ) {}
     // ── Role Classification Signals ───────────────────────────────────────
 
     private const ROLE_SIGNALS = [
+        'design'     => ['figma', 'sketch', 'adobe xd', 'wireframe', 'prototyping', 'ui designer', 'ux designer', 'visual design', 'user interface', 'user experience', 'design system', 'typography', 'design thinking', 'interaction design', 'ui/ux'],
         'backend'    => ['laravel', 'django', 'spring', 'node', 'api', 'rest', 'graphql', 'microservices', 'mysql', 'postgresql', 'redis', 'php', 'python', 'java', 'golang', 'backend', 'server-side'],
-        'frontend'   => ['react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'tailwind', 'css', 'html', 'javascript', 'typescript', 'ui', 'ux', 'responsive', 'frontend', 'web design'],
+        'frontend'   => ['react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'tailwind', 'css', 'html', 'javascript', 'typescript', 'responsive', 'frontend', 'web development'],
         'fullstack'  => ['full stack', 'fullstack', 'full-stack', 'mern', 'mean', 'lamp', 'end-to-end', 'both frontend and backend', 'both back-end and front-end'],
         'mobile'     => ['android', 'ios', 'flutter', 'react native', 'kotlin', 'swift', 'mobile app', 'play store', 'app store'],
         'devops'     => ['docker', 'kubernetes', 'ci/cd', 'jenkins', 'terraform', 'aws', 'azure', 'gcp', 'cloud', 'devops', 'deployment', 'infrastructure'],
@@ -59,39 +64,20 @@ class JobDescriptionAnalyzer
 
     public function analyze(Internship $internship): array
     {
-        $webhookUrl = config('services.n8n.webhook_url');
-        $webhookKey = config('services.resume_intelligence.api_key');
-
         $baseAnalysis = $this->ruleBasedAnalyze($internship);
 
-        if (!empty($webhookUrl)) {
-            try {
-                \Illuminate\Support\Facades\Log::info('JdAnalyzer: Dispatching to AI JD Intelligence Engine');
-                $response = \Illuminate\Support\Facades\Http::withHeaders([
-                    'X-Resume-Intelligence-Key' => $webhookKey,
-                    'Content-Type'              => 'application/json',
-                ])->timeout(60)->post($webhookUrl, [
-                    'system_prompt' => $this->buildAiSystemPrompt(),
-                    'user_prompt'   => "Analyze the following Job Description:\nTitle: {$baseAnalysis['job_title']}\nDescription: {$baseAnalysis['description_raw']}",
-                ]);
+        $n8nResult = ($this->n8n ?? new N8nOrchestrator())->dispatch(
+            $this->buildAiSystemPrompt(),
+            "Analyze the following Job Description:\nTitle: {$baseAnalysis['job_title']}\nDescription: {$baseAnalysis['description_raw']}"
+        );
 
-                if ($response->successful()) {
-                    $json = $response->json();
-                    if (($json['success'] ?? false) && !empty($json['data'])) {
-                        $aiData = $this->safeJsonDecode($json['data']);
-                        if ($aiData) {
-                            \Illuminate\Support\Facades\Log::info('JdAnalyzer: AI Analysis success', ['role' => $aiData['role_category'] ?? 'unknown']);
-                            return $this->parseAiJdReport($aiData, $baseAnalysis);
-                        }
-                    }
-                }
-                \Illuminate\Support\Facades\Log::error('JdAnalyzer: AI Analysis failure', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('JdAnalyzer: AI Analysis exception', ['error' => $e->getMessage()]);
-            }
+        if ($n8nResult['success'] && !empty($n8nResult['data'])) {
+            \Illuminate\Support\Facades\Log::info('JdAnalyzer: AI Analysis success', [
+                'role' => $n8nResult['data']['role_category'] ?? 'unknown',
+                'attempts' => $n8nResult['attempts'],
+            ]);
+
+            return $this->parseAiJdReport($n8nResult['data'], $baseAnalysis);
         }
 
         \Illuminate\Support\Facades\Log::warning('JdAnalyzer: Falling back to rule-based analysis');
@@ -183,6 +169,10 @@ PROMPT;
 
     private function classifyRole(string $fullText, array $skills): string
     {
+        if (preg_match('/\b(ui|ux|product|graphic|visual|interaction)\s*design/i', $fullText)) {
+            return 'design';
+        }
+
         $scores = [];
         $skillsLower = array_map('strtolower', $skills);
 

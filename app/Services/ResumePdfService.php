@@ -7,15 +7,13 @@ use App\Models\ResumeVersion;
 use App\Models\User;
 use App\Services\Resume\PdfBinaryValidator;
 use App\Services\Resume\ResumeParserEngine;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
 /**
  * ResumePdfService
  *
- * Converts AI-rewritten resume text into a professionally formatted PDF.
- * Uses the fixed ATS template — AI generates content only, formatting is fixed.
+ * Renders optimized resume JSON to PDF via LaTeXLite (ATS LaTeX template only).
  */
 class ResumePdfService
 {
@@ -48,60 +46,65 @@ class ResumePdfService
             abort(404, 'No AI-optimised resume found. Please run the Resume Optimizer first.');
         }
 
-        $data = $this->buildPdfData($user, $internship, $version->content);
+        $originalVersion = ResumeVersion::where('user_id', $user->id)
+            ->where('internship_id', $internship->id)
+            ->where('type', 'original')
+            ->latest()
+            ->first();
+
+        $data = $this->buildPdfData(
+            $user,
+            $internship,
+            $version->content,
+            $originalVersion?->content
+        );
         $filename = $this->buildFilename($user, $internship);
 
-        // ── Enterprise LaTeX Rendering (Primary) ──────────────────────
-        $pdfBinary = $this->latexEngine->generatePdf($data);
+        $renderResult = $this->latexEngine->generatePdfResult($data);
+        $pdfBinary    = $renderResult['pdf'] ?? null;
 
-        if ($pdfBinary) {
-            $validation = $this->pdfValidator->validate($pdfBinary);
+        if (!$pdfBinary) {
+            $stage   = $renderResult['stage'] ?? 'unknown';
+            $message = $renderResult['message'] ?? 'PDF could not be generated.';
 
-            if (!$validation['valid']) {
-                Log::error('ResumePdf: LaTeX PDF failed final validation', $validation + [
-                    'user_id' => $user->id,
-                    'internship_id' => $internship->id,
-                    'version_id' => $version->id,
-                ]);
-            } else {
-                Log::info('[PDF_MAGIC_BYTES_VALID]', [
-                    'source' => 'latexlite_final',
-                    'size' => $validation['size'],
-                ]);
-                Log::info('[PDF_RENDER_SUCCESS]', [
-                    'source' => 'latexlite',
-                    'user_id'       => $user->id,
-                    'internship_id' => $internship->id,
-                    'version_id'    => $version->id,
-                ]);
-                Log::info('[PDF_VALID]', $validation + [
-                    'source' => 'latexlite',
-                ]);
+            Log::error('ResumePdf: LaTeXLite PDF generation failed', [
+                'user_id' => $user->id,
+                'internship_id' => $internship->id,
+                'version_id' => $version->id,
+                'stage' => $stage,
+                'http_status' => $renderResult['http_status'] ?? null,
+                'message' => $message,
+            ]);
 
-                return $this->binaryPdfResponse($pdfBinary, $filename);
-            }
+            [$stageFailed, $httpCode, $userMessage] = match ($stage) {
+                'api_key_missing' => ['LATEX_API_KEY_MISSING', 503, 'PDF rendering is not configured. Set LATEXLITE_API_KEY on the server.'],
+                'payload_invalid' => ['LATEX_PAYLOAD_EMPTY', 422, $message],
+                'payload_too_large' => ['LATEX_PAYLOAD_TOO_LARGE', 422, $message],
+                'payload_encoding_error' => ['LATEX_PAYLOAD_ENCODING', 422, $message],
+                'compilation_failed' => ['LATEX_COMPILATION_FAILED', 422, $message],
+                'api_unauthorized' => ['LATEX_API_UNAUTHORIZED', 502, $message],
+                'render_timeout' => ['LATEX_RENDER_TIMEOUT', 504, $message],
+                'rate_limited' => ['LATEX_RATE_LIMITED', 429, $message],
+                'invalid_pdf' => ['LATEX_INVALID_PDF_RESPONSE', 502, 'PDF renderer returned invalid output. Please try again later.'],
+                'ssl_error' => ['LATEX_SSL_ERROR', 502, $message],
+                'timeout' => ['LATEX_TIMEOUT', 504, $message],
+                'dns_error' => ['LATEX_DNS_ERROR', 502, $message],
+                'connection_refused' => ['LATEX_CONNECTION_REFUSED', 502, $message],
+                'network_error' => ['LATEX_NETWORK_ERROR', 502, $message ?: 'Could not reach the PDF rendering service. Please try again.'],
+                default => ['LATEX_PDF_RENDER_FAILED', 502, $message],
+            };
 
+            return response()->json([
+                'success' => false,
+                'stage_failed' => $stageFailed,
+                'error' => $userMessage,
+            ], $httpCode);
         }
 
-        // ── DomPDF Rendering (Safe Fallback) ──────────────────────────
-        Log::warning('ResumePdf: LaTeX engine failed. Activating DomPDF safe fallback.');
-        
-        $pdf = Pdf::loadView('resume.pdf-template', $data)
-            ->setPaper('a4', 'portrait')
-            ->setOption('dpi', 150)
-            ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', false)
-            ->setOption('defaultFont', 'DejaVu Sans')
-            ->setOption('isFontSubsettingEnabled', true)
-            ->setOption('defaultMediaType', 'print')
-            ->setOption('fontHeightRatio', 1.1)
-            ->setOption('chroot', base_path());
-
-        $domPdfBinary = $pdf->output();
-        $validation = $this->pdfValidator->validate($domPdfBinary);
+        $validation = $this->pdfValidator->validate($pdfBinary);
 
         if (!$validation['valid']) {
-            Log::error('ResumePdf: DomPDF fallback returned invalid PDF', $validation + [
+            Log::error('ResumePdf: LaTeX PDF failed final validation', $validation + [
                 'user_id' => $user->id,
                 'internship_id' => $internship->id,
                 'version_id' => $version->id,
@@ -115,19 +118,18 @@ class ResumePdfService
             ], 502);
         }
 
-        Log::info('[PDF_RENDER_SUCCESS]', [
-            'source' => 'dompdf',
-            'user_id'       => $user->id,
-            'internship_id' => $internship->id,
-            'version_id'    => $version->id,
-        ]);
-        Log::info('[PDF_VALID]', $validation + ['source' => 'dompdf']);
         Log::info('[PDF_MAGIC_BYTES_VALID]', [
-            'source' => 'dompdf',
+            'source' => 'latexlite',
             'size' => $validation['size'],
         ]);
+        Log::info('[PDF_RENDER_SUCCESS]', [
+            'source' => 'latexlite',
+            'user_id' => $user->id,
+            'internship_id' => $internship->id,
+            'version_id' => $version->id,
+        ]);
 
-        return $this->binaryPdfResponse($domPdfBinary, $filename);
+        return $this->binaryPdfResponse($pdfBinary, $filename);
     }
 
     private function binaryPdfResponse(string $pdfBinary, string $filename): Response
@@ -157,22 +159,159 @@ class ResumePdfService
     /*  Data Builder                                                        */
     /* ------------------------------------------------------------------ */
 
-    private function buildPdfData(User $user, Internship $internship, string $resumeText): array
+    private function buildPdfData(User $user, Internship $internship, string $resumeText, ?string $originalContent = null): array
     {
-        // Use the parser to get structured sections from the rewritten text
         $sections = $this->parseResumeTextToSections($resumeText, $internship);
+
+        if ($originalContent !== null && trim($originalContent) !== '') {
+            $originalSections = $this->parseResumeTextToSections($originalContent, $internship);
+            $sections         = $this->mergePdfSections($sections, $originalSections);
+        }
+
         $sections = $this->sanitizeSections($sections);
+        $sections = $this->backfillSectionsFromRawText($sections, $resumeText);
 
         $profile  = $user->profile;
         $name     = $profile?->name ?? $user->name ?? 'Candidate';
         $email    = $user->email ?? '';
         $phone    = $this->extractPhone($resumeText) ?: ($profile?->phone ?? '');
         $location = $profile?->location ?? $this->extractLocation($resumeText) ?? '';
-        $links    = $this->extractLinks($resumeText);
+        $links    = $this->extractLinks($resumeText . "\n" . ($originalContent ?? ''));
 
-        $targetRole = $internship->title . ' — ' . $internship->organization;
+        $identityEngine = new \App\Services\Resume\IdentityPreservationEngine();
+        $parsedForIdentity = is_array($sections) ? array_merge($sections, ['raw_text' => $resumeText]) : ['raw_text' => $resumeText];
+        $identity = $identityEngine->extract($parsedForIdentity);
 
-        return compact('name', 'email', 'phone', 'location', 'links', 'targetRole', 'sections', 'internship');
+        $headline   = $identity['candidate_type'] ?? 'Software Engineer';
+        $targetRole = 'Applying for: ' . trim($internship->title)
+            . ($internship->organization ? ' — ' . $internship->organization : '');
+
+        return compact('name', 'email', 'phone', 'location', 'links', 'targetRole', 'headline', 'sections', 'internship');
+    }
+
+    private function mergePdfSections(array $optimized, array $baseline): array
+    {
+        if (trim((string) ($optimized['summary'] ?? '')) === '' && !empty($baseline['summary'])) {
+            $optimized['summary'] = $baseline['summary'];
+        }
+
+        if (!$this->hasSubstantiveExperience($optimized['experience'] ?? [])) {
+            $optimized['experience'] = $baseline['experience'] ?? [];
+        }
+
+        if (empty($optimized['education']) && !empty($baseline['education'])) {
+            $optimized['education'] = $baseline['education'];
+        }
+
+        if (empty($optimized['certifications']) && !empty($baseline['certifications'])) {
+            $optimized['certifications'] = $baseline['certifications'];
+        }
+
+        $optimized['projects'] = $this->mergeProjectSections(
+            $optimized['projects'] ?? [],
+            $baseline['projects'] ?? []
+        );
+
+        $optimized['skills'] = $this->mergeSkillLists(
+            $optimized['skills'] ?? [],
+            $baseline['skills'] ?? []
+        );
+
+        if (!empty($baseline['skills_grouped'])) {
+            $optimized['skills_grouped'] = $baseline['skills_grouped'];
+        }
+
+        return $optimized;
+    }
+
+    private function hasSubstantiveExperience(array $experience): bool
+    {
+        foreach ($experience as $exp) {
+            if (!is_array($exp)) {
+                continue;
+            }
+
+            $bullets = array_filter($exp['bullets'] ?? [], fn ($b) => is_string($b) && strlen(trim($b)) > 8);
+            if (!empty($bullets)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function mergeProjectSections(array $optimized, array $baseline): array
+    {
+        $byTitle = [];
+
+        foreach (array_merge($baseline, $optimized) as $proj) {
+            if (!is_array($proj) || empty(trim($proj['title'] ?? ''))) {
+                continue;
+            }
+
+            $key = strtolower(trim($proj['title']));
+            if (!isset($byTitle[$key]) || count($proj['bullets'] ?? []) > count($byTitle[$key]['bullets'] ?? [])) {
+                $byTitle[$key] = $proj;
+            }
+        }
+
+        return array_values($byTitle);
+    }
+
+    private function mergeSkillLists(array $optimized, array $baseline): array
+    {
+        $seen = [];
+        $out  = [];
+
+        foreach (array_merge($optimized, $baseline) as $skill) {
+            if (!is_string($skill)) {
+                continue;
+            }
+
+            $skill = trim($skill);
+            $key   = strtolower($skill);
+
+            if ($skill === '' || isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $out[]      = $skill;
+        }
+
+        return $out;
+    }
+
+    private function backfillSectionsFromRawText(array $sections, string $resumeText): array
+    {
+        $hasContent = $this->hasSubstantiveExperience($sections['experience'] ?? [])
+            || !empty($sections['education'])
+            || !empty($sections['projects'])
+            || !empty($sections['skills'])
+            || trim((string) ($sections['summary'] ?? '')) !== '';
+
+        if ($hasContent) {
+            return $sections;
+        }
+
+        $decoded = json_decode($resumeText, true);
+        $rawText = is_array($decoded) ? trim((string) ($decoded['raw_text'] ?? '')) : '';
+
+        if ($rawText === '') {
+            return $sections;
+        }
+
+        $parsed = $this->parser->parseRawText($rawText);
+
+        return $this->mergePdfSections($sections, [
+            'summary'        => $parsed['summary'] ?? '',
+            'skills'         => $parsed['skills'] ?? [],
+            'skills_grouped' => $this->extractGroupedSkills($rawText),
+            'experience'     => $parsed['experience'] ?? [],
+            'projects'       => $parsed['projects'] ?? [],
+            'education'      => $parsed['education'] ?? [],
+            'certifications' => $parsed['certifications'] ?? [],
+        ]);
     }
 
     /* ------------------------------------------------------------------ */
@@ -183,8 +322,7 @@ class ResumePdfService
     {
         $decoded = json_decode($text, true);
         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-            // Already structured by AI Engine
-            return [
+            $sections = [
                 'summary'        => $decoded['summary'] ?? '',
                 'skills'         => $decoded['skills'] ?? [],
                 'experience'     => $decoded['experience'] ?? [],
@@ -192,6 +330,22 @@ class ResumePdfService
                 'education'      => $decoded['education'] ?? [],
                 'certifications' => $decoded['certifications'] ?? [],
             ];
+
+            $rawText = trim((string) ($decoded['raw_text'] ?? ''));
+            if ($rawText !== '') {
+                $parsedFromRaw = $this->parser->parseRawText($rawText);
+                $sections      = $this->mergePdfSections($sections, [
+                    'summary'        => $parsedFromRaw['summary'] ?? '',
+                    'skills'         => $parsedFromRaw['skills'] ?? [],
+                    'skills_grouped' => $this->extractGroupedSkills($rawText),
+                    'experience'     => $parsedFromRaw['experience'] ?? [],
+                    'projects'       => $parsedFromRaw['projects'] ?? [],
+                    'education'      => $parsedFromRaw['education'] ?? [],
+                    'certifications' => $parsedFromRaw['certifications'] ?? [],
+                ]);
+            }
+
+            return $sections;
         }
 
         \Illuminate\Support\Facades\Log::warning('ResumePdf: Received raw text instead of JSON, applying legacy regex parser.');
@@ -330,13 +484,20 @@ class ResumePdfService
         }
 
         $jobSkills = is_array($internship->required_skills) ? $internship->required_skills : [];
-        $skillsLower = array_map('strtolower', $skills);
-        $toAdd = [];
-        foreach ($jobSkills as $js) {
-            if (!in_array(strtolower($js), $skillsLower)) $toAdd[] = $js;
+        $seen      = [];
+        $merged    = [];
+
+        foreach (array_merge($skills, $jobSkills) as $skill) {
+            $skill = trim((string) $skill);
+            $key   = strtolower($skill);
+            if ($skill === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $merged[]   = $skill;
         }
 
-        return array_values(array_unique(array_merge($toAdd, $skills)));
+        return $merged;
     }
 
     private function parseEntries(string $text): array
@@ -348,7 +509,7 @@ class ResumePdfService
         $lines = array_map('trim', explode("\n", $text));
 
         $current = null;
-        $datePattern = '/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}(?:\s*[-\x{2013}\x{2014}]\s*(?:\w+\.?\s+)?\d{4}|\s*[-\x{2013}\x{2014}]\s*Present)?|\d{4}\s*[-\x{2013}\x{2014}]\s*(?:\d{4}|Present)/iu';
+        $datePatternCore = '(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}(?:\s*[-\x{2013}\x{2014}]\s*(?:\w+\.?\s+)?\d{4}|\s*[-\x{2013}\x{2014}]\s*Present)?|\d{4}\s*[-\x{2013}\x{2014}]\s*(?:\d{4}|Present)';
 
         foreach ($lines as $line) {
             if (empty($line)) continue;
@@ -357,7 +518,7 @@ class ResumePdfService
             $hasMultiPipe = substr_count($line, '|') >= 1;
             $looksLikeHeader = !$isBullet
                 && strlen($line) < 120
-                && ($hasMultiPipe || preg_match($datePattern, $line));
+                && ($hasMultiPipe || preg_match('/' . $datePatternCore . '/iu', $line));
 
             if ($looksLikeHeader) {
                 // Save previous entry
@@ -373,7 +534,7 @@ class ResumePdfService
                     $location = $parts[3] ?? '';
                 } else {
                     // Extract date from end of line
-                    if (preg_match('/\s+(' . $datePattern . ')$/u', $line, $m, PREG_OFFSET_CAPTURE)) {
+                    if (preg_match('/\s+(' . $datePatternCore . ')$/iu', $line, $m, PREG_OFFSET_CAPTURE)) {
                         $org  = trim(substr($line, 0, $m[0][1]));
                         $date = trim($m[1][0]);
                     } else {
@@ -553,14 +714,27 @@ class ResumePdfService
         // Skills: remove URLs and junk
         if (!empty($sections['skills'])) {
             $cleaned = [];
+            $seen    = [];
             foreach ($sections['skills'] as $skill) {
-                $skill = trim($skill);
+                $skill = trim(is_string($skill) ? $skill : (string) $skill);
                 if (strlen($skill) < 2 || strlen($skill) > 55) continue;
                 if (preg_match('/https?:\/\//i', $skill)) continue;
                 if (!preg_match('/[a-zA-Z]/', $skill)) continue;
-                $cleaned[] = $skill;
+
+                $key = strtolower($skill);
+                if (isset($seen[$key])) continue;
+
+                $seen[$key] = true;
+                $cleaned[]  = $skill;
             }
-            $sections['skills'] = array_values(array_unique($cleaned));
+            $sections['skills'] = $cleaned;
+        }
+
+        if (!empty($sections['education'])) {
+            $sections['education'] = array_values(array_filter(
+                array_map([$this, 'normalizeEducationEntry'], $sections['education']),
+                fn ($edu) => is_array($edu) && !$this->isGarbageEducation($edu)
+            ));
         }
 
         // Experience: sanitize bullets
@@ -640,10 +814,92 @@ class ResumePdfService
     private function extractLinks(string $text): array
     {
         $links = [];
-        if (preg_match_all('/https?:\/\/\S+|github\.com\/\S+|linkedin\.com\/\S+/', $text, $m)) {
-            $links = array_unique($m[0]);
+
+        if (preg_match_all('#https?://[^\s<>"\']+#i', $text, $m)) {
+            foreach ($m[0] as $url) {
+                $url = rtrim($url, '.,);');
+                if (stripos($url, 'linkedin') !== false || stripos($url, 'github') !== false) {
+                    $links[] = $url;
+                }
+            }
         }
-        return array_slice($links, 0, 2);
+
+        if (preg_match_all('#(?:https?://)?(?:www\.)?linkedin\.com/in/[\w\-./]+#i', $text, $linkedin)) {
+            foreach ($linkedin[0] as $url) {
+                $links[] = str_starts_with($url, 'http') ? $url : 'https://' . ltrim($url, '/');
+            }
+        }
+
+        if (preg_match_all('#(?:https?://)?(?:www\.)?github\.com/[\w\-./]+#i', $text, $github)) {
+            foreach ($github[0] as $url) {
+                $links[] = str_starts_with($url, 'http') ? $url : 'https://' . ltrim($url, '/');
+            }
+        }
+
+        return array_values(array_unique(array_slice($links, 0, 4)));
+    }
+
+    private function normalizeEducationEntry(mixed $edu): array
+    {
+        if (!is_array($edu)) {
+            return ['degree' => '', 'school' => '', 'year' => '', 'meta' => ''];
+        }
+
+        return [
+            'degree' => (string) ($edu['degree'] ?? ''),
+            'school' => (string) ($edu['school'] ?? $edu['institution'] ?? ''),
+            'year'   => (string) ($edu['year'] ?? $edu['date'] ?? ''),
+            'meta'   => (string) ($edu['meta'] ?? $edu['gpa'] ?? ''),
+        ];
+    }
+
+    private function isGarbageEducation(array $edu): bool
+    {
+        $school = strtolower((string) ($edu['school'] ?? $edu['institution'] ?? ''));
+        $degree = strtolower((string) ($edu['degree'] ?? ''));
+
+        if (strlen($school) > 90 || strlen($degree) > 90) {
+            return true;
+        }
+
+        foreach (['professional summary', 'technical skills', 'portfolio', 'leetcode', 'github', 'linkedin'] as $needle) {
+            if (str_contains($school, $needle) || str_contains($degree, $needle)) {
+                return true;
+            }
+        }
+
+        return $degree === 'academic & professional background';
+    }
+
+    private function extractGroupedSkills(string $rawText): array
+    {
+        $groups = [];
+        $lines  = explode("\n", str_replace(["\r\n", "\r"], "\n", $rawText));
+        $inSkills = false;
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '') {
+                continue;
+            }
+
+            if (preg_match('/^(technical\s+skills|core\s+skills|skills)\s*$/i', $trimmed)) {
+                $inSkills = true;
+                continue;
+            }
+
+            if ($inSkills && preg_match('/^(experience|education|projects|certifications)\s*$/i', $trimmed)) {
+                break;
+            }
+
+            if ($inSkills && preg_match('/^([A-Za-z][A-Za-z\s&\/]+):\s*(.+)$/', $trimmed, $match)) {
+                $label = trim($match[1]);
+                $items = array_map('trim', preg_split('/,\s*/', $match[2]));
+                $groups[$label] = array_values(array_filter($items));
+            }
+        }
+
+        return $groups;
     }
 
     private function cleanText(string $text): string

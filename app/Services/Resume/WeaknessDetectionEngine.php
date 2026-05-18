@@ -17,6 +17,15 @@ namespace App\Services\Resume;
  */
 class WeaknessDetectionEngine
 {
+    public function __construct(
+        private ?SemanticSkillMatcher $skillMatcher = null,
+    ) {}
+
+    private function skillMatcher(): SemanticSkillMatcher
+    {
+        return $this->skillMatcher ??= new SemanticSkillMatcher();
+    }
+
     private const STRONG_ACTION_VERBS = [
         'developed','built','implemented','architected','deployed','integrated',
         'optimized','engineered','designed','migrated','refactored','automated',
@@ -70,16 +79,11 @@ class WeaknessDetectionEngine
         $reqSkills   = array_map('strtolower', $jdAnalysis['required_skills'] ?? []);
         $keywords    = $jdAnalysis['keywords'] ?? [];
 
-        // ── 1. Missing Skills ─────────────────────────────────────────────
-        $missingSkills  = [];
-        $matchingSkills = [];
-        foreach ($reqSkills as $skill) {
-            if ($this->skillExistsInText($skill, $resumeText)) {
-                $matchingSkills[] = $skill;
-            } else {
-                $missingSkills[] = $skill;
-            }
-        }
+        // ── 1. Missing Skills (semantic + literal) ───────────────────────
+        $skillResult = $this->skillMatcher()->scoreSkills($reqSkills, $resumeText, $jdAnalysis);
+        $missingSkills  = $skillResult['missing'];
+        $matchingSkills = $skillResult['matching'];
+        $skillExplanations = $skillResult['explanations'];
 
         // ── 2. Missing Keywords ───────────────────────────────────────────
         $missingKeywords = [];
@@ -138,6 +142,7 @@ class WeaknessDetectionEngine
         return [
             'missing_skills'        => $missingSkills,
             'matching_skills'       => $matchingSkills,
+            'skill_match_explanations' => $skillExplanations,
             'missing_keywords'      => array_slice($missingKeywords, 0, 15),
             'weak_bullets'          => $weakBullets,
             'summary_weak'          => $summaryWeak['is_weak'],
@@ -458,21 +463,4 @@ class WeaknessDetectionEngine
     /*  Helpers                                                             */
     /* ------------------------------------------------------------------ */
 
-    private function skillExistsInText(string $skill, string $resumeText): bool
-    {
-        $hasSpecial = preg_match('/[^\w\s-]/', $skill);
-
-        if ($hasSpecial) {
-            $escaped = preg_quote($skill, '/');
-            $pattern = '/(^|[\s,;|])' . $escaped . '($|[\s,;|])/i';
-            if (preg_match($pattern, $resumeText)) return true;
-        } else {
-            if (preg_match('/\b' . preg_quote($skill, '/') . '\b/i', $resumeText)) return true;
-        }
-
-        // Fallback: multi-word substring match
-        if (str_word_count($skill) > 1 && str_contains($resumeText, $skill)) return true;
-
-        return false;
-    }
 }

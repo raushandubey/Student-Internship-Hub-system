@@ -8,12 +8,41 @@ use Illuminate\Support\Facades\Log;
 
 class AiProviderGateway
 {
-    private const TIMEOUT_SECONDS = 90;
-    private const MAX_OUTPUT_TOKENS = 3200;
+    private const TIMEOUT_SECONDS = 35;
+    private const CONNECT_TIMEOUT_SECONDS = 10;
+    private const MAX_OUTPUT_TOKENS = 2400;
+
+    public function __construct(
+        private ?AiProductionDiagnosticsService $diagnostics = null,
+        private ?string $correlationId = null,
+    ) {}
+
+    /**
+     * Attach a diagnostics service and correlation ID for production logging.
+     */
+    public function withDiagnostics(AiProductionDiagnosticsService $diagnostics, string $correlationId): static
+    {
+        $this->diagnostics   = $diagnostics;
+        $this->correlationId = $correlationId;
+
+        return $this;
+    }
 
     public function complete(string $purpose, string $systemPrompt, string $userPrompt, array $metadata = []): array
     {
         $providers = $this->providers();
+
+        $openrouterProvider = collect($providers)->firstWhere('name', 'openrouter');
+        if ($openrouterProvider && ($openrouterProvider['key_present'] ?? false)) {
+            $fallbackModel = 'meta-llama/llama-3.3-70b-instruct:free';
+            if ($fallbackModel !== $openrouterProvider['model']) {
+                $providers[] = array_merge($openrouterProvider, [
+                    'model' => $fallbackModel,
+                    'is_fallback' => true,
+                ]);
+            }
+        }
+
         $attempts = [];
 
         Log::info('[AI_REQUEST_STARTED]', [
@@ -66,6 +95,7 @@ class AiProviderGateway
 
                 $response = $this->callProvider($provider, $systemPrompt, $userPrompt);
                 $latencyMs = (int) round((microtime(true) - $startedAt) * 1000);
+                $durationSec = (microtime(true) - $startedAt);
 
                 Log::info('[API_RESPONSE_RECEIVED]', [
                     'purpose' => $purpose,
@@ -115,6 +145,16 @@ class AiProviderGateway
                     'latency_ms' => $latencyMs,
                 ];
 
+                // Diagnostic logging for production monitoring
+                $this->diagnostics?->logApiCall(
+                    provider: $provider['name'],
+                    endpoint: $provider['endpoint'],
+                    request: ['purpose' => $purpose, 'model' => $provider['model']],
+                    response: ['status' => $response->status(), 'body_size' => strlen($response->body()), 'tokens' => $tokens],
+                    duration: $durationSec,
+                    correlationId: $this->correlationId,
+                );
+
                 return [
                     'success' => true,
                     'provider' => $provider['name'],
@@ -143,6 +183,15 @@ class AiProviderGateway
                     ]);
                 }
 
+                // Diagnostic logging for production failure capture
+                $this->diagnostics?->logApiFailure(
+                    provider: $provider['name'],
+                    endpoint: $provider['endpoint'],
+                    exception: $e,
+                    context: ['purpose' => $purpose, 'model' => $provider['model'], 'attempt' => $index + 1],
+                    correlationId: $this->correlationId,
+                );
+
                 $attempts[] = [
                     'provider' => $provider['name'],
                     'model' => $provider['model'],
@@ -162,29 +211,37 @@ class AiProviderGateway
 
     public function providers(): array
     {
-        return [
-            [
+        $providers = [];
+
+        if (filled(config('services.openai.api_key'))) {
+            $providers[] = [
                 'name' => 'openai',
                 'api_key' => (string) config('services.openai.api_key', ''),
-                'key_present' => filled(config('services.openai.api_key')),
+                'key_present' => true,
                 'model' => (string) config('services.openai.model', 'gpt-4o-mini'),
                 'endpoint' => (string) config('services.openai.endpoint', 'https://api.openai.com/v1/chat/completions'),
-            ],
-            [
+            ];
+        }
+
+        if (filled(config('services.anthropic.api_key'))) {
+            $providers[] = [
                 'name' => 'anthropic',
                 'api_key' => (string) config('services.anthropic.api_key', ''),
-                'key_present' => filled(config('services.anthropic.api_key')),
+                'key_present' => true,
                 'model' => (string) config('services.anthropic.model', 'claude-3-5-sonnet-latest'),
                 'endpoint' => (string) config('services.anthropic.endpoint', 'https://api.anthropic.com/v1/messages'),
-            ],
-            [
-                'name' => 'openrouter',
-                'api_key' => (string) config('services.openrouter.api_key', ''),
-                'key_present' => filled(config('services.openrouter.api_key')),
-                'model' => (string) config('services.openrouter.model', 'deepseek/deepseek-chat'),
-                'endpoint' => (string) config('services.openrouter.endpoint', 'https://openrouter.ai/api/v1/chat/completions'),
-            ],
+            ];
+        }
+
+        $providers[] = [
+            'name' => 'openrouter',
+            'api_key' => (string) config('services.openrouter.api_key', ''),
+            'key_present' => filled(config('services.openrouter.api_key')),
+            'model' => (string) config('services.openrouter.model', 'deepseek/deepseek-v4-flash:free'),
+            'endpoint' => (string) config('services.openrouter.endpoint', 'https://openrouter.ai/api/v1/chat/completions'),
         ];
+
+        return $providers;
     }
 
     private function callProvider(array $provider, string $systemPrompt, string $userPrompt): Response
@@ -201,6 +258,7 @@ class AiProviderGateway
     {
         $request = Http::withToken($provider['api_key'])
             ->acceptJson()
+            ->connectTimeout(self::CONNECT_TIMEOUT_SECONDS)
             ->timeout(self::TIMEOUT_SECONDS);
 
         if (str_contains($provider['endpoint'], '/responses')) {
@@ -231,7 +289,10 @@ class AiProviderGateway
             'x-api-key' => $provider['api_key'],
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
-        ])->acceptJson()->timeout(self::TIMEOUT_SECONDS)->post($provider['endpoint'], [
+        ])->acceptJson()
+            ->connectTimeout(self::CONNECT_TIMEOUT_SECONDS)
+            ->timeout(self::TIMEOUT_SECONDS)
+            ->post($provider['endpoint'], [
             'model' => $provider['model'],
             'system' => $systemPrompt,
             'messages' => [
@@ -249,7 +310,10 @@ class AiProviderGateway
             'Content-Type' => 'application/json',
             'HTTP-Referer' => config('app.url'),
             'X-Title' => config('app.name', 'Resume Optimizer'),
-        ])->acceptJson()->timeout(self::TIMEOUT_SECONDS)->post($provider['endpoint'], [
+        ])->acceptJson()
+            ->connectTimeout(self::CONNECT_TIMEOUT_SECONDS)
+            ->timeout(self::TIMEOUT_SECONDS)
+            ->post($provider['endpoint'], [
             'model' => $provider['model'],
             'messages' => [
                 ['role' => 'system', 'content' => $systemPrompt],

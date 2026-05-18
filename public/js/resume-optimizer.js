@@ -3,7 +3,7 @@
  *
  * API Endpoints used:
  *   GET  /resume-optimizer/score/{id}    → score + breakdown
- *   POST /resume-optimizer/rewrite/{id}  → AI rewrite
+ *   POST /resume-optimizer/rewrite/{id}  → AI optimize (preserve original structure)
  *
  * Designed to be non-destructive to the existing chatbot.js and apply flow.
  */
@@ -158,7 +158,7 @@ window.ResumeOptimizer = (function () {
     }
 
     /**
-     * Trigger AI rewrite.
+     * Trigger AI resume optimization.
      * @param {number} internshipId
      */
     function rewrite(internshipId) {
@@ -167,6 +167,10 @@ window.ResumeOptimizer = (function () {
 
         const baseUrl = window.resumeOptimizerRewriteBase || '/resume-optimizer/rewrite/';
 
+        const controller = new AbortController();
+        const timeoutMs = 150000;
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
         fetch(baseUrl + internshipId, {
             method: 'POST',
             headers: {
@@ -174,22 +178,38 @@ window.ResumeOptimizer = (function () {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
             },
+            signal: controller.signal,
         })
-            .then(r => r.json())
-            .then(data => {
+            .then(async (r) => {
+                const data = await r.json().catch(() => ({}));
+                return { ok: r.ok, status: r.status, data };
+            })
+            .then(({ ok, status, data }) => {
+                clearTimeout(timeoutId);
                 hide('rom-rewriting-' + internshipId);
 
-                if (!data.success) {
-                    _showError(internshipId, data.error || 'Rewrite failed. Please try again.');
+                if (!ok || !data.success) {
+                    const prefix = data.stage_failed ? '[' + data.stage_failed + '] ' : '';
+                    let message = prefix + (data.error || 'Optimization failed. Please try again.');
+                    if (status === 419) {
+                        message = 'Session expired. Please refresh the page and try again.';
+                    } else if (status === 504 || status === 408) {
+                        message = 'Optimization timed out. Please try again — your resume was saved.';
+                    }
+                    _showError(internshipId, message);
                     return;
                 }
 
                 _renderComparison(internshipId, data.data);
             })
             .catch(err => {
-                console.error('[ResumeOptimizer] Rewrite error:', err);
+                clearTimeout(timeoutId);
+                console.error('[ResumeOptimizer] Optimize error:', err);
                 hide('rom-rewriting-' + internshipId);
-                _showError(internshipId, 'Network error. Please check your connection.');
+                const message = err.name === 'AbortError'
+                    ? 'Optimization is taking longer than expected. Please try again.'
+                    : 'Network error. Please check your connection.';
+                _showError(internshipId, message);
             });
     }
 
@@ -309,6 +329,13 @@ window.ResumeOptimizer = (function () {
         const ruleFallback = el('rom-rule-fallback-' + internshipId);
         if (ruleFallback) {
             if (d.ai_disabled) {
+                const providerHint = d.ai_provider ? ` (${d.ai_provider})` : '';
+                const isLight = d.ai_provider === 'light_optimizer' || d.optimization_mode === 'light_optimized';
+                ruleFallback.innerHTML = '<i class="fas fa-info-circle mr-1"></i>'
+                    + (isLight
+                        ? 'Light ATS optimization applied — your resume content was preserved; only keywords were added.'
+                        : 'Light optimization applied (AI temporarily unavailable). Your original resume was kept intact.')
+                    + providerHint;
                 ruleFallback.classList.remove('hidden');
             } else {
                 ruleFallback.classList.add('hidden');

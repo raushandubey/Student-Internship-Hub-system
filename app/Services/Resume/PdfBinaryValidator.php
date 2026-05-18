@@ -25,14 +25,22 @@ class PdfBinaryValidator
             return $this->result(false, 'html_or_exception_payload_detected', $size, $firstBytesHex);
         }
 
-        if (!str_starts_with($binary, '%PDF-')) {
-            return $this->result(false, 'missing_pdf_magic_bytes', $size, $firstBytesHex);
-        }
-
         foreach (['laravel\\', 'symfony\\component', 'whoops\\', 'stack trace'] as $needle) {
             if (str_contains($wholeProbe, $needle)) {
                 return $this->result(false, 'html_or_exception_payload_detected', $size, $firstBytesHex);
             }
+        }
+
+        if (!str_starts_with($binary, '%PDF-')) {
+            return $this->result(false, 'missing_pdf_magic_bytes', $size, $firstBytesHex);
+        }
+
+        if ($size < 12) {
+            return $this->result(false, 'pdf_too_small', $size, $firstBytesHex);
+        }
+
+        if (!$this->hasPages($binary)) {
+            return $this->result(false, 'pdf_zero_pages', $size, $firstBytesHex);
         }
 
         return $this->result(true, null, $size, $firstBytesHex);
@@ -43,6 +51,23 @@ class PdfBinaryValidator
         return $this->validate($binary)['valid'] === true;
     }
 
+    private function hasPages(string $binary): bool
+    {
+        if (preg_match('/\/Type\s*\/Page[^s]/', $binary)) {
+            return true;
+        }
+
+        if (preg_match('/\/Count\s+(\d+)/', $binary, $matches)) {
+            return ((int) ($matches[1] ?? 0)) > 0;
+        }
+
+        if (str_contains($binary, '%%EOF')) {
+            return true;
+        }
+
+        return strlen($binary) >= 512;
+    }
+
     private function result(bool $valid, ?string $reason, int $size, string $firstBytesHex): array
     {
         return [
@@ -50,6 +75,7 @@ class PdfBinaryValidator
             'reason' => $reason,
             'size' => $size,
             'first_bytes_hex' => $firstBytesHex,
+            'mime' => $valid ? 'application/pdf' : null,
         ];
     }
 }

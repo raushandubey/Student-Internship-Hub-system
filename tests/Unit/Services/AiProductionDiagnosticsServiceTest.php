@@ -5,19 +5,19 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 
 test('production diagnostics redact secrets and can skip outbound probes', function () {
-    Config::set('services.openai.api_key', 'secret-openai-key');
-    Config::set('services.openai.model', 'gpt-4o-mini');
-    Config::set('services.openai.endpoint', 'https://api.openai.com/v1/chat/completions');
+    Config::set('services.openrouter.api_key', 'secret-openrouter-key');
+    Config::set('services.openrouter.model', 'deepseek/deepseek-v4-flash:free');
+    Config::set('services.openrouter.endpoint', 'https://openrouter.ai/api/v1/chat/completions');
 
     Http::fake();
 
     $result = app(AiProductionDiagnosticsService::class)->run(false);
 
-    expect($result['env_presence']['OPENAI_API_KEY']['redacted'])->toBeTrue()
-        ->and($result['providers']['openai']['model'])->toBe('gpt-4o-mini')
-        ->and($result['providers']['openai']['connectivity']['status'])->toBe('skipped')
+    expect($result['env_presence']['OPENROUTER_API_KEY']['redacted'])->toBeTrue()
+        ->and($result['providers']['openrouter']['model'])->toBe('deepseek/deepseek-v4-flash:free')
+        ->and($result['providers']['openrouter']['connectivity']['status'])->toBe('skipped')
         ->and($result['pdf_renderer']['binary_validator']['valid'])->toBeTrue();
-    expect(array_key_exists('value', $result['env_presence']['OPENAI_API_KEY']))->toBeFalse();
+    expect(array_key_exists('value', $result['env_presence']['OPENROUTER_API_KEY']))->toBeFalse();
 
     Http::assertNothingSent();
 });

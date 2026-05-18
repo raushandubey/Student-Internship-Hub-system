@@ -58,19 +58,37 @@ class AtsScoreEngine
 
     public function __construct(
         private ?AiProviderGateway $aiGateway = null,
+        private ?SemanticSkillMatcher $skillMatcher = null,
     ) {}
+
+    private function skillMatcher(): SemanticSkillMatcher
+    {
+        return $this->skillMatcher ??= new SemanticSkillMatcher();
+    }
 
     /* ------------------------------------------------------------------ */
     /*  Public API                                                          */
     /* ------------------------------------------------------------------ */
 
-    public function evaluateImprovement(array $originalResume, array $optimizedResume, array $jdAnalysis): array
-    {
+    public function evaluateImprovement(
+        array $originalResume,
+        array $optimizedResume,
+        array $jdAnalysis,
+        string $qualityTier = 'average'
+    ): array {
         $fallbackBefore = $this->ruleBasedScore($originalResume, $jdAnalysis);
         $fallbackAfter  = $this->ruleBasedScore($optimizedResume, $jdAnalysis);
 
+        $ruleBefore = (int) $fallbackBefore['overall_score'];
+        $ruleAfter  = (int) $fallbackAfter['overall_score'];
+        $ruleDelta  = $ruleAfter - $ruleBefore;
+
+        $maxAiDelta   = (int) config('services.resume_optimizer.max_ai_score_delta', 8);
+        $maxEliteGain = (int) config('services.resume_optimizer.max_elite_score_gain', 12);
+        $isEliteTier  = in_array($qualityTier, ['elite', 'strong'], true);
+
         \Illuminate\Support\Facades\Log::info('[ATS_BEFORE]', [
-            'score' => $fallbackBefore['overall_score'],
+            'score' => $ruleBefore,
             'skill_match' => $fallbackBefore['skill_match'],
             'keyword_score' => $fallbackBefore['keyword_score'],
         ]);
@@ -90,47 +108,106 @@ class AtsScoreEngine
             ])
         );
 
+        $aiUsed = false;
+        $afterScore = $ruleAfter;
+        $beforeScore = $ruleBefore;
+        $improvements = $this->buildRuleImprovements($fallbackBefore, $fallbackAfter);
+
         if (($gatewayResult['success'] ?? false) === true) {
             $aiData = $this->safeJsonDecode($gatewayResult['content'] ?? '');
             if ($aiData) {
-                $result = $this->parseAiScoreReport($aiData, $fallbackBefore, $fallbackAfter);
-                $result['ai_used'] = true;
-                $result['provider'] = $gatewayResult['provider'] ?? null;
-                $result['model'] = $gatewayResult['model'] ?? null;
+                $aiBefore = (int) ($aiData['before_score'] ?? $ruleBefore);
+                $aiAfter  = (int) ($aiData['after_score'] ?? $ruleAfter);
+                $aiDelta  = $aiAfter - $aiBefore;
+
+                $maxAllowedAfter = $isEliteTier
+                    ? min(100, $ruleBefore + $maxEliteGain)
+                    : 95;
+
+                if (abs($aiDelta - $ruleDelta) <= $maxAiDelta
+                    && $aiAfter >= $ruleBefore
+                    && $aiAfter <= $maxAllowedAfter
+                    && $aiAfter <= ($ruleAfter + $maxAiDelta)) {
+                    $beforeScore = $aiBefore;
+                    $afterScore  = max($ruleAfter, min($aiAfter, $maxAllowedAfter));
+                    $aiUsed = true;
+                    $improvements = $aiData['improvements'] ?? $improvements;
+                }
 
                 \Illuminate\Support\Facades\Log::info('[ATS_AFTER]', [
-                    'score' => $result['after_score'],
-                    'provider' => $result['provider'],
-                    'model' => $result['model'],
+                    'score' => $afterScore,
+                    'rule_after' => $ruleAfter,
+                    'ai_advisory' => $aiUsed,
+                    'provider' => $gatewayResult['provider'] ?? null,
                 ]);
-
-                return $result;
             }
+        }
 
-            \Illuminate\Support\Facades\Log::error('AtsScore: AI Analysis returned invalid JSON', [
-                'provider' => $gatewayResult['provider'] ?? 'unknown',
-                'model' => $gatewayResult['model'] ?? null,
+        if (!$aiUsed) {
+            \Illuminate\Support\Facades\Log::info('[ATS_AFTER]', [
+                'score' => $afterScore,
+                'fallback_used' => true,
             ]);
         }
 
-        \Illuminate\Support\Facades\Log::warning('AtsScore: Falling back to rule-based evaluation');
-        \Illuminate\Support\Facades\Log::info('[ATS_AFTER]', [
-            'score' => $fallbackAfter['overall_score'],
-            'fallback_used' => true,
-        ]);
+        // ── CRITICAL: Enforce minimum 1% delta floor ─────────────────────
+        // When both rule-based delta is 0 AND AI returns identical scores,
+        // the engine must still guarantee after_score > before_score.
+        // This prevents the "fake ATS score" bug where identical resumes
+        // produce identical before/after scores with no improvement shown.
+        // Cap: max delta is 8 pts for average tier, 12 pts for elite tier.
+        $maxDeltaCap = $isEliteTier ? $maxEliteGain : $maxAiDelta;
+        if ($afterScore <= $beforeScore) {
+            $afterScore = min(100, $beforeScore + 1);
+        }
+        // Also cap unrealistic jumps (no 40-point increases)
+        if (($afterScore - $beforeScore) > $maxDeltaCap) {
+            $afterScore = $beforeScore + $maxDeltaCap;
+        }
+
+        $afterBreakdown = $fallbackAfter;
+        $afterBreakdown['overall_score'] = $afterScore;
+        $afterBreakdown['score_delta'] = $afterScore - $beforeScore;
 
         return [
-            'before_score'   => $fallbackBefore['overall_score'],
-            'after_score'    => $fallbackAfter['overall_score'],
-            'after_breakdown'=> $fallbackAfter,
-            'improvements'   => [
-                "Enhanced technical phrasing and structure.",
-                "Improved ATS readability and keyword coverage."
-            ],
-            'ai_used' => false,
-            'fallback_used' => true,
-            'attempts' => $gatewayResult['attempts'] ?? [],
+            'before_score'    => $beforeScore,
+            'after_score'     => $afterScore,
+            'after_breakdown' => $afterBreakdown,
+            'before_breakdown'=> $fallbackBefore,
+            'improvements'    => $improvements,
+            'ai_used'         => $aiUsed,
+            'fallback_used'   => !$aiUsed,
+            'rule_delta'      => $ruleDelta,
+            'attempts'        => $gatewayResult['attempts'] ?? [],
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function buildRuleImprovements(array $before, array $after): array
+    {
+        $improvements = [];
+        $skillDelta = ($after['skill_match'] ?? 0) - ($before['skill_match'] ?? 0);
+        $keywordDelta = ($after['keyword_score'] ?? 0) - ($before['keyword_score'] ?? 0);
+
+        if ($skillDelta > 0) {
+            $improvements[] = 'Improved semantic skill alignment with job requirements.';
+        }
+        if ($keywordDelta > 0) {
+            $improvements[] = 'Increased ATS keyword coverage.';
+        }
+        if (($after['semantic_alignment_score'] ?? 0) > ($before['semantic_alignment_score'] ?? 0)) {
+            $improvements[] = 'Stronger semantic alignment with recruiter terminology.';
+        }
+
+        if (empty($improvements)) {
+            $improvements = config('services.resume_optimizer.light_mode', true)
+                ? ['Preserved original experience while adding targeted ATS keywords.']
+                : ['Enhanced technical phrasing and ATS readability.'];
+        }
+
+        return $improvements;
     }
 
     private function buildAiSystemPrompt(): string
@@ -203,11 +280,16 @@ PROMPT;
         $intrinsicScore = $this->scoreIntrinsicQuality($parsedResume, $resumeText);
 
         // ── B. JD ALIGNMENT (60%) ─────────────────────────────────────
-        [$skillScore, $matchingSkills, $missingSkills] = $this->scoreSkillMatch($reqSkills, $resumeText);
+        [$skillScore, $matchingSkills, $missingSkills, $skillExplanations] = $this->scoreSkillMatch($reqSkills, $resumeText, $jdAnalysis);
         [$keywordScore, $keywordsFound, $keywordsMissed] = $this->scoreKeywordMatch($keywords, $resumeText);
         $expScore  = $this->scoreExperienceAlignment($parsedResume, $jdAnalysis, $reqSkills, $keywords);
         $projScore = $this->scoreProjectRelevance($parsedResume, $reqSkills, $jdAnalysis);
         $formatScore = $this->scoreFormattingQuality($parsedResume);
+        $semanticScore = $this->scoreSemanticAlignment($resumeText, $jdAnalysis);
+        $techDepthScore = $this->scoreTechnicalDepthDimension($resumeText);
+        $atsReadScore = $this->scoreAtsReadability($parsedResume);
+        $recruiterReadScore = $this->scoreRecruiterReadability($resumeText);
+        $archDepthScore = $this->scoreArchitectureDepth($resumeText);
 
         // ── Weighted Composite ────────────────────────────────────────
         // JD alignment sub-score
@@ -256,8 +338,14 @@ PROMPT;
             'proj_score'       => $projScore,
             'format_score'     => $formatScore,
             'alignment_score'  => $alignmentScore,
+            'semantic_alignment_score' => $semanticScore,
+            'technical_depth_score'    => $techDepthScore,
+            'ats_readability_score'    => $atsReadScore,
+            'recruiter_readability_score'=> $recruiterReadScore,
+            'architecture_depth_score' => $archDepthScore,
             'matching_skills'  => $matchingSkills,
             'missing_skills'   => $missingSkills,
+            'skill_match_explanations' => $skillExplanations,
             'keywords_found'   => $keywordsFound,
             'keywords_missed'  => array_slice($keywordsMissed, 0, 10),
             'issues'           => $issues,
@@ -342,21 +430,20 @@ PROMPT;
     /*  B. JD Alignment Scorers                                             */
     /* ------------------------------------------------------------------ */
 
-    private function scoreSkillMatch(array $reqSkills, string $resumeText): array
+    private function scoreSkillMatch(array $reqSkills, string $resumeText, array $jdAnalysis = []): array
     {
-        if (empty($reqSkills)) return [50, [], []];
-
-        $matching = $missing = [];
-        foreach ($reqSkills as $skill) {
-            if ($this->skillExistsInText($skill, $resumeText)) {
-                $matching[] = $skill;
-            } else {
-                $missing[] = $skill;
-            }
+        if (empty($reqSkills)) {
+            return [50, [], [], []];
         }
 
-        $score = (int) round((count($matching) / count($reqSkills)) * 100);
-        return [$score, $matching, $missing];
+        $result = $this->skillMatcher()->scoreSkills($reqSkills, $resumeText, $jdAnalysis);
+
+        return [
+            $result['score'],
+            $result['matching'],
+            $result['missing'],
+            $result['explanations'],
+        ];
     }
 
     private function scoreKeywordMatch(array $keywords, string $resumeText): array
@@ -438,6 +525,96 @@ PROMPT;
         return min(100, (int) round(($hits / (count($reqSkills) + count($roleKeywords) * 0.5)) * 100));
     }
 
+    private function scoreSemanticAlignment(string $resumeText, array $jdAnalysis): int
+    {
+        $clusters = $jdAnalysis['semantic_clusters'] ?? [];
+        if (empty($clusters) || !is_array($clusters)) {
+            return 50;
+        }
+
+        $matcher = $this->skillMatcher();
+        $total = 0;
+        $matched = 0;
+
+        foreach ($clusters as $clusterName => $terms) {
+            if (!is_array($terms)) {
+                continue;
+            }
+            $total++;
+            if ($matcher->isSatisfied((string) $clusterName, $resumeText, $jdAnalysis)) {
+                $matched++;
+                continue;
+            }
+            foreach ($terms as $term) {
+                if ($matcher->isSatisfied((string) $term, $resumeText, $jdAnalysis)) {
+                    $matched++;
+                    break;
+                }
+            }
+        }
+
+        if ($total === 0) {
+            return 50;
+        }
+
+        return (int) round(($matched / $total) * 100);
+    }
+
+    private function scoreTechnicalDepthDimension(string $resumeText): int
+    {
+        return min(100, (int) round($this->scoreIntrinsicQuality(['raw_text' => $resumeText], $resumeText) * 0.85));
+    }
+
+    private function scoreAtsReadability(array $parsedResume): int
+    {
+        $score = $this->scoreFormattingQuality($parsedResume);
+        if (!empty($parsedResume['experience'])) {
+            $score = min(100, $score + 10);
+        }
+
+        return $score;
+    }
+
+    private function scoreRecruiterReadability(string $resumeText): int
+    {
+        $score = 40;
+        $verbHits = 0;
+        foreach (self::STRONG_VERBS as $verb) {
+            if (str_contains($resumeText, $verb)) {
+                $verbHits++;
+            }
+        }
+        $score += min(30, $verbHits * 4);
+
+        if (preg_match('/\d+[%x]|\d+\s*(users|requests|ms\b|clients)/i', $resumeText)) {
+            $score += 20;
+        }
+
+        return min(100, $score);
+    }
+
+    private function scoreArchitectureDepth(string $resumeText): int
+    {
+        $hits = 0;
+        foreach (self::ARCHITECTURE_SIGNALS as $sig) {
+            if (str_contains($resumeText, $sig)) {
+                $hits++;
+            }
+        }
+
+        if ($hits >= 4) {
+            return 95;
+        }
+        if ($hits >= 2) {
+            return 75;
+        }
+        if ($hits >= 1) {
+            return 55;
+        }
+
+        return 25;
+    }
+
     private function scoreFormattingQuality(array $parsedResume): int
     {
         $score = 0;
@@ -515,18 +692,6 @@ PROMPT;
     /* ------------------------------------------------------------------ */
     /*  Helpers                                                             */
     /* ------------------------------------------------------------------ */
-
-    private function skillExistsInText(string $skill, string $resumeText): bool
-    {
-        if (preg_match('/[^\w\s-]/', $skill)) {
-            $escaped = preg_quote($skill, '/');
-            if (preg_match('/(^|[\s,;|])' . $escaped . '($|[\s,;|])/i', $resumeText)) return true;
-        } else {
-            if (preg_match('/\b' . preg_quote($skill, '/') . '\b/i', $resumeText)) return true;
-        }
-        if (str_word_count($skill) > 1 && str_contains($resumeText, $skill)) return true;
-        return false;
-    }
 
     private function getRoleKeywords(string $role): array
     {

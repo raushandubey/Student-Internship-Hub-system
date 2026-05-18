@@ -174,7 +174,7 @@ test('handles non-array weaknesses in response', function () {
 
 test('returns null when OpenAI API key is not configured', function () {
     // Arrange
-    Config::set('services.openai.api_key', null);
+    Config::set('services.openrouter.api_key', null);
     
     $user = User::factory()->create();
     $profile = Profile::factory()->create(['user_id' => $user->id]);
@@ -197,7 +197,7 @@ test('returns null when OpenAI API key is not configured', function () {
 
 test('returns null on API timeout', function () {
     // Arrange
-    Config::set('services.openai.api_key', 'test-key');
+    Config::set('services.openrouter.api_key', 'test-key');
     
     $user = User::factory()->create();
     $profile = Profile::factory()->create(['user_id' => $user->id]);
@@ -211,7 +211,7 @@ test('returns null on API timeout', function () {
         });
 
     // Note: This test will fail in real execution due to actual API call
-    // In a real scenario, we would mock the OpenAI client
+    // In a real scenario, we would mock the OpenRouter client
     // For now, this demonstrates the expected behavior
     
     // Act
@@ -242,7 +242,7 @@ test('handles empty profile data gracefully', function () {
 
 test('logs error with correct context on failure', function () {
     // Arrange
-    Config::set('services.openai.api_key', null);
+    Config::set('services.openrouter.api_key', null);
     
     $user = User::factory()->create();
     $profile = Profile::factory()->create([

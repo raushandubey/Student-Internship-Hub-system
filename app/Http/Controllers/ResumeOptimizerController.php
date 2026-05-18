@@ -123,7 +123,8 @@ class ResumeOptimizerController extends Controller
                     'role_category'     => $result['role_category'] ?? 'general',
                     'quality_tier'      => $result['quality_tier'] ?? 'unknown',
                     'preservation_mode' => $result['preservation_mode'] ?? false,
-                    'rewrite_mode'      => $result['rewrite_mode'] ?? 'unknown',
+                    'rewrite_mode'        => $result['rewrite_mode'] ?? 'unknown',
+                    'optimization_mode'   => $result['rewrite_mode'] ?? 'unknown',
                     'locked_sections'   => $result['locked_sections'] ?? [],
                 ],
             ]);
@@ -177,11 +178,13 @@ class ResumeOptimizerController extends Controller
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             abort(404, 'No AI-rewritten resume found. Please click "Improve Resume" first.');
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('ResumeOptimizer: PDF download failed', [
                 'user_id'       => Auth::id(),
                 'internship_id' => $internship->id,
+                'version_id'    => $request->input('version_id'),
                 'error'         => $e->getMessage(),
+                'trace'         => $e->getTraceAsString(),
             ]);
             abort(500, 'PDF generation failed. Please try again.');
         }

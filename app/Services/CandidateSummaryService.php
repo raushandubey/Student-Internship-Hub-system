@@ -62,7 +62,7 @@ class CandidateSummaryService
     }
 
     /**
-     * Call OpenAI API with configured timeout
+     * Call OpenRouter API with configured timeout
      * 
      * @param string $prompt
      * @return string
@@ -70,30 +70,28 @@ class CandidateSummaryService
      */
     protected function callOpenAI(string $prompt): string
     {
-        $apiKey = config('services.openai.api_key');
+        $apiKey = config('services.openrouter.api_key');
+        $model = config('services.openrouter.model', 'deepseek/deepseek-v4-flash:free');
+        $endpoint = config('services.openrouter.endpoint', 'https://openrouter.ai/api/v1/chat/completions');
 
         if (empty($apiKey)) {
-            Log::error('OpenAI API key not configured');
-            throw new \Exception('OpenAI API key not configured');
+            Log::error('OpenRouter API key not configured');
+            throw new \Exception('OpenRouter API key not configured');
         }
 
         try {
-            Log::info('Calling OpenAI API', [
-                'model' => 'gpt-3.5-turbo',
-                'timeout' => 5
+            Log::info('Calling OpenRouter API', [
+                'model' => $model,
+                'timeout' => 15
             ]);
 
-            // Configure OpenAI client with 5-second timeout
-            $client = OpenAI::factory()
-                ->withApiKey($apiKey)
-                ->withHttpClient(new \GuzzleHttp\Client([
-                    'timeout' => 5,
-                ]))
-                ->make();
-
-            // Call chat completion API
-            $result = $client->chat()->create([
-                'model' => 'gpt-3.5-turbo',
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Content-Type' => 'application/json',
+                'HTTP-Referer' => config('app.url'),
+                'X-Title' => config('app.name', 'Resume Optimizer'),
+            ])->acceptJson()->timeout(15)->post($endpoint, [
+                'model' => $model,
                 'messages' => [
                     ['role' => 'system', 'content' => 'You are a recruitment assistant analyzing candidate profiles. Provide structured assessments in JSON format.'],
                     ['role' => 'user', 'content' => $prompt],
@@ -102,25 +100,36 @@ class CandidateSummaryService
                 'max_tokens' => 500,
             ]);
 
-            Log::info('OpenAI API call successful', [
-                'response_length' => strlen($result->choices[0]->message->content)
+            if (!$response->successful()) {
+                throw new \RuntimeException('OpenRouter returned HTTP ' . $response->status() . ': ' . $response->body());
+            }
+
+            $json = $response->json();
+            $content = $json['choices'][0]['message']['content'] ?? '';
+
+            if (trim($content) === '') {
+                throw new \RuntimeException('OpenRouter returned an empty content payload');
+            }
+
+            Log::info('OpenRouter API call successful', [
+                'response_length' => strlen($content)
             ]);
 
-            return $result->choices[0]->message->content;
+            return $content;
         } catch (\GuzzleHttp\Exception\ConnectException $e) {
-            Log::error('OpenAI API timeout', [
+            Log::error('OpenRouter API timeout', [
                 'error' => $e->getMessage(),
-                'timeout' => 5
+                'timeout' => 15
             ]);
             throw new \Exception('AI API request timed out');
         } catch (\GuzzleHttp\Exception\RequestException $e) {
-            Log::error('OpenAI API request failed', [
+            Log::error('OpenRouter API request failed', [
                 'error' => $e->getMessage(),
                 'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : null
             ]);
             throw new \Exception('AI API request failed: ' . $e->getMessage());
         } catch (\Exception $e) {
-            Log::error('OpenAI API call failed', [
+            Log::error('OpenRouter API call failed', [
                 'error' => $e->getMessage(),
                 'error_type' => get_class($e)
             ]);

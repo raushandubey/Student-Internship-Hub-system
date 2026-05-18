@@ -102,8 +102,18 @@ class ResumeParserEngine
         $lines       = array_map('trim', explode("\n", $cleanText));
         $meta        = $this->extractMetadata($lines);
         $sections    = $this->detectSectionBoundaries($lines);
-        $parsed      = $this->extractSections($lines, $sections);
+
+        if (empty($sections)) {
+            $sections = $this->inferSectionBoundariesFromKeywords($lines);
+        }
+
+        $parsed      = $this->extractSections($lines, $sections, $meta['name'] ?? '');
+        $parsed      = $this->sanitizeParsedSections($parsed, $meta['name'] ?? '');
         $weakBullets = $this->detectWeakBullets($parsed);
+
+        if ($meta['name'] !== '') {
+            $meta['name'] = ResumeTextNormalizer::normalizePersonName($meta['name']);
+        }
 
         return array_merge($meta, $parsed, [
             'raw_text'     => $cleanText,
@@ -112,6 +122,18 @@ class ResumeParserEngine
             'section_map'  => $sections,
             'parse_error'  => null,
         ]);
+    }
+
+    /**
+     * Parse already-extracted resume plain text (e.g. canonical raw_text from JSON).
+     */
+    public function parseRawText(string $rawText): array
+    {
+        if (strlen(trim($rawText)) < 30) {
+            return $this->emptyParsed('Insufficient text for parsing.');
+        }
+
+        return $this->buildParsedResult($rawText);
     }
 
     // ── Text Extraction ──────────────────────────────────────────────────
@@ -256,7 +278,7 @@ class ResumeParserEngine
                 if (preg_match('/https?:\/\/|www\./i', $line)) continue;
                 if (substr_count($line, '|') >= 2) continue;
                 if (!preg_match('/[a-zA-Z]/', $line)) continue;
-                $name = $line;
+                $name = ResumeTextNormalizer::normalizePersonName($line);
             }
         }
 
@@ -279,7 +301,7 @@ class ResumeParserEngine
             if (empty($trimmed) || strlen($trimmed) > 70) continue;
             foreach (self::SECTION_PATTERNS as $key => $pattern) {
                 if (preg_match($pattern, $trimmed) && !isset($found[$key])) {
-                    $found[$key] = $i + 1;
+                    $found[$key] = preg_match('/:\s*\S/', $trimmed) ? $i : $i + 1;
                 }
             }
         }
@@ -299,6 +321,86 @@ class ResumeParserEngine
         return $result;
     }
 
+    /**
+     * Fallback when PDF extraction omits standard section headers.
+     */
+    private function inferSectionBoundariesFromKeywords(array $lines): array
+    {
+        $keywords = [
+            'experience' => '/\b(experience|employment|internship|work history)\b/i',
+            'projects'   => '/\b(projects?|portfolio)\b/i',
+            'education'  => '/\b(education|academic|qualification)\b/i',
+            'skills'     => '/\b(skills|technologies|tech stack|competencies)\b/i',
+            'summary'    => '/\b(summary|objective|profile|about)\b/i',
+        ];
+
+        $found = [];
+        foreach ($lines as $i => $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '' || strlen($trimmed) > 60) {
+                continue;
+            }
+
+            foreach ($keywords as $key => $pattern) {
+                if (!isset($found[$key]) && preg_match($pattern, $trimmed)) {
+                    $found[$key] = preg_match('/:\s*\S/', $trimmed) ? $i : $i + 1;
+                }
+            }
+        }
+
+        if (count($found) < 2) {
+            return [];
+        }
+
+        asort($found);
+        $result = [];
+        $keys   = array_keys($found);
+        $vals   = array_values($found);
+        $total  = count($lines);
+
+        for ($i = 0; $i < count($keys); $i++) {
+            $start = $vals[$i];
+            $end   = isset($vals[$i + 1]) ? $vals[$i + 1] - 1 : $total;
+            $result[$keys[$i]] = [$start, $end];
+        }
+
+        return $result;
+    }
+
+    private function sanitizeParsedSections(array $parsed, string $candidateName): array
+    {
+        if (!empty($parsed['education']) && is_array($parsed['education'])) {
+            $parsed['education'] = array_values(array_filter($parsed['education'], function (array $entry) use ($candidateName) {
+                $degree = trim((string) ($entry['degree'] ?? ''));
+                $school = trim((string) ($entry['school'] ?? ''));
+
+                if ($degree === '') {
+                    return false;
+                }
+
+                if ($candidateName !== '' && ResumeTextNormalizer::namesMatch($degree, $candidateName)) {
+                    return false;
+                }
+
+                if (ResumeTextNormalizer::isLikelyPersonName($degree, $candidateName)
+                    && !ResumeTextNormalizer::isValidDegreeLine($degree)) {
+                    return false;
+                }
+
+                if ($school !== '' && ResumeTextNormalizer::namesMatch($school, $candidateName)
+                    && !ResumeTextNormalizer::isValidDegreeLine($school)) {
+                    return false;
+                }
+
+                return ResumeTextNormalizer::isValidDegreeLine($degree)
+                    || ResumeTextNormalizer::isValidDegreeLine($school)
+                    || $school !== '';
+            }));
+        }
+
+        return $parsed;
+    }
+
     private function isSectionHeader(string $line): bool
     {
         if (strlen(trim($line)) > 70) return false;
@@ -310,7 +412,7 @@ class ResumeParserEngine
 
     // ── Section Content Extraction ───────────────────────────────────────
 
-    private function extractSections(array $lines, array $sectionMap): array
+    private function extractSections(array $lines, array $sectionMap, string $candidateName = ''): array
     {
         $result = [
             'summary' => '', 'skills' => [], 'experience' => [],
@@ -326,15 +428,28 @@ class ResumeParserEngine
                 case 'skills':         $result['skills']         = $this->extractSkills($text);                break;
                 case 'experience':     $result['experience']     = $this->extractExperience($block);           break;
                 case 'projects':       $result['projects']       = $this->extractProjects($block);             break;
-                case 'education':      $result['education']      = $this->extractEducation($block);            break;
+                case 'education':      $result['education']      = $this->extractEducation($block, $candidateName); break;
                 case 'certifications': $result['certifications'] = $this->extractCertifications($block);       break;
             }
         }
         return $result;
     }
 
+    private function isBulletLine(string $line): bool
+    {
+        return (bool) preg_match('/^(?:[•\-\*]|\d+[.)])\s+/', $line)
+            || (bool) preg_match('/^\d+\.\s+/', $line);
+    }
+
+    private function stripBulletPrefix(string $line): string
+    {
+        return trim(preg_replace('/^(?:[•\-\*]|\d+[.)]|\d+\.)\s+/', '', $line));
+    }
+
     private function extractSkills(string $text): array
     {
+        $text = preg_replace('/^(technical\s+skills|core\s+skills|key\s+skills|skills)\s*:\s*/i', '', $text);
+
         if (preg_match('/\b(Languages|Frameworks|Tools|Databases|Cloud|DevOps)\s*:/i', $text)) {
             $groups = preg_split('/\s*[\|\n]\s*/', $text);
             return array_values(array_filter(
@@ -362,7 +477,7 @@ class ResumeParserEngine
             $line = trim($line);
             if (empty($line)) continue;
 
-            $isBullet = preg_match('/^[•\-\*]\s+/', $line);
+            $isBullet = $this->isBulletLine($line);
 
             if (!$isBullet && strlen($line) < 120) {
                 if ($current !== null && preg_match('/^(\d{4}|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i', $line)) {
@@ -383,10 +498,12 @@ class ResumeParserEngine
                     }
                 }
             } elseif ($current !== null && $isBullet) {
-                $bullet = trim(preg_replace('/^[•\-\*]\s+/', '', $line));
+                $bullet = $this->stripBulletPrefix($line);
                 if (!empty($bullet) && strlen($bullet) > 5) $current['bullets'][] = $bullet;
             } elseif ($current !== null && !$isBullet && empty($current['title'])) {
                 $current['title'] = $line;
+            } elseif ($current !== null && !$isBullet && strlen($line) >= 40 && empty($current['bullets'])) {
+                $current['bullets'][] = $line;
             }
         }
         if ($current) $entries[] = $current;
@@ -401,7 +518,7 @@ class ResumeParserEngine
         foreach ($lines as $line) {
             $line = trim($line);
             if (empty($line)) continue;
-            $isBullet = preg_match('/^[•\-\*]\s+/', $line);
+            $isBullet = $this->isBulletLine($line);
 
             if (!$isBullet && strlen($line) < 100) {
                 if ($current) $entries[] = $current;
@@ -412,7 +529,7 @@ class ResumeParserEngine
                     $current = ['title' => $line, 'tech' => '', 'bullets' => []];
                 }
             } elseif ($current !== null) {
-                $bullet = trim(preg_replace('/^[•\-\*]\s+/', '', $line));
+                $bullet = $this->isBulletLine($line) ? $this->stripBulletPrefix($line) : $line;
                 if (!empty($bullet) && strlen($bullet) > 5) $current['bullets'][] = $bullet;
             }
         }
@@ -420,7 +537,7 @@ class ResumeParserEngine
         return array_slice($entries, 0, 5);
     }
 
-    private function extractEducation(array $lines): array
+    private function extractEducation(array $lines, string $candidateName = ''): array
     {
         $entries = [];
         $current = null;
@@ -438,9 +555,28 @@ class ResumeParserEngine
                 continue;
             }
             if ($current === null) {
-                $current = ['school' => '', 'degree' => $line, 'year' => '', 'meta' => ''];
-            } elseif (empty($current['school'])) {
+                if (ResumeTextNormalizer::isLikelyPersonName($line, $candidateName)
+                    && !ResumeTextNormalizer::isValidDegreeLine($line)) {
+                    continue;
+                }
+
+                if (ResumeTextNormalizer::isValidDegreeLine($line)) {
+                    $current = ['school' => '', 'degree' => $line, 'year' => '', 'meta' => ''];
+                } elseif (preg_match('/\b(university|college|institute|school)\b/i', $line)) {
+                    $current = ['school' => $line, 'degree' => '', 'year' => '', 'meta' => ''];
+                } else {
+                    continue;
+                }
+            } elseif (empty($current['school']) && empty($current['degree'])) {
+                if (ResumeTextNormalizer::isValidDegreeLine($line)) {
+                    $current['degree'] = $line;
+                } else {
+                    $current['school'] = $line;
+                }
+            } elseif (empty($current['school']) && $current['degree'] !== '') {
                 $current['school'] = $line;
+            } elseif (empty($current['degree']) && ResumeTextNormalizer::isValidDegreeLine($line)) {
+                $current['degree'] = $line;
             } elseif (preg_match('/\d{4}/', $line) && empty($current['year'])) {
                 $current['year'] = $line;
             } else {

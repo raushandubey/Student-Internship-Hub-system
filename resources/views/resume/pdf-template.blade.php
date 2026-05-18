@@ -383,10 +383,10 @@ body {
     <div class="edu-entry">
 
         <div class="edu-row1">
-            @if(!empty($edu['meta']) || !empty($edu['year']))
-                <span class="edu-year">{{ $edu['meta'] ?: $edu['year'] }}</span>
+            @if(!empty($edu['meta'] ?? null) || !empty($edu['year'] ?? null))
+                <span class="edu-year">{{ ($edu['meta'] ?? '') ?: ($edu['year'] ?? '') }}</span>
             @endif
-            <span class="edu-school">{{ $edu['school'] ?: ($edu['degree'] ?? '') }}</span>
+            <span class="edu-school">{{ ($edu['school'] ?? '') ?: ($edu['degree'] ?? '') }}</span>
         </div>
 
         @if(!empty($edu['school']) && !empty($edu['degree']))

@@ -23,6 +23,15 @@ namespace App\Services\Resume;
  */
 class CandidateRankingEngine
 {
+    public function __construct(
+        private ?SemanticSkillMatcher $skillMatcher = null,
+    ) {}
+
+    private function skillMatcher(): SemanticSkillMatcher
+    {
+        return $this->skillMatcher ??= new SemanticSkillMatcher();
+    }
+
     // ── Phase 2 Scoring Weights ──────────────────────────────────────────
     private const WEIGHTS = [
         'skill_match'      => 0.35,
@@ -102,7 +111,7 @@ class CandidateRankingEngine
         $roleCategory= $jdAnalysis['role_category'] ?? 'general';
 
         // ── Component Scores ──────────────────────────────────────────
-        [$skillScore, $matching, $missing] = $this->scoreSkillMatch($reqSkills, $resumeText);
+        [$skillScore, $matching, $missing] = $this->scoreSkillMatch($reqSkills, $resumeText, $jdAnalysis);
         [$keywordScore]                    = $this->scoreKeywordMatch($keywords, $resumeText);
         $experienceScore                   = $this->scoreExperienceMatch($parsed, $jdAnalysis, $reqSkills);
         $projectScore                      = $this->scoreProjectRelevance($parsed, $reqSkills, $roleCategory);
@@ -172,19 +181,15 @@ class CandidateRankingEngine
     /*  Scoring Components                                                  */
     /* ------------------------------------------------------------------ */
 
-    private function scoreSkillMatch(array $reqSkills, string $resumeText): array
+    private function scoreSkillMatch(array $reqSkills, string $resumeText, array $jdAnalysis = []): array
     {
-        if (empty($reqSkills)) return [50, [], []];
-        $matching = $missing = [];
-        foreach ($reqSkills as $skill) {
-            if ($this->skillInText($skill, $resumeText)) {
-                $matching[] = $skill;
-            } else {
-                $missing[] = $skill;
-            }
+        if (empty($reqSkills)) {
+            return [50, [], []];
         }
-        $score = (int) round((count($matching) / count($reqSkills)) * 100);
-        return [$score, $matching, $missing];
+
+        $result = $this->skillMatcher()->scoreSkills($reqSkills, $resumeText, $jdAnalysis);
+
+        return [$result['score'], $result['matching'], $result['missing']];
     }
 
     private function scoreKeywordMatch(array $keywords, string $resumeText): array
@@ -486,18 +491,6 @@ class CandidateRankingEngine
     /* ------------------------------------------------------------------ */
     /*  Helpers                                                             */
     /* ------------------------------------------------------------------ */
-
-    private function skillInText(string $skill, string $text): bool
-    {
-        if (preg_match('/[^\w\s-]/', $skill)) {
-            $escaped = preg_quote($skill, '/');
-            if (preg_match('/(^|[\s,;|])' . $escaped . '($|[\s,;|])/i', $text)) return true;
-        } else {
-            if (preg_match('/\b' . preg_quote($skill, '/') . '\b/i', $text)) return true;
-        }
-        if (str_word_count($skill) > 1 && str_contains($text, $skill)) return true;
-        return false;
-    }
 
     private function getRoleKeywords(string $role): array
     {
