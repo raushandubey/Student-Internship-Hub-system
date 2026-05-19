@@ -57,6 +57,7 @@ return [
         'endpoint' => env('ANTHROPIC_RESUME_ENDPOINT', 'https://api.anthropic.com/v1/messages'),
     ],
 
+    
     // Alias for backward compatibility
     'claude' => [
         'api_key' => env('ANTHROPIC_API_KEY') ?: implode('', [
