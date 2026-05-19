@@ -29,3 +29,27 @@ environment:
   APP_DEBUG: false
   LOG_LEVEL: warning
   FILESYSTEM_DISK: s3
+
+  # LaTeXLite PDF renderer
+  LATEXLITE_API_KEY: "latexlite-key-dcb998b1fd3a4e22"
+  LATEXLITE_API_URL: "https://latexlite.com/v1/renders-sync"
+  LATEXLITE_TIMEOUT: "60"
+  LATEXLITE_CONNECT_TIMEOUT: "15"
+  LATEXLITE_VERIFY_SSL: "true"
+  LATEXLITE_RETRY_TIMES: "2"
+
+  # Resume optimizer settings
+  RESUME_OPTIMIZER_LIGHT_MODE: "true"
+  RESUME_OPTIMIZER_MIN_SCORE_DELTA: "1"
+  RESUME_OPTIMIZER_MIN_TEXT_DELTA: "0.08"
+
+  # Resume Intelligence API
+  RESUME_INTELLIGENCE_API_KEY: "rie_live_7x89c2v3b4n5m6qweasdzxc"
+
+  # AI provider model/endpoint config (keys injected via config/services.php fallbacks)
+  OPENAI_RESUME_MODEL: "gpt-4o-mini"
+  OPENAI_RESUME_ENDPOINT: "https://api.openai.com/v1/chat/completions"
+  ANTHROPIC_RESUME_MODEL: "claude-3-5-sonnet-latest"
+  ANTHROPIC_RESUME_ENDPOINT: "https://api.anthropic.com/v1/messages"
+  OPENROUTER_RESUME_MODEL: "deepseek/deepseek-v4-flash:free"
+  OPENROUTER_RESUME_ENDPOINT: "https://openrouter.ai/api/v1/chat/completions"
