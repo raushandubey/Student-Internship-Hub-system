@@ -75,6 +75,97 @@
 @media(max-width:500px){
     .intel-stats{grid-template-columns:1fr 1fr}
 }
+
+/* ── Mobile card layout for candidate table ─────────────────────── */
+@media(max-width:640px){
+    /* Hide the desktop table entirely */
+    .table-wrap .cand-table { display:none }
+
+    /* Show mobile cards */
+    .mobile-cards { display:block }
+}
+@media(min-width:641px){
+    .mobile-cards { display:none }
+}
+
+.mobile-card {
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:14px;
+    padding:1rem 1.1rem;
+    margin:.75rem;
+}
+.mobile-card + .mobile-card {
+    margin-top:.5rem;
+}
+.mobile-card-header {
+    display:flex;
+    align-items:center;
+    gap:.75rem;
+    margin-bottom:.75rem;
+}
+.mobile-card-name {
+    flex:1;
+    min-width:0;
+}
+.mobile-card-name strong {
+    display:block;
+    color:#fff;
+    font-size:.9rem;
+    font-weight:600;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.mobile-card-name span {
+    font-size:.72rem;
+    color:rgba(255,255,255,.45);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    display:block;
+}
+.mobile-card-meta {
+    display:flex;
+    flex-wrap:wrap;
+    gap:.4rem .6rem;
+    align-items:center;
+    margin-bottom:.6rem;
+}
+.mobile-card-row {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:.35rem 0;
+    border-top:1px solid rgba(255,255,255,.06);
+    font-size:.78rem;
+}
+.mobile-card-row-label {
+    color:rgba(255,255,255,.4);
+    font-size:.7rem;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+}
+.mobile-card-expand {
+    width:100%;
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:8px;
+    color:rgba(255,255,255,.6);
+    padding:.4rem;
+    margin-top:.6rem;
+    cursor:pointer;
+    font-size:.75rem;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:.4rem;
+    transition:background .2s;
+}
+.mobile-card-expand:hover { background:rgba(255,255,255,.1); color:#fff; }
+.mobile-detail { display:none; margin-top:.75rem; }
+.mobile-detail.open { display:block; }
 </style>
 @endpush
 
@@ -133,6 +224,8 @@
     <p>No applicants yet for this internship.</p>
 </div>
 @else
+
+{{-- ── Desktop Table ─────────────────────────────────────────────── --}}
 <div class="table-wrap">
     <table class="cand-table">
         <thead>
@@ -297,6 +390,135 @@
         </tbody>
     </table>
 </div>
+
+{{-- ── Mobile Cards ──────────────────────────────────────────────── --}}
+<div class="mobile-cards">
+    @foreach($candidates as $idx => $cand)
+        @php
+            $intel = $cand['intelligence'];
+            $app   = $cand['application'];
+            $score = $cand['overall_score'];
+            $color = $score >= 70 ? '#6fcf97' : ($score >= 50 ? '#f2c94c' : '#eb5757');
+            $tier  = $cand['rank_tier'] ?? 'below';
+            $tierLabels  = ['top10'=>'🏆 Top 10%','top25'=>'⭐ Top 25%','average'=>'📊 Average','below'=>'📉 Below Avg'];
+            $tierClasses = ['top10'=>'rank-top10','top25'=>'rank-top25','average'=>'rank-avg','below'=>'rank-below'];
+            $tbClass = fn($label) => match($label){
+                'Strong'=>'tb-strong','Medium'=>'tb-medium','Weak'=>'tb-weak',default=>'tb-none'
+            };
+        @endphp
+        <div class="mobile-card">
+            {{-- Header: rank + name + score ring --}}
+            <div class="mobile-card-header">
+                <span style="color:rgba(255,255,255,.35);font-weight:700;font-size:.85rem;min-width:1.2rem">{{ $cand['rank'] ?? ($idx+1) }}</span>
+                <div class="mobile-card-name">
+                    <strong>{{ $cand['name'] }}</strong>
+                    <span>{{ $cand['email'] }}</span>
+                </div>
+                <div class="score-ring" style="border-color:{{ $color }};background:{{ $color }}22;font-size:.78rem;width:46px;height:46px">
+                    {{ $score }}%
+                </div>
+            </div>
+
+            {{-- Badges row --}}
+            <div class="mobile-card-meta">
+                @if($app)
+                    <span class="status-badge status-{{ $app->status->value }}" style="font-size:.68rem;padding:.15rem .45rem;border-radius:5px">
+                        {{ $app->status->label() }}
+                    </span>
+                @endif
+                <span class="trust-badge {{ $tierClasses[$tier] ?? 'rank-below' }}" style="font-size:.65rem">
+                    {{ $tierLabels[$tier] ?? '—' }}
+                </span>
+                @if($intel)
+                    <span class="trust-badge {{ $tbClass($intel->backend_match) }}" style="font-size:.65rem">BE: {{ $intel->backend_match }}</span>
+                    <span class="trust-badge {{ $tbClass($intel->technical_depth) }}" style="font-size:.65rem">Tech: {{ $intel->technical_depth }}</span>
+                @endif
+            </div>
+
+            {{-- Skill match bar --}}
+            @if($intel)
+            <div class="mobile-card-row">
+                <span class="mobile-card-row-label">Skill Match</span>
+                <div style="display:flex;align-items:center;gap:.4rem">
+                    <span class="mini-bar" style="width:70px"><span class="mini-bar-fill" style="width:{{ $intel->skill_match_score }}%;background:{{ $color }}"></span></span>
+                    <span style="color:#fff;font-size:.8rem;font-weight:600">{{ $intel->skill_match_score }}%</span>
+                </div>
+            </div>
+            @endif
+
+            {{-- Expand button --}}
+            <button class="mobile-card-expand" data-mrow="{{ $idx }}">
+                <i class="fas fa-chevron-down"></i>
+                <span>View Details</span>
+            </button>
+
+            {{-- Expandable detail --}}
+            <div class="mobile-detail" id="mdetail-{{ $idx }}">
+                <div class="detail-grid" style="grid-template-columns:1fr">
+
+                    {{-- Score Breakdown --}}
+                    @if($intel)
+                    <div class="detail-block">
+                        <label>Score Breakdown</label>
+                        @foreach([
+                            'Skill Match' => $intel->skill_match_score,
+                            'Keyword Match' => $intel->keyword_score,
+                            'Experience' => $intel->experience_score,
+                            'Projects' => $intel->project_score,
+                            'Tech Depth' => $intel->technical_depth_score,
+                        ] as $lbl => $val)
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+                            <span style="color:rgba(255,255,255,.6);font-size:.78rem">{{ $lbl }}</span>
+                            <div style="display:flex;align-items:center;gap:.4rem">
+                                <div style="width:60px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden">
+                                    <div style="width:{{ $val }}%;height:100%;background:{{ $val>=70?'#6fcf97':($val>=50?'#f2c94c':'#eb5757') }};border-radius:2px"></div>
+                                </div>
+                                <span style="color:#fff;font-size:.78rem;font-weight:600;min-width:28px">{{ $val }}%</span>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                    @endif
+
+                    {{-- Skills --}}
+                    <div class="detail-block">
+                        <label>Matching Skills</label>
+                        @foreach(array_slice($intel?->matching_skills ?? [], 0, 8) as $skill)
+                            <span class="skill-tag">✓ {{ $skill }}</span>
+                        @endforeach
+                        @if(empty($intel?->matching_skills))
+                            <span style="color:rgba(255,255,255,.35);font-size:.8rem">None detected</span>
+                        @endif
+                    </div>
+
+                    <div class="detail-block">
+                        <label>Missing Skills</label>
+                        @foreach(array_slice($intel?->critical_missing_skills ?? [], 0, 6) as $skill)
+                            <span class="skill-tag critical">✗ {{ $skill }}</span>
+                        @endforeach
+                        @if(empty($intel?->critical_missing_skills))
+                            <span style="color:#6fcf97;font-size:.8rem">✓ All required skills present</span>
+                        @endif
+                    </div>
+
+                    {{-- Status update --}}
+                    @if($app)
+                    <div class="detail-block">
+                        <label>Update Status</label>
+                        <select class="status-update-select" data-id="{{ $app->id }}" data-current="{{ $app->status->value }}"
+                            style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;padding:.4rem .7rem;font-size:.82rem">
+                            @foreach(\App\Enums\ApplicationStatus::cases() as $s)
+                                <option value="{{ $s->value }}" {{ $app->status->value === $s->value ? 'selected' : '' }}>{{ $s->label() }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endforeach
+</div>
+
 @endif
 
 @endsection
@@ -314,6 +536,22 @@ document.querySelectorAll('.expand-btn').forEach(btn => {
             icon.className = 'fas fa-chevron-up';
         } else {
             icon.className = 'fas fa-chevron-down';
+        }
+    });
+});
+
+// Mobile card expand/collapse
+document.querySelectorAll('.mobile-card-expand').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const detail = document.getElementById('mdetail-' + this.dataset.mrow);
+        const icon = this.querySelector('i');
+        const label = this.querySelector('span');
+        if (detail.classList.toggle('open')) {
+            icon.className = 'fas fa-chevron-up';
+            label.textContent = 'Hide Details';
+        } else {
+            icon.className = 'fas fa-chevron-down';
+            label.textContent = 'View Details';
         }
     });
 });
