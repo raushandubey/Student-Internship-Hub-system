@@ -74,7 +74,7 @@ return [
     ],
 
     'resume_optimizer' => [
-        'light_mode'           => filter_var(env('RESUME_OPTIMIZER_LIGHT_MODE', true), FILTER_VALIDATE_BOOLEAN),
+        'light_mode'           => filter_var(env('RESUME_OPTIMIZER_LIGHT_MODE', false), FILTER_VALIDATE_BOOLEAN),
         'min_score_delta'      => (int) env('RESUME_OPTIMIZER_MIN_SCORE_DELTA', 1),
         'min_text_delta'       => (float) env('RESUME_OPTIMIZER_MIN_TEXT_DELTA', 0.08),
         'max_ai_score_delta'   => (int) env('RESUME_OPTIMIZER_MAX_AI_SCORE_DELTA', 8),
