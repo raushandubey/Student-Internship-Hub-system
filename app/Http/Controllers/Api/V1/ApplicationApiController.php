@@ -39,6 +39,9 @@ class ApplicationApiController extends Controller
     {
         $applications = $this->applicationService->getUserApplications(Auth::id());
 
+        // Eager-load internship so ApplicationResource can include it
+        $applications->load('internship');
+
         return ApplicationResource::collection($applications);
     }
 
@@ -87,5 +90,31 @@ class ApplicationApiController extends Controller
         return response()->json([
             'stats' => $stats
         ]);
+    }
+
+    /**
+     * DELETE /api/v1/applications/{application}
+     * Cancel/withdraw application
+     */
+    public function destroy(Application $application)
+    {
+        $this->authorize('cancel', $application);
+
+        try {
+            $result = $this->applicationService->cancelApplication(
+                $application,
+                Auth::id()
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => $result['message']
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
     }
 }

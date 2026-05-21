@@ -21,9 +21,11 @@ class InternshipResource extends JsonResource
             'description' => $this->description,
             'location' => $this->location,
             'duration' => $this->duration,
+            'work_type' => $this->work_type ?? 'onsite',
             'required_skills' => $this->required_skills,
             'is_active' => $this->is_active,
-            'created_at' => $this->created_at->toISOString(),
+            'created_at' => $this->created_at?->toISOString(),
+            'applications_count' => $this->whenCounted('applications'),
         ];
     }
 }
