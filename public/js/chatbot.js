@@ -1389,7 +1389,7 @@ window.ResumeOptimizerChatbot = (function () {
     function _triggerRewrite(job) {
         ShreeRamChatbot.displayMessage({
             type: 'bot',
-            text: `✨ AI is rewriting your resume for "${job.title}"…\n\nThis takes just a moment.`,
+            text: `✨ AI is rewriting your resume for "${job.title}"…\n\nThis takes 30–90 seconds. Please wait while the AI analyses and optimises your resume.`,
             timestamp: new Date()
         });
 
@@ -1397,8 +1397,13 @@ window.ResumeOptimizerChatbot = (function () {
 
         const csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
+        // AbortController for 120s timeout (server needs up to 90s for AI processing)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
+
         fetch(`/resume-optimizer/rewrite/${job.id}`, {
             method: 'POST',
+            signal: controller.signal,
             headers: {
                 'X-CSRF-TOKEN': csrf,
                 'Accept': 'application/json',
@@ -1407,15 +1412,31 @@ window.ResumeOptimizerChatbot = (function () {
         })
         .then(r => r.json())
         .then(data => {
+            clearTimeout(timeoutId);
             ShreeRamChatbot.hideTyping();
 
             if (!data.success) {
-                ShreeRamChatbot.displayMessage({
-                    type: 'bot',
-                    text: `❌ ${data.error || 'Rewrite failed. Please try again.'}`,
-                    timestamp: new Date(),
-                    quickReplies: ['Resume Tips', 'Profile Help']
-                });
+                // Rate-limit specific message
+                const errorMsg = data.error || 'Rewrite failed. Please try again.';
+                const isRateLimit = errorMsg.toLowerCase().includes('rate') ||
+                                    errorMsg.toLowerCase().includes('429') ||
+                                    (data.stage_failed || '').includes('AI_UNAVAILABLE');
+
+                if (isRateLimit) {
+                    ShreeRamChatbot.displayMessage({
+                        type: 'bot',
+                        text: `⏳ AI servers are currently busy (rate limited). The system automatically tries multiple AI models — please wait 30 seconds and try again.\n\n💡 Tip: This happens during peak hours. Try again shortly!`,
+                        timestamp: new Date(),
+                        quickReplies: ['Optimize Resume', 'Resume Tips', 'Profile Help']
+                    });
+                } else {
+                    ShreeRamChatbot.displayMessage({
+                        type: 'bot',
+                        text: `❌ ${errorMsg}`,
+                        timestamp: new Date(),
+                        quickReplies: ['Optimize Resume', 'Resume Tips', 'Profile Help']
+                    });
+                }
                 _flowActive = false;
                 return;
             }
@@ -1423,10 +1444,11 @@ window.ResumeOptimizerChatbot = (function () {
             const d = data.data;
             const delta = d.after_score - d.before_score;
             const arrow = delta > 0 ? '📈' : '📊';
+            const aiInfo = d.ai_used ? ` (via ${d.ai_provider || 'AI'})` : ' (rule-based)';
 
             ShreeRamChatbot.displayMessage({
                 type: 'bot',
-                text: `${arrow} Resume Optimization Complete!\n\nBEFORE: ${d.before_score}%\nAFTER:  ${d.after_score}% (+${delta}%)\n\nImprovements:\n${d.improvements.slice(0, 3).map(i => '  ' + i).join('\n')}\n\nYou can now apply with your improved resume!`,
+                text: `${arrow} Resume Optimization Complete${aiInfo}!\n\nBEFORE: ${d.before_score}%\nAFTER:  ${d.after_score}% (+${delta}%)\n\nImprovements:\n${(d.improvements || []).slice(0, 3).map(i => '  • ' + i).join('\n')}\n\nYou can now apply with your improved resume!`,
                 timestamp: new Date(),
                 links: [
                     { text: '⬇️ Download Optimized Resume (PDF)', url: '/resume-optimizer/download/' + job.id + '?version_id=' + d.version_id, icon: 'fa-file-pdf' },
@@ -1437,13 +1459,18 @@ window.ResumeOptimizerChatbot = (function () {
 
             _flowActive = false;
         })
-        .catch(() => {
+        .catch((err) => {
+            clearTimeout(timeoutId);
             ShreeRamChatbot.hideTyping();
+
+            const isTimeout = err && (err.name === 'AbortError' || err.message?.includes('abort'));
             ShreeRamChatbot.displayMessage({
                 type: 'bot',
-                text: '❌ Rewrite failed. Please try again later.',
+                text: isTimeout
+                    ? '⏱️ Resume optimization is taking longer than expected. The AI is still working — please check back in a minute or try again.'
+                    : '❌ Connection error during rewrite. Please check your connection and try again.',
                 timestamp: new Date(),
-                quickReplies: ['Resume Tips', 'Profile Help']
+                quickReplies: ['Optimize Resume', 'Resume Tips', 'Profile Help']
             });
             _flowActive = false;
         });
