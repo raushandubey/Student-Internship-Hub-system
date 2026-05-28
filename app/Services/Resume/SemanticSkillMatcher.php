@@ -629,12 +629,21 @@ class SemanticSkillMatcher
             return true;
         }
 
-        if (str_contains($a, $b) || str_contains($b, $a)) {
+        // Replace hyphens and underscores with spaces to align tokens
+        $aSpace = str_replace(['-', '_'], ' ', $a);
+        $bSpace = str_replace(['-', '_'], ' ', $b);
+
+        if ($aSpace === $bSpace) {
             return true;
         }
 
-        $aTokens = explode(' ', $a);
-        $bTokens = explode(' ', $b);
+        $aTokens = array_filter(explode(' ', $aSpace));
+        $bTokens = array_filter(explode(' ', $bSpace));
+
+        if (empty($aTokens) || empty($bTokens)) {
+            return false;
+        }
+
         $overlap = count(array_intersect($aTokens, $bTokens));
 
         return $overlap >= min(count($aTokens), count($bTokens)) && $overlap > 0;
